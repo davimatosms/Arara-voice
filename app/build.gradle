@@ -1,0 +1,6 @@
+// Frontend: Swing + FlatLaf, bandeja, janela principal e pop-up da arara.
+plugins { id 'application' }
+dependencies {
+    implementation project(':core')
+}
+application { mainClass = 'br.arara.app.Main' }
