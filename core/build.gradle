@@ -1,3 +1,4 @@
 // Backend: audio, Whisper, atalho global, colar, histórico, dicionário, configurações.
 dependencies {
+    implementation 'com.github.kwhat:jnativehook:2.2.2'
 }
