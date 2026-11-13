@@ -121,6 +121,11 @@ final class DefaultDictationEngine implements DictationEngine {
         mic.stop();
         short[] pcm = Arrays.copyOf(audio, size);
         audio = null;
+        // Whisper inventa frases em áudio sem fala ("A gente pode precisar."): nem chega a transcrever.
+        if (!vad.heardSpeech()) {
+            fail("Não detectei fala.");
+            return;
+        }
         setState(DictationState.TRANSCRIBING);
         worker.execute(() -> transcribe(pcm));
     }
