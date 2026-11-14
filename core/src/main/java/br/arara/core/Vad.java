@@ -57,7 +57,11 @@ final class Vad {
 
     /** Nível do último bloco para a UI: -60 dBFS = 0, 0 dBFS = 1. */
     float level() {
-        return (float) Math.min(1, Math.max(0, (lastDb + 60) / 60));
+        return level(lastDb);
+    }
+
+    static float level(double db) {
+        return (float) Math.min(1, Math.max(0, (db + 60) / 60));
     }
 
     static double dbfs(short[] chunk) {

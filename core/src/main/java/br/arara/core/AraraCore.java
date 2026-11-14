@@ -6,8 +6,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.DoubleConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import javax.sound.sampled.LineUnavailableException;
 
 /** Ponto de entrada do backend para o app: liga armazenamento, microfone, motor e atalho global. */
 public final class AraraCore implements AutoCloseable {
@@ -36,6 +37,23 @@ public final class AraraCore implements AutoCloseable {
     /** Nomes dos microfones para a tela de configurações (o valor vai em Settings.microphone). */
     public static List<String> microphones() {
         return Microphone.names();
+    }
+
+    /**
+     * Abre o microfone só para medir o nível (teste da primeira execução): não grava nem transcreve.
+     * Os blocos (~31 por segundo) chegam numa thread própria. Feche o retorno para soltar o microfone.
+     *
+     * @param microphone nome do mixer, ou null para o padrão do sistema
+     */
+    public static AutoCloseable listen(String microphone, Consumer<short[]> onChunk) throws LineUnavailableException {
+        Microphone mic = new Microphone(() -> microphone);
+        mic.start(onChunk);
+        return mic::stop;
+    }
+
+    /** Nível de um bloco de áudio de 0.0 a 1.0, o mesmo do {@link DictationListener#onLevel}. */
+    public static float level(short[] chunk) {
+        return Vad.level(Vad.dbfs(chunk));
     }
 
     /**
@@ -73,11 +91,17 @@ public final class AraraCore implements AutoCloseable {
         }
     }
 
+    /** Bytes baixados até agora e o total (-1 se o servidor não disser). Chamado na thread do download. */
+    public interface DownloadProgress {
+        void update(long done, long total);
+    }
+
     /**
      * Baixa (na primeira vez) e carrega o modelo escolhido nas configurações. Bloqueia: chame fora da EDT.
-     * Chame de novo depois de trocar o modelo. progress vai de 0.0 a 1.0 durante o download.
+     * Chame de novo depois de trocar o modelo; trocar no meio do download para este e baixa o novo.
+     * Se a internet cair, lança IOException e a próxima chamada continua do ponto onde parou.
      */
-    public void prepareModel(DoubleConsumer progress) throws IOException {
+    public void prepareModel(DownloadProgress progress) throws IOException {
         if (transcriber instanceof WhisperTranscriber w) w.prepare(progress);
     }
 

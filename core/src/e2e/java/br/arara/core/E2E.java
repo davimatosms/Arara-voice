@@ -165,8 +165,8 @@ public final class E2E {
             WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
             long t = System.nanoTime();
             int[] lastPct = {-1};
-            w.prepare(p -> {
-                int pc = (int) (p * 100);
+            w.prepare((done, total) -> {
+                int pc = total > 0 ? (int) (done * 100 / total) : 0;
                 if (pc / 10 != lastPct[0] / 10) System.out.printf("  download %s: %d%%%n", m, pc);
                 lastPct[0] = pc;
             });
@@ -232,7 +232,7 @@ public final class E2E {
         for (Settings.Model m : new Settings.Model[] {Settings.Model.LEVE, Settings.Model.PRECISO}) {
             if (only != null && m != only) continue;
             WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
-            w.prepare(p -> {});
+            w.prepare((done, total) -> {});
             w.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // aquece
 
             // antes: o fluxo antigo, tudo no Whisper depois da parada
@@ -378,7 +378,7 @@ public final class E2E {
             Settings s = core.settings().load();
             core.settings().save(new Settings(s.hotkey(), Settings.Model.LEVE, s.accel(), null,
                     s.startWithWindows(), s.showPopup(), true));
-            core.prepareModel(p -> {});
+            core.prepareModel((done, total) -> {});
             core.dictionary().add(new Term("aplicativo", "app"));
             log("dataDir %s, atalho %s, termo aplicativo -> app", data, s.hotkey());
 
