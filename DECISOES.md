@@ -119,7 +119,8 @@ Implementação:
 ### Atalho
 
 - Modo **toggle**: aperta uma vez para começar e de novo para terminar. Não é preciso segurar.
-- O padrão é uma combinação de teclas (ex.: Ctrl+Alt+algo; o exemplo foi só ilustrativo).
+- **Padrão: Ctrl+Shift+Space** (decidido em 2026-11-13). O JNativeHook não engole teclas, então o atalho também chega ao app em foco, e alguns apps digitam um espaço com ele (o Bloco de Notas do Windows 11 digita U+00A0). Medidos e descartados: Ctrl+Shift+F12 (difícil de lembrar e de apertar), Ctrl+Alt+Space e Ctrl+Alt+Shift+Space (chegam ao terminal como Esc), Ctrl+Alt+D (manda Ctrl+D ao terminal), Ctrl+Shift+D (duplica a aba do Windows Terminal). Shift+Space digita espaço em todo lugar.
+- A tela Início mostra um aviso quando o atalho usa Espaço, orientando a trocar se aparecer espaço extra.
 - **O usuário pode trocar** por qualquer combinação de teclas ou por um **botão do mouse** nas configurações.
 - Atenção: no Windows, Ctrl+Alt sozinho equivale ao **AltGr**, que no ABNT2 digita `/ ? ° ª º`. O padrão final não pode ser só Ctrl+Alt.
 
@@ -198,7 +199,7 @@ Contraste: texto escuro sobre verde 9.0:1, branco sobre azul 4.8:1, texto sobre 
 - [x] Paleta de cores: A · Canindé. Botões em pílula.
 - [x] Tipografia: Nunito Sans. Ícones: Lucide.
 - [ ] Desenhar as telas no FigCraft: Início, Histórico, Configurações e o pop-up de gravação. Rascunho V1 (2026-11-13) em `design/arara-v1.figcraft`: Estilo, Início, Histórico, Dicionário, Configurações e Pop-up. Falta revisar e aprovar.
-- [ ] Definir o atalho padrão.
+- [x] Definir o atalho padrão: Ctrl+Shift+Space, com aviso na tela Início.
 - [x] Limite de 5 min de silêncio: transcreve, salva no histórico e cola.
 - [x] Histórico: JSON Lines, sem limite de itens, local e por usuário.
 - [ ] Medir a latência real em CPU e em Vulkan.
