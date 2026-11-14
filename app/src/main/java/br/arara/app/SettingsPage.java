@@ -1,13 +1,10 @@
 package br.arara.app;
 
+import br.arara.core.AraraCore;
 import br.arara.core.HistoryStore;
 import br.arara.core.Settings;
 import br.arara.core.SettingsStore;
 
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Line;
-import javax.sound.sampled.Mixer;
-import javax.sound.sampled.TargetDataLine;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -81,7 +78,7 @@ final class SettingsPage extends MainView.Page {
                                 x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), on))))));
 
         List<String> mics = new ArrayList<>(List.of(DEFAULT_MIC));
-        mics.addAll(microphones());
+        mics.addAll(AraraCore.microphones());
         if (s.microphone() != null && !mics.contains(s.microphone())) mics.add(s.microphone());
         JComboBox<String> mic = new JComboBox<>(mics.toArray(String[]::new));
         mic.setSelectedItem(s.microphone() == null ? DEFAULT_MIC : s.microphone());
@@ -189,21 +186,12 @@ final class SettingsPage extends MainView.Page {
 
     private void openDataDir() {
         try {
-            Path dir = Files.createDirectories(Main.dataDir());
+            Path dir = Files.createDirectories(AraraCore.defaultDataDir());
             Desktop.getDesktop().open(dir.toFile());
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Não consegui abrir a pasta: " + Main.dataDir(), "Pasta do histórico",
+            JOptionPane.showMessageDialog(this, "Não consegui abrir a pasta: " + AraraCore.defaultDataDir(), "Pasta do histórico",
                     JOptionPane.WARNING_MESSAGE);
         }
-    }
-
-    private static List<String> microphones() {
-        List<String> names = new ArrayList<>();
-        Line.Info capture = new Line.Info(TargetDataLine.class);
-        for (Mixer.Info info : AudioSystem.getMixerInfo()) {
-            if (AudioSystem.getMixer(info).isLineSupported(capture)) names.add(info.getName());
-        }
-        return names;
     }
 
     private static JPanel section(String title, String subtitle, JComponent... rows) {

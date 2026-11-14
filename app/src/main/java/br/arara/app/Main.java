@@ -11,11 +11,10 @@ import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
-import java.nio.file.Path;
 
 public final class Main {
     public static void main(String[] args) {
-        // Único ponto de troca: quando o backend ficar pronto, vira AraraCore.start(dataDir(), transcriber).
+        // Único ponto de troca: com o Whisper pronto, vira AraraCore.start(AraraCore.defaultDataDir(), whisper).
         var core = new DemoCore();
         SwingUtilities.invokeLater(() -> {
             Theme.install();
@@ -34,12 +33,6 @@ public final class Main {
             frame.setDefaultCloseOperation(tray ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
             frame.setVisible(true);
         });
-    }
-
-    /** %APPDATA%\Arara, onde ficam histórico, dicionário e configurações. */
-    static Path dataDir() {
-        String appData = System.getenv("APPDATA");
-        return Path.of(appData != null ? appData : System.getProperty("user.home"), "Arara");
     }
 
     /** Ícone na bandeja com Abrir / Sair. Devolve false se o sistema não tem bandeja. */
