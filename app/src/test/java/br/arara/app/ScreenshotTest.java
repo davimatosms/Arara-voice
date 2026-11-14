@@ -79,6 +79,64 @@ class ScreenshotTest {
         });
     }
 
+    /** Os 6 passos da primeira execução e os 2 erros, nos estados do design (para comparar com o FigCraft). */
+    @Test
+    void desenhaPrimeiraExecucao() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            DemoCore core = new DemoCore();
+            ModelDownload download = new ModelDownload(p -> {});
+            Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> {});
+            String dir = "primeira-execucao/";
+            new File(DIR, dir).mkdirs();
+            downloading(download, 356_000_000L);
+            o.tick = 3;
+            o.show(0);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "1-boas-vindas");
+            o.show(1);
+            o.tick();
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "2-download");
+            o.show(2);
+            short[] voice = new short[512];
+            for (int i = 0; i < 60; i++) {
+                for (int j = 0; j < voice.length; j++) voice[j] = (short) ((300 + 26000 * Math.pow(Math.abs(Math.sin(i * 1.7)), 3)) * Math.sin(j / 3.0));
+                o.chunk(voice);
+                o.tick();
+            }
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "3-microfone");
+            o.show(3);
+            o.held.addAll(java.util.List.of("Ctrl", "Shift"));
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "4-atalho");
+            o.show(4);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "5b-primeiro-ditado-esperando-modelo");
+            download.phase = ModelDownload.Phase.READY;
+            o.show(4);
+            o.practice.setText("Oi, Arara! Este é o meu primeiro ditado e o texto apareceu sozinho aqui, com acento e pontuação.");
+            o.showPasted(0.4);
+            o.practice.setForeground(Theme.TEXT);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "5-primeiro-ditado");
+            o.show(5);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "6-pronto");
+            downloading(download, 178_000_000L);
+            download.phase = ModelDownload.Phase.PAUSED;
+            o.show(1);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "erro-sem-internet");
+            downloading(download, 356_000_000L);
+            o.show(2);
+            for (int i = 0; i < 70; i++) o.chunk(new short[512]);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "erro-microfone-bloqueado");
+        });
+    }
+
+    private static void downloading(ModelDownload d, long done) {
+        d.phase = ModelDownload.Phase.DOWNLOADING;
+        d.done = done;
+        d.total = 574_000_000L;
+        d.speed = 8_400_000;
+    }
+
     /** Põe o componente num JFrame que nunca aparece, só para ter layout de verdade, e desenha num PNG. */
     private static void save(JComponent c, int w, int h, String name) {
         JFrame f = new JFrame();

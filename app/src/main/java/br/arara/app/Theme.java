@@ -10,7 +10,7 @@ import java.awt.GraphicsEnvironment;
 import java.io.InputStream;
 import java.util.Map;
 
-/** Paleta Canindé (DECISOES.md), fontes Nunito Sans e configuração do FlatLaf. Único lugar com cores. */
+/** Paleta Canindé (DECISOES.md), fontes Nunito Sans e Anton e configuração do FlatLaf. Único lugar com cores. */
 public final class Theme {
     public static final Color GREEN = new Color(0x6CC93A);
     public static final Color GREEN_LIGHT = new Color(0x9BE36A);
@@ -22,11 +22,22 @@ public final class Theme {
     public static final Color TEXT = new Color(0xEEF5EC);
     public static final Color TEXT_SOFT = new Color(0x9AAE9E);
     public static final Color TEXT_DARK = new Color(0x0B140D);
+    // Primeira execução (céu da landing v2 e estados de erro).
+    public static final Color LIME = new Color(0xC8F56A);
+    public static final Color SELECTED = new Color(0x253B20);
+    public static final Color ERROR = new Color(0xF0705A);
+    public static final Color ERROR_BG = new Color(0x3A1D18);
+    public static final Color ERROR_BORDER = new Color(0x6A2E26);
+    public static final Color ERROR_TEXT = new Color(0xE7C9C3);
+    public static final Color AMBER_BG = new Color(0x3A3214);
+    public static final Color AMBER_BORDER = new Color(0x5A4A1A);
+    public static final Color AMBER_TEXT = new Color(0xFFE08A);
 
     private static final Font REGULAR = load("Regular");
     private static final Font SEMIBOLD = load("SemiBold");
     private static final Font BOLD = load("Bold");
     private static final Font EXTRABOLD = load("ExtraBold");
+    private static final Font DISPLAY = load("Anton-Regular.ttf");
 
     private Theme() {}
 
@@ -34,6 +45,8 @@ public final class Theme {
     public static Font semibold(float size) { return SEMIBOLD.deriveFont(size); }
     public static Font bold(float size) { return BOLD.deriveFont(size); }
     public static Font extrabold(float size) { return EXTRABOLD.deriveFont(size); }
+    /** Anton, só nos títulos grandes da primeira execução. */
+    public static Font display(float size) { return DISPLAY.deriveFont(size); }
 
     /** Cor da paleta com transparência (0 a 255), para fundos de selos e item ativo. */
     public static Color alpha(Color c, int alpha) {
@@ -74,12 +87,13 @@ public final class Theme {
     }
 
     private static Font load(String weight) {
-        try (InputStream in = Theme.class.getResourceAsStream("fonts/NunitoSans-" + weight + ".ttf")) {
+        String file = weight.endsWith(".ttf") ? weight : "NunitoSans-" + weight + ".ttf";
+        try (InputStream in = Theme.class.getResourceAsStream("fonts/" + file)) {
             Font font = Font.createFont(Font.TRUETYPE_FONT, in);
             GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font); // para o HTML dos JLabel achar a família
             return font;
         } catch (Exception e) {
-            throw new IllegalStateException("Fonte Nunito Sans " + weight + " ausente", e);
+            throw new IllegalStateException("Fonte " + file + " ausente", e);
         }
     }
 }
