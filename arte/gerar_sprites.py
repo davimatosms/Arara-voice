@@ -14,32 +14,84 @@ PAL = dict(g.PALETA, r=(205, 55, 60))  # língua
 PASTA = Path(__file__).parent / "sprites"
 
 
+TORSO = set("YyOo")
+
+
 def corpo_voo():
-    """Corpo sem galho e sem pés, com a cauda colada embaixo."""
-    return [list(l) for l in g.GRADE[:30] + g.GRADE[34:]]
+    """Corpo sem galho e sem pés, cauda colada embaixo e SEM as asas fechadas (no voo elas estão abertas)."""
+    grade = [list(l) for l in g.GRADE[:30] + g.GRADE[34:]]
+    for y in range(17, 30):
+        linha = grade[y]
+        cols = [x for x, c in enumerate(linha) if c in TORSO]
+        if not cols:
+            continue
+        ini, fim = cols[0] - 1, cols[-1] + 1
+        for x in range(len(linha)):
+            if x < ini or x > fim:
+                linha[x] = "."
+        linha[ini] = linha[fim] = "K"
+    return grade
+
+
+def _risco(px, x0, y0, ang, comp, larg, cor, borda):
+    """Uma pena: risco de `comp` px na direção `ang` (graus), com fio claro em cima e borda escura embaixo."""
+    a = math.radians(ang)
+    ca, sa = math.cos(a), math.sin(a)
+    pena = {}
+    for t10 in range(0, int(comp * 10) + 1):
+        t = t10 / 10
+        meia = larg * (1 - 0.55 * (t / comp) ** 2)  # afina na ponta
+        for s10 in range(int(-meia * 10), int(meia * 10) + 1):
+            s = s10 / 10
+            pena[(round(x0 + t * ca - s * sa), round(y0 + t * sa + s * ca))] = borda if s > meia - 0.7 else cor
+    for (x, y) in pena:  # fio laranja-escuro separa uma pena da outra; o preto fica só na silhueta
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if (x + dx, y + dy) not in pena:
+                px[(x + dx, y + dy)] = "o"
+    px.update(pena)
 
 
 def asa(angulo):
-    """Asa direita como conjunto de pixels {(x, y): cor}, com origem no ombro. Ângulo em graus, negativo = para cima."""
+    """Asa direita vista de baixo, origem no ombro. Ângulo do braço em graus (negativo = para cima).
+
+    Penas de voo douradas em leque (secundárias saem ao longo do braço, primárias saem da ponta e são as mais
+    longas), por cima as coberteiras azuis em escama junto ao braço, como na arara-canindé de verdade.
+    """
     a = math.radians(angulo)
     ca, sa = math.cos(a), math.sin(a)
+    braco = 11
     px = {}
-    comp = 17
-    for t10 in range(0, comp * 10 + 1):
+    # penas de voo, de dentro para fora (as de fora ficam por cima)
+    for i in range(6):  # secundárias: perpendiculares ao braço, abrindo de leve para fora
+        t = 1.5 + i * 1.6
+        _risco(px, t * ca, t * sa, angulo + 100 - i * 7, 7 + i * 0.7, 1.2, "Y", "y")
+    for i in range(5):  # primárias: da ponta, em leque do "para baixo" ao "para fora"
+        _risco(px, braco * ca, braco * sa, angulo + 60 - i * 15, 11 + i * 1.2, 1.1, "Y" if i % 2 else "y", "O")
+    # coberteiras azuis: duas fileiras de escamas sobre o braço
+    for fila, (dist, cor) in enumerate(((0.6, "L"), (2.0, "B"), (3.4, "B"))):
+        for j in range(5 - fila):
+            t = 1 + j * 2.2
+            cx = t * ca - dist * -sa
+            cy = t * sa + dist * ca
+            esc = {}
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    if abs(dx) + abs(dy) <= 2:
+                        esc[(round(cx + dx), round(cy + dy))] = cor
+            for (x, y) in esc:
+                for ddx, ddy in ((0, 1), (1, 0), (-1, 0)):
+                    if (x + ddx, y + ddy) not in esc and fila == 2:
+                        px.setdefault((x + ddx, y + ddy), "b")
+            px.update(esc)
+    for t10 in range(0, braco * 10 + 1):  # borda de ataque azul clara com contorno
         t = t10 / 10
-        # espessura: larga perto do corpo, afina; penas primárias "dedos" na ponta
-        meia = 3.6 - 1.6 * (t / comp)
-        for s10 in range(int(-meia * 10), int(meia * 10) + 1):
-            s = s10 / 10
-            if t > comp - 4 and s > 0 and int(t) % 2 == 0:  # recorte entre as penas da ponta
-                continue
-            x, y = t * ca - s * sa, t * sa + s * ca
-            cor = "L" if s < -meia + 1.2 else ("b" if s > meia - 1.6 or t > comp - 4 else "B")
-            px[(round(x), round(y))] = cor
-    return px
+        x, y = round(t * ca + sa * 0.6), round(t * sa - ca * 0.6)
+        px[(x, y)] = "L"
+    return contorno(px)
 
 
 def contorno(px):
+    """Silhueta preta em volta da asa toda."""
     out = dict(px)
     for (x, y) in px:
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -49,15 +101,15 @@ def contorno(px):
 
 
 def quadro_voo(angulo, bob):
-    """Monta um quadro 71x52: asas atrás do corpo, corpo deslocado `bob` px na vertical."""
-    W, H = 71, 52
+    """Monta um quadro 81x58: asas atrás do corpo, corpo deslocado `bob` px na vertical."""
+    W, H = 81, 58
     tela = [["."] * W for _ in range(H)]
-    cx, topo = W // 2 - 15, 8 + bob
-    ombro_y = topo + 19
-    direita = contorno(asa(angulo))
+    cx, topo = W // 2 - 15, 11 + bob
+    ombro_y = topo + 18
+    direita = asa(angulo)
     for (x, y), c in direita.items():
-        for X, Y in ((cx + 24 + x, ombro_y + y), (cx + 6 - x, ombro_y + y)):  # direita e espelho
-            if 0 <= X < W and 0 <= Y < H and (tela[Y][X] == "." or c != "K"):
+        for X, Y in ((cx + 23 + x, ombro_y + y), (cx + 7 - x, ombro_y + y)):  # direita e espelho
+            if 0 <= X < W and 0 <= Y < H:
                 tela[Y][X] = c
     for y, linha in enumerate(corpo_voo()):
         for x, c in enumerate(linha):
@@ -124,10 +176,10 @@ if __name__ == "__main__":
     png(piscar()).save(PASTA / "piscar.png")
     # prévia: folha de voo em cima, fala + piscar embaixo
     todos = voo + fala + [png(piscar())]
-    prev = Image.new("RGBA", (71 * 6 * escala // 1, 52 * 2 * escala), (22, 34, 27, 255))
+    prev = Image.new("RGBA", (81 * 6 * escala, 58 * 2 * escala), (22, 34, 27, 255))
     for i, im in enumerate(voo):
-        prev.alpha_composite(im.resize((im.width * escala, im.height * escala), Image.NEAREST), (i * 71 * escala, 0))
+        prev.alpha_composite(im.resize((im.width * escala, im.height * escala), Image.NEAREST), (i * 81 * escala, 0))
     for i, im in enumerate(fala + [png(piscar())]):
-        prev.alpha_composite(im.resize((im.width * escala, im.height * escala), Image.NEAREST), (i * 50 * escala, 52 * escala))
+        prev.alpha_composite(im.resize((im.width * escala, im.height * escala), Image.NEAREST), (i * 50 * escala, 58 * escala))
     prev.save(PASTA / "previa.png")
     print("ok")
