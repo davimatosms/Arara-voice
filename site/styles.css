@@ -391,7 +391,7 @@ kbd {
 .rodape-grid { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px 40px; }
 .rodape .marca { margin: 0; }
 .rodape p { margin: 14px 0 0; font-size: 14px; font-weight: 600; }
-.rodape-links { display: flex; gap: 24px; list-style: none; padding: 0; margin: 2px 0 0; }
+.rodape-links { display: flex; flex-wrap: wrap; gap: 24px; list-style: none; padding: 0; margin: 2px 0 0; }
 .rodape-links a { color: #fff; font-size: 15px; font-weight: 700; text-decoration: none; }
 .rodape-links a:hover { text-decoration: underline; }
 .rodape .marcas { font-size: 12px; font-weight: 400; margin-top: 22px; }

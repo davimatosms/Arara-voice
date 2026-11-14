@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arara · Code signing policy e privacidade</title>
+  <meta name="description" content="Política de assinatura de código, privacidade e licença do Arara, ditado por voz em PT-BR que roda 100% no seu PC.">
+  <meta name="theme-color" content="#0F1712">
+  <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Só desta página: texto corrido sobre a base da landing (styles.css). */
+    .topo { background: var(--fundo-2); border-bottom: 1px solid var(--borda); }
+    .topo .nav { padding: 22px 20px; }
+    .topo .nav a.voltar { color: #fff; font-weight: 700; text-decoration: none; }
+    .topo .nav a.voltar:hover { text-decoration: underline; }
+    .doc { max-width: 820px; padding-top: 56px; padding-bottom: 80px; }
+    .doc h1 { font-family: var(--display); text-transform: uppercase; font-size: clamp(40px, 7vw, 72px); line-height: 1.02; }
+    .doc h2 { font-size: clamp(30px, 4.4vw, 44px); margin-top: 64px; }
+    .doc h3 { font-size: 20px; font-weight: 800; margin-top: 32px; }
+    .doc p, .doc li { font-size: 17px; line-height: 28px; }
+    .doc p { margin: 14px 0 0; }
+    .doc ul { padding-left: 22px; margin: 14px 0 0; }
+    .doc li + li { margin-top: 8px; }
+    .doc a { color: var(--verde-claro); }
+    .doc code { font-family: var(--mono); font-size: .88em; background: var(--sup); border: 1px solid var(--borda); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+    .doc .cartao { padding: 24px 26px; margin-top: 24px; }
+    .doc .cartao p:first-child { margin-top: 0; }
+    .frase { font-size: 19px; font-weight: 700; }
+    .papeis { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 16px; }
+    .papeis th, .papeis td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+    .papeis th { color: var(--suave); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    @media (max-width: 760px) {
+      .doc { padding-top: 36px; padding-bottom: 56px; }
+      .doc h2 { margin-top: 48px; }
+      .doc p, .doc li { font-size: 16px; line-height: 26px; }
+      .doc .cartao { padding: 18px; }
+      .papeis th, .papeis td { padding: 10px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <nav class="nav" aria-label="Principal">
+      <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+      <a class="voltar" href="index.html">Voltar ao site</a>
+    </nav>
+  </header>
+
+  <main id="conteudo" class="wrap doc">
+    <p class="chip">Transparência</p>
+    <h1>Assinatura, privacidade e licença</h1>
+    <p class="sub">O Arara é open source, roda no seu PC e não manda a sua voz nem o seu texto para lugar nenhum. Esta página explica como os instaladores são assinados, o que o app acessa na rede e no sistema, e sob qual licença ele é distribuído.</p>
+
+    <section aria-labelledby="assinatura">
+      <h2 id="assinatura"><span lang="en">Code signing policy</span></h2>
+      <p>Política de assinatura de código.</p>
+      <div class="cartao">
+        <p class="frase" lang="en">Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a></p>
+        <p class="suave">Assinatura de código gratuita oferecida pela SignPath.io, com certificado da SignPath Foundation.</p>
+      </div>
+
+      <h3>Quem assina</h3>
+      <p>Os instaladores e executáveis do Arara para Windows são assinados com o certificado da <a href="https://signpath.org">SignPath Foundation</a>. Por isso o Windows mostra “SignPath Foundation” como editor. A assinatura confirma que o arquivo saiu de um build automático feito a partir do código público deste repositório e que não foi alterado depois.</p>
+
+      <h3>Equipe e papéis</h3>
+      <table class="papeis">
+        <caption class="suave" style="caption-side: bottom; text-align: left; padding-top: 10px; font-size: 14px;">Todos os membros usam autenticação em dois fatores no GitHub e na SignPath.</caption>
+        <thead>
+          <tr><th scope="col">Papel</th><th scope="col">O que faz</th><th scope="col">Quem</th></tr>
+        </thead>
+        <tbody>
+          <tr><td lang="en">Authors</td><td>Podem alterar o código direto no repositório.</td><td><a href="https://github.com/davimatosms">davimatosms</a></td></tr>
+          <tr><td lang="en">Reviewers</td><td>Revisam toda contribuição de quem não é da equipe (pull requests) antes do merge.</td><td><a href="https://github.com/davimatosms">davimatosms</a></td></tr>
+          <tr><td lang="en">Approvers</td><td>Aprovam à mão cada pedido de assinatura.</td><td><a href="https://github.com/davimatosms">davimatosms</a></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Como os builds são feitos</h3>
+      <ul>
+        <li>O código-fonte é público: <a href="https://github.com/davimatosms/Arara-voice">github.com/davimatosms/Arara-voice</a>.</li>
+        <li>Os instaladores são gerados pelo GitHub Actions, em máquinas do próprio GitHub, a partir desse código. Nada é compilado à mão para ser assinado.</li>
+        <li>O build envia o arquivo sem assinatura para a SignPath, que confere de qual repositório e de qual workflow ele veio.</li>
+        <li>Cada release só é assinada depois da aprovação manual de um Approver.</li>
+        <li>Os arquivos assinados ficam em <a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a>.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="privacidade">
+      <h2 id="privacidade">Privacidade</h2>
+      <p>O Arara não tem telemetria, analytics, relatório de erros nem verificação de atualizações. A sua voz e o seu texto não saem do computador.</p>
+
+      <h3>A única conexão de rede: o modelo de voz</h3>
+      <ul>
+        <li>Para transcrever, o Arara precisa de um modelo Whisper. Quando o modelo escolhido ainda não está no computador, o app baixa o arquivo da <a href="https://huggingface.co/ggerganov/whisper.cpp">Hugging Face</a>, de um endereço fixo no código.</li>
+        <li>Isso acontece sozinho na primeira vez que o app abre, e de novo só se você escolher nas configurações um modelo que ainda não baixou. O instalador avisa desse download.</li>
+        <li>O download é um pedido comum de arquivo. Ele não leva áudio, texto, configurações nem identificador seu. Como em qualquer download, a Hugging Face vê o seu endereço IP (veja a <a href="https://huggingface.co/privacy">política de privacidade da Hugging Face</a>).</li>
+        <li>O app confere o SHA-256 do arquivo antes de usar. Um arquivo corrompido ou adulterado é apagado.</li>
+        <li>Depois do download, o Arara funciona sem internet.</li>
+      </ul>
+
+      <h3>O que fica no seu computador</h3>
+      <ul>
+        <li>O áudio é gravado na memória, transcrito ali mesmo e descartado. Ele nunca vai para o disco.</li>
+        <li>O histórico das transcrições fica em <code>%APPDATA%\Arara\historico.jsonl</code>, sem criptografia, só no seu usuário do Windows. Você pode apagar os itens pelo app.</li>
+        <li>O dicionário e as configurações ficam em <code>%APPDATA%\Arara\dicionario.json</code> e <code>%APPDATA%\Arara\config.json</code>. Os modelos ficam em <code>%APPDATA%\Arara\models</code>.</li>
+      </ul>
+
+      <h3>O que o Arara faz no sistema</h3>
+      <ul>
+        <li><strong>Atalho global:</strong> o app escuta o teclado para perceber quando você aperta o atalho. As teclas não são gravadas nem enviadas.</li>
+        <li><strong>Área de transferência:</strong> para colar, o app põe o texto na área de transferência, aperta Ctrl+V por você e, logo depois, devolve o que você tinha copiado.</li>
+        <li><strong>Iniciar com o Windows:</strong> só quando você liga essa opção, o app cria uma entrada na chave <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> do seu usuário. Desligar a opção remove a entrada.</li>
+        <li><strong>Instalação:</strong> o instalador é por usuário e não pede administrador. Ele põe o app na pasta de programas do seu usuário e cria o atalho no menu Iniciar. A desinstalação remove o app. A pasta <code>%APPDATA%\Arara</code> (histórico, dicionário, configurações e modelos) fica de propósito, para uma reinstalação não perder nada. Para apagar tudo, apague essa pasta.</li>
+      </ul>
+
+      <h3>Este site</h3>
+      <p>O site não usa cookies nem analytics. As fontes vêm do Google Fonts, então o seu navegador pede esses arquivos ao Google (veja a <a href="https://policies.google.com/privacy">política de privacidade do Google</a>).</p>
+    </section>
+
+    <section aria-labelledby="licenca">
+      <h2 id="licenca">Licença</h2>
+      <p>O Arara é software livre sob a <a href="https://github.com/davimatosms/Arara-voice/blob/main/LICENSE">licença MIT</a>: você pode usar, copiar, modificar e distribuir, inclusive para fins comerciais, desde que mantenha o aviso de copyright e a licença.</p>
+      <p>Ele usa componentes de terceiros, todos com licenças open source (MIT, Apache-2.0, LGPL-3.0, ISC, SIL OFL-1.1 e GPL-2.0 com Classpath Exception). A lista completa, com versões e links, está em <a href="https://github.com/davimatosms/Arara-voice/blob/main/THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a>.</p>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap rodape-grid">
+      <div>
+        <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+        <p class="suave">Ditado por voz em PT-BR, 100% local.</p>
+      </div>
+      <div>
+        <ul class="rodape-links">
+          <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="politica.html" lang="en" aria-current="page">Code signing policy</a></li>
+        </ul>
+        <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
