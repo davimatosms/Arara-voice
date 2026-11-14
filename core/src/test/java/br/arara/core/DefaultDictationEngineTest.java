@@ -94,13 +94,12 @@ class DefaultDictationEngineTest {
 
         e.toggle();
         assertEquals(DictationState.LISTENING, next());
-        mic.push(VadTest.SPEECH);
-        mic.push(VadTest.SPEECH);
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
         e.toggle();
         assertEquals(DictationState.TRANSCRIBING, next());
         assertEquals(DictationState.PASTED, next());
 
-        assertEquals(1024, t.samples);
+        assertEquals(4 * VadTest.CHUNK, t.samples);
         assertEquals(List.of("oi Davi"), pasted);
         assertEquals("oi Davi", history.all().get(0).texto());
         assertNull(mic.onChunk, "microfone desligado");
@@ -112,7 +111,7 @@ class DefaultDictationEngineTest {
             throw new IllegalStateException("clipboard ocupado");
         });
         e.toggle();
-        mic.push(VadTest.SPEECH);
+        for (int i = 0; i < 5; i++) mic.push(VadTest.SPEECH);
         e.toggle();
         assertEquals(DictationState.LISTENING, next());
         assertEquals(DictationState.TRANSCRIBING, next());
@@ -141,6 +140,7 @@ class DefaultDictationEngineTest {
         DefaultDictationEngine e = engine(new FakeTranscriber("o que deu tempo de falar"), pasted::add);
         e.toggle();
         assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 5; i++) mic.push(VadTest.SPEECH);
         for (long n = 0; n <= 5L * 60 * Vad.RATE && mic.onChunk != null; n += VadTest.CHUNK) mic.push(VadTest.QUIET);
         assertEquals(DictationState.SILENCE, next());
         assertEquals(DictationState.TRANSCRIBING, next());
@@ -150,9 +150,23 @@ class DefaultDictationEngineTest {
     }
 
     @Test
+    void noSpeechSkipsTranscription() throws Exception {
+        FakeTranscriber t = new FakeTranscriber("frase inventada");
+        DefaultDictationEngine e = engine(t, text -> {});
+        e.toggle();
+        for (int i = 0; i < 30; i++) mic.push(VadTest.QUIET);
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        assertEquals(DictationState.ERROR, next());
+        assertEquals(-1, t.samples);
+        assertTrue(history.all().isEmpty());
+    }
+
+    @Test
     void emptyTranscriptionIsNotSaved() throws Exception {
         DefaultDictationEngine e = engine(new FakeTranscriber(" "), text -> {});
         e.toggle();
+        for (int i = 0; i < 5; i++) mic.push(VadTest.SPEECH);
         e.toggle();
         assertEquals(DictationState.LISTENING, next());
         assertEquals(DictationState.TRANSCRIBING, next());

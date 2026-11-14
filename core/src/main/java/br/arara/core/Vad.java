@@ -18,6 +18,7 @@ final class Vad {
     private int loudRun;
     private long sinceSpeech;
     private double lastDb = -90;
+    private boolean heardSpeech;
 
     Result feed(short[] chunk) {
         double db = lastDb = dbfs(chunk);
@@ -25,9 +26,15 @@ final class Vad {
         // Piso desce na hora e sobe devagar (~16 s), para acompanhar ruído de fundo sem engolir a fala.
         floorDb = db < floorDb ? db : floorDb + 0.002 * (db - floorDb);
         loudRun = loud ? loudRun + 1 : 0;
+        if (loudRun >= SPEECH_CHUNKS) heardSpeech = true;
         sinceSpeech = loudRun >= SPEECH_CHUNKS ? 0 : sinceSpeech + chunk.length;
         if (sinceSpeech >= TIMEOUT_AFTER) return Result.TIMEOUT;
         return sinceSpeech >= SILENCE_AFTER ? Result.SILENCE : Result.LISTENING;
+    }
+
+    /** Houve fala em algum momento desde o início. */
+    boolean heardSpeech() {
+        return heardSpeech;
     }
 
     /** Nível do último bloco para a UI: -60 dBFS = 0, 0 dBFS = 1. */
