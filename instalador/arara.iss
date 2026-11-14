@@ -117,3 +117,10 @@ begin
   if CurPageID = wpWelcome then
     WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
 end;
+
+{ "Iniciar com o Windows" do app (WindowsStartup no core): o valor Arara em Run sai junto com o app. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Arara');
+end;
