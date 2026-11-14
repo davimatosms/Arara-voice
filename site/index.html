@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arara · ditado por voz em PT-BR</title>
-  <meta name="description" content="Aperte um atalho, fale o que quer pedir ao seu agente e o Arara cola o texto onde está o cursor. 100% local, feito para o português do Brasil.">
-  <meta name="theme-color" content="#0F1712">
+  <meta name="description" content="Aperte Ctrl + Shift + Espaço, fale o que quer pedir ao seu agente e o Arara cola o texto onde está o cursor. Feito para o português do Brasil, roda 100% no seu PC.">
+  <meta name="theme-color" content="#1557B8">
   <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script>
     // liga as animações só se o usuário não pediu movimento reduzido (sem JS, tudo fica estático)
@@ -19,145 +19,267 @@
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 
+  <svg width="0" height="0" class="defs" aria-hidden="true" focusable="false">
+    <symbol id="nuvem-fofa" viewBox="0 0 260 110">
+      <circle cx="40" cy="70" r="40"/><circle cx="95" cy="45" r="55"/><circle cx="160" cy="50" r="48"/>
+      <circle cx="210" cy="72" r="36"/><circle cx="130" cy="80" r="40"/><rect x="30" y="70" width="190" height="38" rx="19"/>
+    </symbol>
+    <symbol id="nuvem-traco" viewBox="-6 -4 156 72">
+      <path d="M0 40 C0 18 26 10 40 22 C46 2 82 -2 92 20 C104 8 132 14 130 36 C146 38 150 60 132 64 L8 64 C-8 62 -6 44 0 40 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="mic" viewBox="0 0 24 24">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </svg>
+
   <header class="hero">
     <nav class="nav" aria-label="Principal">
-      <a class="marca" href="#">
-        <img id="logo-ave" class="px" src="assets/img/arara-pousada.png" width="62" height="76" alt="">
-        <span>Arara</span>
-      </a>
+      <a class="marca" href="#" aria-label="Arara, início"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
       <ul class="nav-links">
         <li><a href="#como-funciona">Como funciona</a></li>
+        <li><a href="#demo">Demonstração</a></li>
         <li><a href="#agentes">Agentes</a></li>
         <li><a href="#app">O app</a></li>
       </ul>
-      <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
+      <a class="btn btn-contorno" href="https://github.com/davimatosms/Arara-voice/releases"><span class="so-largo">Baixar para Windows</span><span class="so-estreito">Baixar</span></a>
     </nav>
 
     <div class="hero-texto">
-      <p class="chip chip-claro">100% local · feito para o português do Brasil</p>
-      <h1>Pare de digitar.<br><span class="azul">Fale com seu agente.</span></h1>
-      <p class="hero-sub">Aperte um atalho, fale o que quer pedir ao Claude Code, Codex ou qualquer app, e o Arara cola o texto onde está o cursor. Sem nuvem.</p>
-      <div class="hero-botoes">
-        <a class="btn btn-verde" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
-        <a class="btn btn-branco" href="#como-funciona">Ver como funciona</a>
+      <p class="selo"><i aria-hidden="true"></i><span class="so-largo">Feito para o português do Brasil · roda 100% no seu PC</span><span class="so-estreito">Feito para o PT-BR · 100% no seu PC</span></p>
+      <h1><span class="l1">Fale.</span> <span class="l2">Não digite.</span></h1>
+    </div>
+
+    <div class="palco">
+      <div class="ninho" aria-hidden="true">
+        <img class="nuvem-px px" src="assets/img/nuvem.png" width="76" height="24" alt="">
+        <!-- a única arara animada da página; sem JS ou com movimento reduzido ela fica parada aqui -->
+        <div id="atriz"><div class="corpo"><img class="tira px" src="assets/img/atriz.png" width="567" height="58" alt=""></div></div>
+      </div>
+
+      <div class="cartoes">
+        <div class="par" data-par="0.10"><div class="cartao c-ouvindo">
+          <span class="mic-tile"><svg><use href="#mic"/></svg></span>
+          <span class="pilula azul"><i></i>Ouvindo</span>
+          <span class="tempo">0:07</span>
+          <span class="ondas mini" aria-hidden="true"></span>
+        </div></div>
+        <div class="par" data-par="0.06"><div class="cartao c-numeros">
+          <strong>62 palavras</strong><strong class="lima">em 4,4 s</strong>
+          <span class="suave">ditado de 31 s · <span class="so-largo">modelo preciso · só </span>CPU</span>
+        </div></div>
+        <div class="par" data-par="0.12"><div class="cartao c-colado">
+          <span class="logo-tile"><img src="assets/logos/claudecode-color.svg" width="32" height="32" alt=""></span>
+          <span><strong>Colado ✓</strong><span class="suave">no Claude Code<span class="so-largo"> · 0,3 s</span></span></span>
+          <span class="check" aria-hidden="true">✓</span>
+        </div></div>
+        <div class="par" data-par="0.08"><div class="cartao c-dic">
+          <span class="rotulo">Dicionário</span>
+          <span class="troca"><strong>“aplicativo”</strong><span class="lima" aria-label="vira">→</span><span class="pilula lima-bg">app</span></span>
+          <span class="suave">suas palavras, do seu jeito</span>
+        </div></div>
+        <div class="par" data-par="0.05"><div class="cartao c-local">
+          <span class="wifi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.9a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+          <span><strong>100% local</strong><span class="suave">funciona sem internet</span></span>
+        </div></div>
       </div>
     </div>
 
-    <div class="paisagem" aria-hidden="true"></div>
-    <img id="hero-ave" class="px hero-ave" src="assets/img/arara-galho.png" width="186" height="252" alt="Arara-canindé em pixel art pousada num galho">
+    <div class="hero-fim">
+      <p class="hero-sub">Aperte Ctrl + Shift + Espaço, fale <span class="so-largo">o que quer pedir ao seu agente </span>e o Arara cola o texto <span class="so-largo">pronto </span>onde está o cursor.<span class="so-largo"> Tudo no seu PC.</span></p>
+      <div class="hero-botoes">
+        <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows <span class="seta" aria-hidden="true">→</span></a>
+        <a class="btn btn-vidro so-largo" href="#demo">Ver demonstração</a>
+      </div>
+    </div>
+
+    <div class="enfeites" aria-hidden="true">
+      <svg class="traco t1"><use href="#nuvem-traco"/></svg>
+      <svg class="traco t2"><use href="#nuvem-traco"/></svg>
+      <i class="brilho b1"></i><i class="brilho b2 lima"></i><i class="brilho b3"></i>
+      <svg class="fofa f1"><use href="#nuvem-fofa"/></svg>
+      <svg class="fofa f2"><use href="#nuvem-fofa"/></svg>
+      <svg class="fofa f3"><use href="#nuvem-fofa"/></svg>
+      <svg class="fofa f4"><use href="#nuvem-fofa"/></svg>
+      <div class="morros"></div>
+    </div>
   </header>
 
   <main id="conteudo">
     <section class="s-oque" aria-labelledby="t-oque">
-      <div class="wrap duas-col">
+      <div class="escada" aria-hidden="true"></div>
+      <div class="wrap oque-grid">
         <div>
-          <p class="chip">O QUE É</p>
-          <h2 id="t-oque">Digitar prompt cansa.<br>Falar é natural.</h2>
+          <p class="chip">O que é</p>
+          <h2 id="t-oque">Digitar prompt cansa.<br><span class="verde">Falar é natural.</span></h2>
           <p class="sub">O Arara nasceu para conversar com agentes de código. Você explica o que quer em voz alta, do jeito que explicaria para um colega, e ele transforma em texto pronto para enviar.</p>
-          <ul class="lista">
-            <li>Funciona em qualquer janela: terminal, IDE, navegador, chat.</li>
-            <li>Entende português do Brasil, com sotaque e gíria.</li>
-            <li>Roda no seu PC. Sua voz não sai da máquina.</li>
+          <ul class="recursos">
+            <li><span class="ic" aria-hidden="true">⌨</span><span><strong>Qualquer janela</strong>Terminal, IDE, navegador, chat.</span></li>
+            <li><span class="ic" aria-hidden="true">BR</span><span><strong>Português de verdade</strong>Sotaque, gíria e termo técnico.</span></li>
+            <li><span class="ic" aria-hidden="true">✓</span><span><strong>Sua voz não sai do PC</strong>O modelo roda na sua máquina.</span></li>
           </ul>
         </div>
-        <div class="poleiro" aria-hidden="true">
-          <span class="rastro"></span><span class="rastro"></span><span class="rastro"></span><span class="rastro"></span>
-          <div id="vaga-ave" class="ave-parada"></div>
+        <div class="camadas">
+          <span class="rastro" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <img class="tela-tras" src="assets/telas/2-historico.png" width="1100" height="720" alt="">
+          <img class="tela-frente" src="assets/telas/1-inicio.png" width="1100" height="720" alt="Tela Início do Arara: pronto para ditar, com o atalho Ctrl + Shift + Espaço">
+          <div class="popup p-transcrevendo" aria-hidden="true">
+            <span class="mic-tile"><svg><use href="#mic"/></svg></span>
+            <span class="pilula amarela"><i></i>Transcrevendo</span>
+            <strong>Transcrevendo</strong>
+            <span class="barra"><i></i></span>
+            <span class="esc">Esc cancela</span>
+          </div>
+          <div class="cartao c-hoje"><span class="rotulo">Hoje</span><strong>14 ditados · 1.208 palavras</strong></div>
         </div>
       </div>
     </section>
 
-    <section id="agentes" class="s-agentes" aria-labelledby="t-agentes">
+    <section id="demo" class="s-demo" aria-labelledby="t-demo">
       <div class="wrap centro">
-        <p class="chip">COMPATÍVEL</p>
-        <h2 id="t-agentes">Fala com todos os seus agentes</h2>
+        <p class="chip">Demonstração</p>
+        <h2 id="t-demo">Você fala. <br class="so-estreito">Ele cola.</h2>
+        <p class="sub">O Arara não digita letra por letra: transcreve e cola o texto inteiro, de uma vez, onde está o cursor.</p>
+      </div>
+      <div class="wrap demo-palco" data-fase="colado">
+        <div class="terminal" role="img" aria-label="Terminal do Claude Code: o texto ditado aparece colado inteiro na caixa de prompt">
+          <div class="term-barra" aria-hidden="true">
+            <span class="aba">▸&nbsp; Claude Code<span class="so-largo">&nbsp;— C:\projetos\loja</span></span><span class="mais so-largo">+</span>
+            <span class="janela so-largo">—&emsp;☐&emsp;✕</span>
+          </div>
+          <div class="term-corpo" aria-hidden="true">
+            <div class="boas-vindas"><b>✻ Welcome to Claude Code!</b><span class="so-largo">/help for help, /status for your current setup<br><br></span>cwd: C:\projetos\loja</div>
+            <p class="hist so-largo">&gt; revisa o PR anterior e me diz o que falta</p>
+            <p class="resp so-largo">● Faltam testes para o cálculo de frete e a validação de CEP.</p>
+            <div class="prompt"><span class="gt">&gt;</span><span class="colado-txt">Cria um endpoint POST /pedidos que valida o CPF do cliente, salva no Postgres e escreve os testes com pytest, incluindo o caso de CPF inválido.<i class="cursor"></i></span><i class="cursor vazio"></i></div>
+            <span class="pilula lima-bg selo-colado"><i></i>Colado de uma vez · 26 palavras</span>
+          </div>
+        </div>
+        <div class="popup p-demo" aria-hidden="true">
+          <span class="mic-tile"><svg><use href="#mic"/></svg></span>
+          <span class="pilula azul est-ouvindo"><i></i>Ouvindo</span>
+          <span class="pilula amarela est-transcrevendo"><i></i>Transcrevendo</span>
+          <strong class="est-ouvindo">Ouvindo…</strong><strong class="est-transcrevendo">Transcrevendo</strong>
+          <span class="ondas pop est-ouvindo"></span>
+          <span class="barra est-transcrevendo"><i></i></span>
+          <span class="esc">Esc cancela</span>
+        </div>
+        <ol class="linha-tempo">
+          <li data-passo="1"><span class="n">1</span><span><strong>Ctrl + Shift + Espaço</strong>em qualquer janela</span></li>
+          <li data-passo="2"><span class="n">2</span><span><strong>Ouvindo…</strong>as ondas seguem a sua voz</span></li>
+          <li data-passo="3"><span class="n">3</span><span><strong>Colado ✓</strong>texto inteiro, sem digitar</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="agentes" class="s-agentes" aria-labelledby="t-agentes">
+      <div class="wrap centro-largo">
+        <p class="chip">Compatível</p>
+        <h2 id="t-agentes">Fala com todos os seus agentes.</h2>
         <p class="sub">Se tem caixa de texto, o Arara escreve nela.</p>
-        <ul class="cards">
-          <li class="card"><img src="assets/logos/claudecode-color.svg" width="32" height="32" alt=""><span>Claude Code</span></li>
-          <li class="card"><img src="assets/logos/codex-color.svg" width="32" height="32" alt=""><span>Codex</span></li>
-          <li class="card"><i class="mono" style="--logo:url(assets/logos/cursor.svg)"></i><span>Cursor</span></li>
-          <li class="card"><img src="assets/logos/gemini-color.svg" width="32" height="32" alt=""><span>Gemini CLI</span></li>
-          <li class="card"><i class="mono" style="--logo:url(assets/logos/githubcopilot.svg)"></i><span>GitHub Copilot</span></li>
-          <li class="card"><i class="mono" style="--logo:url(assets/logos/windsurf.svg)"></i><span>Windsurf</span></li>
-          <li class="card"><i class="mono" style="--logo:url(assets/logos/grok.svg)"></i><span>Grok</span></li>
+        <ul class="agentes">
+          <li class="agente"><span class="logo-tile"><img src="assets/logos/claudecode-color.svg" width="36" height="36" alt=""></span><span>Claude Code</span></li>
+          <li class="agente"><span class="logo-tile"><img src="assets/logos/codex-color.svg" width="36" height="36" alt=""></span><span>Codex</span></li>
+          <li class="agente"><span class="logo-tile"><i class="mono" style="--logo:url(assets/logos/cursor.svg)"></i></span><span>Cursor</span></li>
+          <li class="agente"><span class="logo-tile"><img src="assets/logos/gemini-color.svg" width="36" height="36" alt=""></span><span>Gemini CLI</span></li>
+          <li class="agente"><span class="logo-tile"><i class="mono" style="--logo:url(assets/logos/githubcopilot.svg)"></i></span><span>GitHub Copilot</span></li>
+          <li class="agente"><span class="logo-tile"><i class="mono" style="--logo:url(assets/logos/windsurf.svg)"></i></span><span>Windsurf</span></li>
+          <li class="agente"><span class="logo-tile"><i class="mono" style="--logo:url(assets/logos/grok.svg)"></i></span><span>Grok</span></li>
         </ul>
+        <p class="nota-agentes">e qualquer outro app com campo de texto: navegador, Slack, Word, VS Code…</p>
       </div>
     </section>
 
     <section id="app" class="s-app" aria-labelledby="t-app">
       <div class="wrap">
-        <p class="chip">O APP</p>
-        <h2 id="t-app">Simples assim. Do jeito que está.</h2>
-        <p class="sub">Telas reais do Arara: início, histórico, dicionário e o pop-up que aparece enquanto você fala.</p>
-        <div class="telas">
-          <figure class="tela tela-principal revela">
-            <img src="assets/telas/1-inicio.png" width="1100" height="720" alt="Tela Início do Arara: pronto para ditar, atalho Ctrl + Shift + Espaço e o estado do modelo, do microfone e do histórico">
-          </figure>
-          <div class="telas-lado">
-            <figure class="tela revela" style="--d:.15s">
-              <img src="assets/telas/2-historico.png" width="1100" height="720" alt="Tela Histórico com os textos ditados">
-              <figcaption>Histórico</figcaption>
-            </figure>
-            <figure class="tela revela" style="--d:.3s">
-              <img src="assets/telas/3-dicionario.png" width="1100" height="720" alt="Tela Dicionário com termos do usuário">
-              <figcaption>Dicionário</figcaption>
-            </figure>
-            <figure class="tela revela" style="--d:.45s">
-              <img src="assets/telas/5-popup.png" width="1100" height="560" alt="Estados do pop-up de gravação: ouvindo, silêncio, transcrevendo e colado">
-              <figcaption>Pop-up de gravação</figcaption>
-            </figure>
+        <div class="app-topo">
+          <div>
+            <p class="chip">O app</p>
+            <h2 id="t-app">Simples assim.<br><span class="verde">Do jeito que está.</span></h2>
           </div>
+          <p class="sub">Telas reais do Arara. Sem conta, sem configuração difícil: abre, aperta o atalho e fala.</p>
+        </div>
+        <div class="abas" role="tablist" aria-label="Telas do app">
+          <button role="tab" id="aba-inicio" aria-controls="tela-inicio" aria-selected="true">Início</button>
+          <button role="tab" id="aba-historico" aria-controls="tela-historico" aria-selected="false" tabindex="-1">Histórico</button>
+          <button role="tab" id="aba-dicionario" aria-controls="tela-dicionario" aria-selected="false" tabindex="-1">Dicionário</button>
+          <button role="tab" id="aba-popup" aria-controls="tela-popup" aria-selected="false" tabindex="-1">Pop-up</button>
+        </div>
+        <div class="app-palco">
+          <div class="telas">
+            <img role="tabpanel" id="tela-inicio" aria-labelledby="aba-inicio" class="ativa" src="assets/telas/1-inicio.png" width="1100" height="720" alt="Tela Início: pronto para ditar, atalho Ctrl + Shift + Espaço e o estado do modelo, do microfone e do histórico">
+            <img role="tabpanel" id="tela-historico" aria-labelledby="aba-historico" src="assets/telas/2-historico.png" width="1100" height="720" alt="Tela Histórico com os textos ditados, salvos só neste computador">
+            <img role="tabpanel" id="tela-dicionario" aria-labelledby="aba-dicionario" src="assets/telas/3-dicionario.png" width="1100" height="720" alt="Tela Dicionário com termos do usuário e suas trocas">
+            <img role="tabpanel" id="tela-popup" aria-labelledby="aba-popup" src="assets/telas/5-popup.png" width="1100" height="560" alt="Estados do pop-up de gravação: ouvindo, não ouvi nada, transcrevendo e colado">
+          </div>
+          <div class="cartao c-atalho"><span class="rotulo">Atalho</span><span class="teclas"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Espaço</kbd></span></div>
+          <img class="popup-real" src="assets/telas/5-popup.png" width="1100" height="560" alt="">
         </div>
       </div>
     </section>
 
     <section id="como-funciona" class="s-passos" aria-labelledby="t-passos">
       <div class="wrap centro">
+        <p class="chip">Como funciona</p>
         <h2 id="t-passos">Três passos. Zero digitação.</h2>
         <ol class="passos">
-          <li class="passo revela">
-            <span class="num verde" aria-hidden="true">1</span>
+          <li class="passo" style="--cor: var(--verde)">
+            <span class="num" aria-hidden="true">01</span>
             <h3>Aperte o atalho</h3>
-            <p>Em qualquer janela.</p>
-            <div class="teclas"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Espaço</kbd></div>
+            <p>Em qualquer janela, com o cursor onde o texto deve entrar.</p>
+            <span class="teclas"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Espaço</kbd></span>
           </li>
-          <li class="passo revela" style="--d:.25s">
-            <span class="num azul-bg" aria-hidden="true">2</span>
+          <li class="passo meio" style="--cor: var(--azul)">
+            <span class="num" aria-hidden="true">02</span>
             <h3>Fale</h3>
-            <p>A arara ouve e mostra as ondas.</p>
-            <div class="ondas" aria-hidden="true"></div>
+            <p>Do seu jeito. O pop-up mostra as ondas enquanto ouve.</p>
+            <span class="ondas grande" aria-hidden="true"></span>
           </li>
-          <li class="passo revela" style="--d:.5s">
-            <span class="num amarelo" aria-hidden="true">3</span>
+          <li class="passo" style="--cor: var(--amarelo)">
+            <span class="num" aria-hidden="true">03</span>
             <h3>Pronto, colado</h3>
-            <p>O texto aparece onde está o cursor.</p>
-            <span class="colado">Colado ✓</span>
+            <p>O texto aparece inteiro onde está o cursor. É só enviar.</p>
+            <span class="pilula amarela grande">Colado ✓</span>
           </li>
         </ol>
       </div>
     </section>
 
-    <section class="s-cta" aria-labelledby="t-cta">
-      <div class="wrap centro">
-        <h2 id="t-cta">Comece a falar com seu agente hoje.</h2>
+    <section id="baixar" class="s-cta" aria-labelledby="t-cta">
+      <div class="enfeites" aria-hidden="true">
+        <svg class="traco t3"><use href="#nuvem-traco"/></svg>
+        <i class="brilho b4 lima"></i>
+        <svg class="fofa f5"><use href="#nuvem-fofa"/></svg>
+        <svg class="fofa f6"><use href="#nuvem-fofa"/></svg>
+        <div class="morros"></div>
+      </div>
+      <div class="wrap centro cta-conteudo">
+        <h2 id="t-cta">Sua voz, <span class="lima">direto no cursor.</span></h2>
         <div class="baixar">
-          <img id="ave-pousada" class="px" src="assets/img/arara-pousada.png" width="124" height="152" alt="">
-          <a id="btn-baixar" class="btn btn-verde btn-grande" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
+          <span class="pouso" aria-hidden="true"></span>
+          <a id="btn-baixar" class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows <span class="seta" aria-hidden="true">→</span></a>
         </div>
-        <p class="nota">Windows 10 e 11 · roda sem internet depois do download do modelo</p>
+        <p class="nota">Windows 10 e 11 · roda sem internet<span class="so-largo"> depois de baixar o modelo</span></p>
       </div>
     </section>
   </main>
 
   <footer class="rodape">
-    <div class="wrap rodape-linha">
-      <p>Arara · ditado por voz em PT-BR</p>
-      <p><a href="https://github.com/davimatosms/Arara-voice">GitHub</a> · <a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></p>
+    <div class="wrap rodape-grid">
+      <div>
+        <a class="marca" href="#"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+        <p class="suave">Ditado por voz em PT-BR, 100% local.</p>
+      </div>
+      <div>
+        <ul class="rodape-links">
+          <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+        </ul>
+        <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
+      </div>
     </div>
-    <p class="wrap marcas">Marcas e logos pertencem aos respectivos donos.</p>
   </footer>
 
-  <div id="ave" aria-hidden="true"></div>
   <script src="main.js"></script>
 </body>
 </html>
