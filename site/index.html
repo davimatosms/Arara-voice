@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arara · ditado por voz em PT-BR</title>
+  <meta name="description" content="Aperte um atalho, fale o que quer pedir ao seu agente e o Arara cola o texto onde está o cursor. 100% local, feito para o português do Brasil.">
+  <meta name="theme-color" content="#0F1712">
+  <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // liga as animações só se o usuário não pediu movimento reduzido (sem JS, tudo fica estático)
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("anim");
+  </script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="hero">
+    <nav class="nav" aria-label="Principal">
+      <a class="marca" href="#">
+        <img id="logo-ave" class="px" src="assets/img/arara-pousada.png" width="62" height="76" alt="">
+        <span>Arara</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#como-funciona">Como funciona</a></li>
+        <li><a href="#agentes">Agentes</a></li>
+        <li><a href="#app">O app</a></li>
+      </ul>
+      <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
+    </nav>
+
+    <div class="hero-texto">
+      <p class="chip chip-claro">100% local · feito para o português do Brasil</p>
+      <h1>Pare de digitar.<br><span class="azul">Fale com seu agente.</span></h1>
+      <p class="hero-sub">Aperte um atalho, fale o que quer pedir ao Claude Code, Codex ou qualquer app, e o Arara cola o texto onde está o cursor. Sem nuvem.</p>
+      <div class="hero-botoes">
+        <a class="btn btn-verde" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
+        <a class="btn btn-branco" href="#como-funciona">Ver como funciona</a>
+      </div>
+    </div>
+
+    <div class="paisagem" aria-hidden="true"></div>
+    <img id="hero-ave" class="px hero-ave" src="assets/img/arara-galho.png" width="186" height="252" alt="Arara-canindé em pixel art pousada num galho">
+  </header>
+
+  <main id="conteudo">
+    <section class="s-oque" aria-labelledby="t-oque">
+      <div class="wrap duas-col">
+        <div>
+          <p class="chip">O QUE É</p>
+          <h2 id="t-oque">Digitar prompt cansa.<br>Falar é natural.</h2>
+          <p class="sub">O Arara nasceu para conversar com agentes de código. Você explica o que quer em voz alta, do jeito que explicaria para um colega, e ele transforma em texto pronto para enviar.</p>
+          <ul class="lista">
+            <li>Funciona em qualquer janela: terminal, IDE, navegador, chat.</li>
+            <li>Entende português do Brasil, com sotaque e gíria.</li>
+            <li>Roda no seu PC. Sua voz não sai da máquina.</li>
+          </ul>
+        </div>
+        <div class="poleiro" aria-hidden="true">
+          <span class="rastro"></span><span class="rastro"></span><span class="rastro"></span><span class="rastro"></span>
+          <div id="vaga-ave" class="ave-parada"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="agentes" class="s-agentes" aria-labelledby="t-agentes">
+      <div class="wrap centro">
+        <p class="chip">COMPATÍVEL</p>
+        <h2 id="t-agentes">Fala com todos os seus agentes</h2>
+        <p class="sub">Se tem caixa de texto, o Arara escreve nela.</p>
+        <ul class="cards">
+          <li class="card"><img src="assets/logos/claudecode-color.svg" width="32" height="32" alt=""><span>Claude Code</span></li>
+          <li class="card"><img src="assets/logos/codex-color.svg" width="32" height="32" alt=""><span>Codex</span></li>
+          <li class="card"><i class="mono" style="--logo:url(assets/logos/cursor.svg)"></i><span>Cursor</span></li>
+          <li class="card"><img src="assets/logos/gemini-color.svg" width="32" height="32" alt=""><span>Gemini CLI</span></li>
+          <li class="card"><i class="mono" style="--logo:url(assets/logos/githubcopilot.svg)"></i><span>GitHub Copilot</span></li>
+          <li class="card"><i class="mono" style="--logo:url(assets/logos/windsurf.svg)"></i><span>Windsurf</span></li>
+          <li class="card"><i class="mono" style="--logo:url(assets/logos/grok.svg)"></i><span>Grok</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="app" class="s-app" aria-labelledby="t-app">
+      <div class="wrap">
+        <p class="chip">O APP</p>
+        <h2 id="t-app">Simples assim. Do jeito que está.</h2>
+        <p class="sub">Telas reais do Arara: início, histórico, dicionário e o pop-up que aparece enquanto você fala.</p>
+        <div class="telas">
+          <figure class="tela tela-principal revela">
+            <img src="assets/telas/1-inicio.png" width="1100" height="720" alt="Tela Início do Arara: pronto para ditar, atalho Ctrl + Shift + Espaço e o estado do modelo, do microfone e do histórico">
+          </figure>
+          <div class="telas-lado">
+            <figure class="tela revela" style="--d:.15s">
+              <img src="assets/telas/2-historico.png" width="1100" height="720" alt="Tela Histórico com os textos ditados">
+              <figcaption>Histórico</figcaption>
+            </figure>
+            <figure class="tela revela" style="--d:.3s">
+              <img src="assets/telas/3-dicionario.png" width="1100" height="720" alt="Tela Dicionário com termos do usuário">
+              <figcaption>Dicionário</figcaption>
+            </figure>
+            <figure class="tela revela" style="--d:.45s">
+              <img src="assets/telas/5-popup.png" width="1100" height="560" alt="Estados do pop-up de gravação: ouvindo, silêncio, transcrevendo e colado">
+              <figcaption>Pop-up de gravação</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="s-passos" aria-labelledby="t-passos">
+      <div class="wrap centro">
+        <h2 id="t-passos">Três passos. Zero digitação.</h2>
+        <ol class="passos">
+          <li class="passo revela">
+            <span class="num verde" aria-hidden="true">1</span>
+            <h3>Aperte o atalho</h3>
+            <p>Em qualquer janela.</p>
+            <div class="teclas"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Espaço</kbd></div>
+          </li>
+          <li class="passo revela" style="--d:.25s">
+            <span class="num azul-bg" aria-hidden="true">2</span>
+            <h3>Fale</h3>
+            <p>A arara ouve e mostra as ondas.</p>
+            <div class="ondas" aria-hidden="true"></div>
+          </li>
+          <li class="passo revela" style="--d:.5s">
+            <span class="num amarelo" aria-hidden="true">3</span>
+            <h3>Pronto, colado</h3>
+            <p>O texto aparece onde está o cursor.</p>
+            <span class="colado">Colado ✓</span>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="s-cta" aria-labelledby="t-cta">
+      <div class="wrap centro">
+        <h2 id="t-cta">Comece a falar com seu agente hoje.</h2>
+        <div class="baixar">
+          <img id="ave-pousada" class="px" src="assets/img/arara-pousada.png" width="124" height="152" alt="">
+          <a id="btn-baixar" class="btn btn-verde btn-grande" href="https://github.com/davimatosms/Arara-voice/releases">Baixar para Windows</a>
+        </div>
+        <p class="nota">Windows 10 e 11 · roda sem internet depois do download do modelo</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap rodape-linha">
+      <p>Arara · ditado por voz em PT-BR</p>
+      <p><a href="https://github.com/davimatosms/Arara-voice">GitHub</a> · <a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></p>
+    </div>
+    <p class="wrap marcas">Marcas e logos pertencem aos respectivos donos.</p>
+  </footer>
+
+  <div id="ave" aria-hidden="true"></div>
+  <script src="main.js"></script>
+</body>
+</html>

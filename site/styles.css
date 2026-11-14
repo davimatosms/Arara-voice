@@ -1,0 +1,236 @@
+/* Paleta Canindé (DECISOES.md) */
+:root {
+  --verde: #6CC93A;
+  --verde-claro: #9BE36A;
+  --azul: #1C72CF;
+  --amarelo: #FFC93C;
+  --fundo: #0F1712;
+  --fundo-2: #0B120D;
+  --sup: #18221B;
+  --borda: #2A3A2E;
+  --texto: #EEF5EC;
+  --suave: #9AAE9E;
+  --escuro: #0B140D;
+  --px: 8; /* escala da paisagem: 8x no desktop */
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Nunito Sans", system-ui, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+img { max-width: 100%; height: auto; }
+.px { image-rendering: pixelated; }
+h1, h2, h3 { margin: 0; line-height: 1.12; font-weight: 800; letter-spacing: -0.01em; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--amarelo); outline-offset: 3px; border-radius: 6px; }
+
+.pular {
+  position: absolute; left: 16px; top: -60px; z-index: 50;
+  background: var(--amarelo); color: var(--escuro); padding: 10px 16px; border-radius: 8px; font-weight: 700;
+}
+.pular:focus { top: 12px; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+.centro { text-align: center; }
+
+.chip {
+  display: inline-block; margin: 0 0 18px; padding: 5px 14px; border-radius: 999px;
+  background: #1D3322; color: var(--verde); font-size: 14px; font-weight: 700; letter-spacing: .02em;
+}
+.chip-claro { background: #E3F3DA; color: #2F6B18; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
+  padding: 12px 26px; border-radius: 999px; font-weight: 700; font-size: 16px; text-decoration: none;
+  transition: transform .2s, background-color .2s, box-shadow .2s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-verde { background: var(--verde); color: var(--escuro); box-shadow: 0 8px 24px #6cc93a40; }
+.btn-verde:hover { background: var(--verde-claro); }
+.btn-escuro { background: var(--escuro); color: #fff; min-height: 46px; font-size: 15px; }
+.btn-branco { background: #fff; color: var(--escuro); border: 1px solid #C9DCCB; }
+.btn-grande { min-height: 52px; padding: 14px 30px; }
+
+/* ---------- 1 · Hero ---------- */
+.hero {
+  position: relative; overflow: hidden; color: var(--escuro);
+  min-height: 920px; background: linear-gradient(#F7FBF5, #EAF7FF);
+}
+.nav {
+  position: relative; z-index: 3; max-width: 1240px; margin: 0 auto; padding: 14px 20px;
+  display: flex; align-items: center; gap: 24px;
+}
+.marca { display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: 24px; font-weight: 800; margin-right: auto; }
+.marca img { width: 62px; height: 76px; }
+.nav-links { display: flex; gap: 44px; list-style: none; margin: 0 32px 0 0; padding: 0; }
+.nav-links a { text-decoration: none; font-weight: 600; color: #2B3A2F; }
+.nav-links a:hover { color: var(--azul); }
+
+.hero-texto { position: relative; z-index: 3; text-align: center; padding: 22px 20px 0; max-width: 1040px; margin: 0 auto; }
+.hero h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: 1.06; letter-spacing: -0.02em; }
+.azul { color: var(--azul); }
+.hero-sub { max-width: 720px; margin: 22px auto 26px; font-size: 19px; line-height: 1.55; color: #3D5143; }
+.hero-botoes { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+.paisagem {
+  position: absolute; left: 0; right: 0; bottom: 0; height: calc(60px * var(--px));
+  background: url(assets/img/paisagem.png) center bottom / calc(320px * var(--px)) calc(60px * var(--px)) repeat-x;
+  image-rendering: pixelated;
+}
+.paisagem::before { /* névoa entre o céu claro do topo e a paisagem */
+  content: ""; position: absolute; left: 0; right: 0; top: -20px; height: 120px;
+  background: linear-gradient(#F3FAF6, #F3FAF600);
+}
+.hero-ave {
+  position: absolute; z-index: 2; width: 186px; height: 252px;
+  left: calc(50% + 330px); bottom: 108px;
+}
+
+/* ---------- 2 · O que é ---------- */
+.s-oque { position: relative; padding: 170px 0 140px; background: var(--fundo); }
+.s-oque::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 90px;
+  background: linear-gradient(#9CD2F8, var(--fundo));
+}
+.duas-col { display: grid; grid-template-columns: minmax(0, 620px) 1fr; gap: 40px; align-items: center; }
+h2 { font-size: clamp(32px, 4.2vw, 52px); }
+.sub { color: var(--suave); font-size: 19px; line-height: 1.6; margin: 18px 0 0; max-width: 640px; }
+.centro .sub { margin-left: auto; margin-right: auto; }
+.lista { list-style: none; padding: 0; margin: 30px 0 0; display: grid; gap: 14px; font-weight: 600; font-size: 17px; }
+.lista li { position: relative; padding-left: 24px; }
+.lista li::before { content: ""; position: absolute; left: 0; top: .5em; width: 10px; height: 10px; border-radius: 2px; background: var(--verde); }
+
+.poleiro { position: relative; height: 360px; }
+.ave-parada { /* a arara do voo, parada (vista sem animação); com animação, a #ave voa aqui */
+  position: absolute; right: 8%; top: 50%; width: 243px; height: 174px; margin-top: -87px;
+  background: url(assets/img/folha-voo.png) -486px 0 / 1458px 174px no-repeat; image-rendering: pixelated;
+}
+.anim .ave-parada { visibility: hidden; }
+.rastro { position: absolute; width: 10px; height: 10px; border-radius: 2px; background: var(--verde-claro); }
+.rastro:nth-child(1) { left: 0; top: 0; opacity: .25; }
+.rastro:nth-child(2) { left: 60px; top: 60px; opacity: .4; }
+.rastro:nth-child(3) { left: 130px; top: 110px; opacity: .55; }
+.rastro:nth-child(4) { left: 210px; top: 150px; opacity: .7; }
+
+/* ---------- 3 · Agentes ---------- */
+.s-agentes { padding: 120px 0 150px; background: var(--fundo-2); overflow: hidden; }
+.cards {
+  list-style: none; padding: 0; margin: 72px auto 0; max-width: 1240px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
+}
+.card {
+  width: 152px; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--sup); border: 1px solid var(--borda); border-radius: 18px; font-weight: 700; font-size: 16px;
+  transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), border-color .3s, box-shadow .3s, opacity .4s;
+}
+.card img, .card .mono { width: 32px; height: 32px; }
+.mono {
+  display: block; background: var(--texto);
+  -webkit-mask: var(--logo) center / contain no-repeat; mask: var(--logo) center / contain no-repeat;
+}
+.card.pega { border: 2px solid var(--verde); box-shadow: 0 18px 40px #0008; transform: translateY(-12px) rotate(-6deg); }
+.card.sumiu { opacity: 0; transition: none; }
+.card.volta { animation: volta .5s ease-out; }
+@keyframes volta { from { opacity: 0; transform: scale(.8); } }
+
+/* ---------- 4 · O app ---------- */
+.s-app { padding: 110px 0 140px; background: var(--fundo); }
+.telas { display: grid; grid-template-columns: minmax(0, 880px) minmax(0, 280px); gap: 40px; margin-top: 40px; align-items: start; }
+.tela { margin: 0; }
+.tela img { display: block; border-radius: 10px; border: 1px solid var(--borda); }
+.tela-principal img { border-radius: 14px; box-shadow: 0 24px 60px #00000080; }
+.telas-lado { display: grid; gap: 28px; }
+.tela figcaption { margin-top: 8px; color: var(--suave); font-weight: 600; font-size: 14px; }
+
+/* ---------- 5 · Como funciona ---------- */
+.s-passos { padding: 110px 0; background: var(--fundo-2); }
+.passos { list-style: none; padding: 0; margin: 64px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; text-align: left; }
+.passo { background: var(--sup); border: 1px solid var(--borda); border-radius: 24px; padding: 32px; min-height: 300px; display: flex; flex-direction: column; }
+.passo h3 { font-size: 26px; margin-top: 28px; }
+.passo p { color: var(--suave); font-size: 17px; margin: 10px 0 auto; padding-bottom: 28px; }
+.num { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 20px; color: var(--escuro); }
+.num.verde { background: var(--verde); }
+.num.azul-bg { background: var(--azul); }
+.num.amarelo { background: var(--amarelo); }
+.teclas { display: flex; gap: 10px; }
+kbd { font: inherit; font-weight: 700; font-size: 16px; padding: 8px 14px; border-radius: 10px; background: var(--fundo-2); border: 1px solid var(--borda); }
+.ondas { display: flex; align-items: center; gap: 8px; height: 48px; }
+.ondas i { width: 6px; height: var(--h); border-radius: 3px; background: var(--azul); transform-origin: center; }
+.colado { align-self: flex-start; padding: 6px 14px; border-radius: 999px; background: #3A3214; color: var(--amarelo); font-weight: 700; font-size: 14px; }
+
+/* ---------- 6 · Download e rodapé ---------- */
+.s-cta { padding: 120px 0 64px; background: linear-gradient(var(--fundo), #163A20); }
+.s-cta h2 { font-size: clamp(30px, 3.6vw, 44px); }
+.baixar { position: relative; display: inline-block; margin-top: 190px; }
+#ave-pousada { position: absolute; left: 50%; bottom: calc(100% - 8px); width: 124px; height: 152px; margin-left: -62px; }
+.nota { color: var(--suave); font-size: 14px; margin: 18px 0 0; }
+.rodape { background: #163A20; color: var(--suave); font-size: 14px; padding-bottom: 28px; }
+.rodape-linha { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid var(--borda); padding-top: 22px; font-weight: 600; }
+.rodape-linha p { margin: 0; }
+.rodape a { text-decoration: none; }
+.rodape a:hover { color: var(--texto); text-decoration: underline; }
+.marcas { margin: 10px auto 0; font-size: 12px; opacity: .8; }
+
+/* ---------- arara que voa (só com .anim) ---------- */
+#ave {
+  position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; display: none;
+  background: url(assets/img/folha-voo.png) 0 0 no-repeat; image-rendering: pixelated; will-change: transform;
+}
+.anim #ave { display: block; }
+.anim #logo-ave.solta { visibility: hidden; }
+.anim #ave-pousada { visibility: hidden; }
+.anim #ave-pousada.pousou { visibility: visible; animation: pousa .35s ease-out; }
+@keyframes pousa { 50% { transform: translateY(6px) scaleY(.94); } }
+
+/* ---------- entradas no scroll ---------- */
+.anim .hero-texto > * { animation: sobe .8s both cubic-bezier(.2, .8, .2, 1); }
+.anim .hero-texto > :nth-child(2) { animation-delay: .1s; }
+.anim .hero-texto > :nth-child(3) { animation-delay: .2s; }
+.anim .hero-texto > :nth-child(4) { animation-delay: .3s; }
+@keyframes sobe { from { opacity: 0; transform: translateY(24px); } }
+
+.anim .revela {
+  opacity: 0; transform: translateY(56px) scale(.97); filter: blur(8px);
+  transition: opacity .8s, transform .9s cubic-bezier(.2, .8, .2, 1), filter .9s; transition-delay: var(--d, 0s);
+}
+.anim .revela.in { opacity: 1; transform: none; filter: none; }
+.anim .ondas i { animation: onda 1s ease-in-out infinite alternate; animation-delay: var(--atraso); animation-play-state: paused; }
+.anim .passo.in .ondas i { animation-play-state: running; }
+@keyframes onda { from { transform: scaleY(.25); } }
+
+/* ---------- celular ---------- */
+@media (max-width: 900px) {
+  :root { --px: 4; }
+  .nav-links { display: none; }
+  .hero { min-height: 760px; }
+  .hero-ave { width: 93px; height: 126px; left: auto; right: 8%; bottom: 58px; }
+  .duas-col, .telas { grid-template-columns: 1fr; }
+  .poleiro { height: 200px; }
+  .ave-parada { width: 162px; height: 116px; margin-top: -58px; right: auto; left: 50%; margin-left: -81px; background-size: 972px 116px; background-position: -324px 0; }
+  .rastro { display: none; }
+  .telas-lado { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .passos { grid-template-columns: 1fr; }
+  .passo { min-height: 0; }
+}
+@media (max-width: 560px) {
+  .nav { padding: 10px 16px; gap: 12px; }
+  .marca img { width: 31px; height: 38px; }
+  .btn-escuro { padding: 10px 16px; font-size: 14px; min-height: 44px; }
+  .wrap { padding: 0 16px; }
+  .hero-sub { font-size: 17px; }
+  .s-oque { padding: 120px 0 80px; }
+  .s-agentes, .s-app, .s-passos { padding: 80px 0; }
+  .cards { gap: 12px; margin-top: 48px; }
+  .card { width: calc(50% - 6px); }
+  .telas-lado { grid-template-columns: 1fr; }
+  .passo { padding: 24px; }
+  .ondas { gap: 5px; }
+  .s-cta { padding-top: 90px; }
+}
