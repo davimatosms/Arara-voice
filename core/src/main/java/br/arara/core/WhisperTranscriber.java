@@ -83,7 +83,12 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     }
 
     @Override
-    public synchronized String transcribe(short[] pcm16k) {
+    public String transcribe(short[] pcm16k) {
+        return transcribe(pcm16k, "");
+    }
+
+    @Override
+    public synchronized String transcribe(short[] pcm16k, String previous) {
         try {
             prepare(p -> {}); // a UI deveria ter chamado antes; aqui só garante
         } catch (IOException e) {
@@ -100,7 +105,9 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         // shortcut: whisper.cpp avisa que pode perder precisão; voltar ao padrão (0) se aparecer erro em frase curta.
         params.audioCtx = Math.min(1500, samples.length / 320 + 64);
         params.language = "pt";
-        params.initialPrompt = PROMPT;
+        // O prompt do Whisper aceita ~224 tokens; o fim do texto anterior basta para a continuidade.
+        String tail = previous.length() > 300 ? previous.substring(previous.length() - 300) : previous;
+        params.initialPrompt = tail.isBlank() ? PROMPT : PROMPT + " " + tail.strip();
         params.printProgress = false;
         params.printTimestamps = false;
         params.suppressNonSpeechTokens = true;

@@ -34,6 +34,7 @@ import javax.sound.sampled.AudioSystem;
  * ./gradlew e2e --args="whisper LEVE"  # só um modelo
  * ./gradlew e2e --args="fluxo"      # 4 e 5: AraraCore + atalho + Notepad, Esc, gravação sem fala
  * ./gradlew e2e --args="colar"      # só o ClipboardPaster no Notepad, 5 vezes (diagnóstico)
+ * ./gradlew e2e --args="longo"      # ditado de ~30 s: tudo no fim (antes) contra incremental (depois), LEVE e PRECISO
  * </pre>
  *
  * Precisa de alto-falante ligado (não mudo) perto do microfone padrão e da voz pt-BR do Windows (Maria).
@@ -66,6 +67,7 @@ public final class E2E {
             if (what.equals("whisper") || what.equals("tudo")) whisper(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("fluxo") || what.equals("tudo")) fluxo();
             if (what.equals("colar")) colar();
+            if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
         } finally {
             System.out.println("\n===== RELATÓRIO =====");
             report.forEach(System.out::println);
@@ -185,6 +187,139 @@ public final class E2E {
             log("%s: latência %.2f s (1ª) / %.2f s (2ª), WER %.0f%%", m, secs[0], secs[1], wer * 100);
             result("3. Whisper " + m, wer <= 0.25, "latência %.2f s / %.2f s, WER %.0f%%, \"%s\"", secs[0], secs[1], wer * 100, text);
         }
+    }
+
+    // ---------- ditado longo: antes x depois ----------
+
+    static final String LONGO = "Bom dia, pessoal. Hoje eu quero contar como foi a reunião de planejamento da semana passada. "
+            + "Nós decidimos lançar a nova versão do aplicativo no começo do mês que vem, depois de corrigir os erros mais graves. "
+            + "A equipe de design vai entregar as telas novas até sexta-feira, e o time de testes começa na segunda. "
+            + "Obrigado a todos pela ajuda.";
+
+    /**
+     * Grava o ditado longo uma vez (voz do Windows pelo alto-falante, microfone real) e toca a gravação no engine em
+     * tempo real, para os dois fluxos receberem o mesmo áudio. Latência = da parada (fim do áudio) até o texto final.
+     * Não usa o atalho global (o Arara do usuário pode estar aberto com ele) nem cola: chama o engine direto.
+     */
+    static void longo(Settings.Model only) throws Exception {
+        log("== Ditado longo ==");
+        Path wav = OUT.resolve("longo.wav");
+        if (!Files.exists(wav)) {
+            List<short[]> chunks = new ArrayList<>();
+            Microphone mic = new Microphone(() -> null);
+            try {
+                mic.start(c -> { synchronized (chunks) { chunks.add(c); } });
+            } catch (Exception e) {
+                result("Ditado longo", false, "microfone ocupado ou indisponível: %s", e);
+                return;
+            }
+            Thread.sleep(2500);
+            long t = System.nanoTime();
+            speak(LONGO).waitFor();
+            log("voz falou por %.1f s", (System.nanoTime() - t) / 1e9);
+            Thread.sleep(1000); // o usuário aperta o atalho ~1 s depois de terminar
+            mic.stop();
+            synchronized (chunks) {
+                writeWav(join(chunks), wav);
+            }
+        }
+        short[] full = readWav(wav);
+        Vad v = new Vad();
+        for (int i = 0; i + 512 <= full.length; i += 512) v.feed(Arrays.copyOfRange(full, i, i + 512));
+        double speech = (v.speechEnd() - v.speechStart()) / (double) Vad.RATE;
+        log("gravação %s: %.1f s, fala %.1f s, %d palavras", wav, full.length / (double) Vad.RATE, speech, words(LONGO).length);
+
+        for (Settings.Model m : new Settings.Model[] {Settings.Model.LEVE, Settings.Model.PRECISO}) {
+            if (only != null && m != only) continue;
+            WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
+            w.prepare(p -> {});
+            w.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // aquece
+
+            // antes: o fluxo antigo, tudo no Whisper depois da parada
+            long t = System.nanoTime();
+            String before = w.transcribe(DefaultDictationEngine.speechOnly(full, full.length, v));
+            double beforeS = (System.nanoTime() - t) / 1e9;
+
+            // depois: engine incremental recebendo a gravação em tempo real
+            long t0 = System.nanoTime();
+            List<String> parts = new ArrayList<>();
+            Transcriber logged = new Transcriber() {
+                @Override public String transcribe(short[] pcm) { return transcribe(pcm, ""); }
+                @Override public String transcribe(short[] pcm, String previous) {
+                    long s = System.nanoTime();
+                    String r = w.transcribe(pcm, previous);
+                    parts.add(String.format("[%.1f s: trecho %.1f s em %.2f s] %s", (s - t0) / 1e9,
+                            pcm.length / (double) Vad.RATE, (System.nanoTime() - s) / 1e9, r));
+                    return r;
+                }
+            };
+            Path data = Files.createTempDirectory("arara-e2e-longo-");
+            BlockingQueue<String> results = new LinkedBlockingQueue<>();
+            DefaultDictationEngine engine = new DefaultDictationEngine(new JsonlHistoryStore(data.resolve("h.jsonl")),
+                    new JsonDictionaryStore(data.resolve("d.json")), logged, new Replay(full), text -> results.add(text));
+            engine.addListener(new DictationListener() {
+                @Override public void onError(String msg) { results.add("ERRO: " + msg); }
+            });
+            engine.toggle();
+            Replay.done.await();
+            long stop = System.nanoTime();
+            engine.toggle();
+            String after = String.valueOf(results.poll(5, TimeUnit.MINUTES));
+            double afterS = (System.nanoTime() - stop) / 1e9;
+            engine.close();
+            w.close();
+            parts.forEach(p -> log("  %s", p));
+            double werB = wer(LONGO, before), werA = wer(LONGO, after);
+            log("%s antes: %.2f s, WER %.0f%%, \"%s\"", m, beforeS, werB * 100, before);
+            log("%s depois: %.2f s, WER %.0f%%, \"%s\"", m, afterS, werA * 100, after);
+            result("Ditado longo " + m, afterS < beforeS && werA <= werB + 0.05,
+                    "fala %.1f s; antes %.2f s (WER %.0f%%); depois %.2f s (WER %.0f%%); %d trechos",
+                    speech, beforeS, werB * 100, afterS, werA * 100, parts.size());
+        }
+    }
+
+    /** Toca a gravação no engine em blocos de 512 amostras, no ritmo do microfone de verdade. */
+    static final class Replay implements DefaultDictationEngine.AudioSource {
+        static java.util.concurrent.CountDownLatch done;
+        final short[] pcm;
+        volatile boolean running;
+
+        Replay(short[] pcm) {
+            this.pcm = pcm;
+            done = new java.util.concurrent.CountDownLatch(1);
+        }
+
+        @Override
+        public void start(java.util.function.Consumer<short[]> onChunk) {
+            running = true;
+            Thread t = new Thread(() -> {
+                long next = System.nanoTime();
+                for (int i = 0; i + 512 <= pcm.length && running; i += 512) {
+                    next += 32_000_000; // 512 amostras a 16 kHz
+                    long wait = next - System.nanoTime();
+                    if (wait > 0) java.util.concurrent.locks.LockSupport.parkNanos(wait);
+                    onChunk.accept(Arrays.copyOfRange(pcm, i, i + 512));
+                }
+                done.countDown();
+            }, "arara-microfone");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        @Override
+        public void stop() {
+            running = false;
+        }
+    }
+
+    static short[] join(List<short[]> chunks) {
+        short[] all = new short[chunks.stream().mapToInt(c -> c.length).sum()];
+        int off = 0;
+        for (short[] c : chunks) {
+            System.arraycopy(c, 0, all, off, c.length);
+            off += c.length;
+        }
+        return all;
     }
 
     // ---------- 4 e 5: fluxo completo ----------

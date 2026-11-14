@@ -12,7 +12,7 @@ final class Vad {
     private static final long TIMEOUT_AFTER = RATE * 60L * 5; // 5 min
     private static final double MIN_SPEECH_DB = -50;
     private static final double MARGIN_DB = 12;
-    private static final int SPEECH_CHUNKS = 3; // ~100 ms seguidos: um clique não conta como fala
+    static final int SPEECH_CHUNKS = 3; // ~100 ms seguidos: um clique não conta como fala
 
     private double floorDb = -60;
     private int loudRun;
