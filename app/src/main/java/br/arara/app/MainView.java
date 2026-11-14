@@ -52,6 +52,7 @@ final class MainView extends JPanel implements DictationListener {
     private final Ui.Badge status = new Ui.Badge("Pronto", Theme.GREEN);
     private final JLabel modelName = Ui.label("", Theme.semibold(15), Theme.TEXT);
     private final JLabel modelInfo = Ui.label("", Theme.regular(12), Theme.TEXT_SOFT);
+    private final Ui.Badge modelBadge = new Ui.Badge("Pronto", Theme.GREEN);
     private final CardLayout cards = new CardLayout();
     private final JPanel body = new JPanel(cards);
     private Page current;
@@ -106,6 +107,11 @@ final class MainView extends JPanel implements DictationListener {
         modelInfo.setText((s.accel() == Settings.Accel.CPU ? "CPU" : "Vulkan") + " · 100% local");
     }
 
+    /** Estado do modelo de voz no cartão da barra lateral ("Baixando 42%", "Pronto"...). */
+    void modelStatus(String text, java.awt.Color color) {
+        modelBadge.set(text, color, false);
+    }
+
     private JPanel sidebar() {
         JPanel side = new JPanel(new BorderLayout());
         side.setBackground(Theme.SURFACE);
@@ -146,7 +152,7 @@ final class MainView extends JPanel implements DictationListener {
         JLabel cpu = new JLabel(Ui.icon("cpu", 24, Theme.TEXT));
         cpu.setVerticalAlignment(SwingConstants.TOP);
         model.add(cpu, BorderLayout.WEST);
-        model.add(Ui.column(modelName, modelInfo, Ui.gap(6), new Ui.Badge("Pronto", Theme.GREEN)));
+        model.add(Ui.column(modelName, modelInfo, Ui.gap(6), modelBadge));
 
         side.add(menu, BorderLayout.NORTH);
         side.add(model, BorderLayout.SOUTH);
