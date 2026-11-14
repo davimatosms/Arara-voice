@@ -46,6 +46,39 @@ class ScreenshotTest {
         });
     }
 
+    /** Quadros da arara viva no pop-up: bico fechado, aberto com notinhas, piscando e o voo do "Colado!". */
+    @Test
+    void desenhaAraraViva() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            RecordingPopup popup = new RecordingPopup(new DemoCore().settings());
+            popup.onResult(new HistoryEntry(LocalDateTime.now(), "Oi, pessoal! Só passando para avisar"));
+            popup.show(DictationState.LISTENING);
+            popup.onLevel(0.1f);
+            popup.tick();
+            save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "viva-1-bico-fechado");
+            for (int i = 0; i < 20; i++) {
+                popup.onLevel(0.6f + 0.3f * (i % 2));
+                popup.tick();
+                if (i == 3) save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "viva-2-entreaberto");
+            }
+            while (popup.arara.notes.size() < 3 || popup.arara.sprite == Arara.PISCAR) popup.tick();
+            save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "viva-3-aberto-notinhas");
+            popup.show(DictationState.SILENCE);
+            while (popup.arara.sprite != Arara.PISCAR) popup.tick();
+            save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "viva-4-piscando");
+            popup.show(DictationState.PASTED);
+            for (int t = 1; t <= Arara.VOO.length * Arara.FLY_TICKS; t++) {
+                popup.tick();
+                if (t % Arara.FLY_TICKS == 1) {
+                    save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "viva-5-voo-" + t / Arara.FLY_TICKS);
+                }
+            }
+        });
+    }
+
     /** Põe o componente num JFrame que nunca aparece, só para ter layout de verdade, e desenha num PNG. */
     private static void save(JComponent c, int w, int h, String name) {
         JFrame f = new JFrame();

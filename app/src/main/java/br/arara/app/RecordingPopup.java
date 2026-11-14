@@ -24,10 +24,10 @@ import java.awt.Window;
 
 /** Pop-up de gravação: sempre por cima, sem roubar o foco, perto do pé da tela. */
 final class RecordingPopup implements DictationListener {
-    private static final int WIDTH = 480, HEIGHT = 150;
+    private static final int WIDTH = 500, HEIGHT = 150;
 
     private final SettingsStore settings;
-    private final Arara arara = new Arara(2);
+    final Arara arara = new Arara(2);
     private final Waves mini = new Waves(22, 2, 4, 10);
     private final Waves waves = new Waves(27, 4, 6, 34);
     private final Ui.Badge badge = new Ui.Badge();
@@ -53,7 +53,7 @@ final class RecordingPopup implements DictationListener {
         hide.setRepeats(false);
 
         Ui.Round box = new Ui.Round(new BorderLayout(), Theme.BG, null, 22);
-        box.setPreferredSize(new Dimension(150, 122));
+        box.setPreferredSize(new Dimension(170, 122)); // 170: cabe o voo (75 px de sprite x 2) com folga
         box.setBorder(new EmptyBorder(6, 0, 10, 0));
         box.add(arara);
         box.add(mini, BorderLayout.SOUTH);
@@ -114,11 +114,14 @@ final class RecordingPopup implements DictationListener {
 
     /** Ajusta o conteúdo para o estado, sem abrir janela. */
     void show(DictationState s) {
+        if (s != state) {
+            frame = 0;
+            arara.reset();
+        }
         state = s;
         boolean recording = s == DictationState.LISTENING || s == DictationState.SILENCE;
         waves.dashed = s == DictationState.SILENCE;
         mini.dashed = s != DictationState.LISTENING;
-        arara.hop = 0;
         arara.mark = s == DictationState.SILENCE ? "?" : s == DictationState.TRANSCRIBING ? "..." : null;
         switch (s) {
             case LISTENING -> set("Ouvindo", Theme.BLUE, true, "Ouvindo", "waves");
@@ -152,19 +155,12 @@ final class RecordingPopup implements DictationListener {
         middleCards.show(middle, card);
     }
 
-    /** Animação simples: pulinhos conforme a voz; os sprites animados vêm depois. */
-    private void tick() {
+    /** Arara viva: bico segue a voz, notinhas, piscar e voo no "Colado!". Só roda com o pop-up aberto. */
+    void tick() {
         frame++;
-        switch (state) {
-            case LISTENING -> arara.hop = level > 0.35f && (frame / 4) % 2 == 0 ? -1 : 0;
-            case TRANSCRIBING -> {
-                arara.hop = (frame / 12) % 2 == 0 ? -1 : 0;
-                // Sem progresso real do Whisper: a barra anda rápido no começo e vai freando perto do fim.
-                progress.setValue(progress.getValue() + (950 - progress.getValue()) / 40);
-            }
-            case PASTED -> arara.hop = frame % 20 < 4 ? -1 : 0;
-            default -> arara.hop = 0;
-        }
+        arara.animate(state, level, frame);
+        // Sem progresso real do Whisper: a barra anda rápido no começo e vai freando perto do fim.
+        if (state == DictationState.TRANSCRIBING) progress.setValue(progress.getValue() + (950 - progress.getValue()) / 40);
         arara.repaint();
     }
 
@@ -194,6 +190,7 @@ final class RecordingPopup implements DictationListener {
         anim.stop();
         hide.stop();
         state = DictationState.IDLE;
+        arara.reset();
         if (window != null) window.setVisible(false);
     }
 }
