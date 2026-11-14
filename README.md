@@ -32,3 +32,17 @@ Gera `build/instalador/Arara-Setup-0.1.0.exe` (~39 MB). Requer JDK 21 e [Inno Se
 - O desinstalador não apaga `%APPDATA%\Arara` (configurações, histórico e modelos).
 - A versão vem só de `gradle.properties` e vai para os jars, o `Arara.exe`, o Setup e o desinstalador.
 - No GitHub Actions, `.github/workflows/instalador.yml` gera o instalador (em tag `v*` ou à mão) e publica o Setup e o app-image como artefatos. A assinatura pela SignPath fica desligada até existir o secret `SIGNPATH_API_TOKEN` (e a variável `SIGNPATH_ORGANIZATION_ID`); as configurações de artefato estão em `instalador/signpath/`.
+
+## Licença
+
+[MIT](LICENSE). O app não manda áudio, texto nem telemetria para lugar nenhum: a única conexão é o download do modelo de voz da Hugging Face. Detalhes na [política de privacidade e de assinatura de código](site/politica.html).
+
+Componentes de terceiros (versões, licenças e links em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)):
+
+- JNativeHook 2.2.2: LGPL-3.0 (o projeto oferece GPL-3.0 ou LGPL-3.0).
+- whisper-jni 1.7.1: Apache-2.0, com whisper.cpp e ggml sob MIT.
+- FlatLaf e FlatLaf Extras 3.8: Apache-2.0. JSVG 2.2.0: MIT.
+- Modelos Whisper (OpenAI, convertidos por ggerganov/whisper.cpp): MIT, baixados na primeira execução.
+- OpenJDK 21 (runtime do instalador): GPL-2.0 com Classpath Exception.
+- Fontes Nunito Sans, Anton e JetBrains Mono: SIL OFL-1.1.
+- Ícones Lucide: ISC. Logos do site (Lobe Icons): MIT; as marcas pertencem aos donos.
