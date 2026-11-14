@@ -2,5 +2,7 @@
 plugins { id 'application' }
 dependencies {
     implementation project(':core')
+    implementation 'com.formdev:flatlaf:3.8'
+    implementation 'com.formdev:flatlaf-extras:3.8'
 }
 application { mainClass = 'br.arara.app.Main' }
