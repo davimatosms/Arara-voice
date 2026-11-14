@@ -31,6 +31,13 @@ O formulário abre no navegador. Os campos podem mudar, mas em geral pedem o seg
 | O que será assinado | o instalador `.exe` (Inno Setup) e o `Arara.exe` do app |
 | Equipe | davimatosms: Author, Reviewer e Approver |
 | Contato | o seu e-mail |
+| Comentários / perguntas | cole a pergunta sobre o Inno Setup abaixo |
+
+**Pergunta sobre o Inno Setup** (decidido: perguntar na inscrição em vez de trocar o instalador). Cole no campo de comentários ou mande junto com a inscrição:
+
+> Our Windows installer is built with Inno Setup (https://jrsoftware.org/isinfo.php). Its license (https://jrsoftware.org/files/is/license.txt) is a permissive BSD-style license, but it is not on the OSI list, and the Inno Setup setup stub is embedded in the installer we would sign. All of our own code is MIT and every runtime dependency is OSI-licensed (see THIRD_PARTY_NOTICES.md). Is an Inno Setup installer acceptable under your terms, or should we switch to NSIS or a WiX-based MSI?
+
+Se a resposta for não, a troca mais próxima do design aprovado é o NSIS (zlib, aprovada pela OSI).
 
 ## 3. O que esperar
 
