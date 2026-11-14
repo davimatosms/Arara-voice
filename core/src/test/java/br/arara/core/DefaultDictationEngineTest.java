@@ -106,6 +106,20 @@ class DefaultDictationEngineTest {
     }
 
     @Test
+    void silenceAtTheEdgesIsCutBeforeTranscribing() throws Exception {
+        FakeTranscriber t = new FakeTranscriber("oi");
+        DefaultDictationEngine e = engine(t, text -> {});
+        e.toggle();
+        for (int i = 0; i < 100; i++) mic.push(VadTest.QUIET);  // ~3,2 s antes
+        for (int i = 0; i < 10; i++) mic.push(VadTest.SPEECH);
+        for (int i = 0; i < 150; i++) mic.push(VadTest.QUIET);  // ~4,8 s depois
+        e.toggle();
+        for (DictationState s : List.of(DictationState.LISTENING, DictationState.SILENCE, DictationState.LISTENING,
+                DictationState.SILENCE, DictationState.TRANSCRIBING, DictationState.PASTED)) assertEquals(s, next());
+        assertEquals(10 * VadTest.CHUNK + 2 * Vad.RATE, t.samples, "fala + 1 s de folga de cada lado");
+    }
+
+    @Test
     void pasteFailureKeepsTextInHistory() throws Exception {
         DefaultDictationEngine e = engine(new FakeTranscriber("texto"), text -> {
             throw new IllegalStateException("clipboard ocupado");

@@ -50,6 +50,17 @@ class VadTest {
     }
 
     @Test
+    void speechRangeMarksFirstAndLastSpeech() {
+        Vad vad = new Vad();
+        assertEquals(-1, vad.speechStart());
+        feedSeconds(vad, QUIET, 1);   // 32 blocos
+        feedSeconds(vad, SPEECH, 0.5); // 16 blocos
+        feedSeconds(vad, QUIET, 3);
+        assertEquals(32 * CHUNK, vad.speechStart());
+        assertEquals(48 * CHUNK, vad.speechEnd());
+    }
+
+    @Test
     void digitalSilenceIsFinite() {
         assertEquals(-90, Vad.dbfs(new short[CHUNK]));
         short[] full = new short[CHUNK];

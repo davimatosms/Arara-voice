@@ -34,6 +34,10 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     private static final String MODELS_URL =
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/";
 
+    // O padrão do whisper-jni (0) deixa o whisper.cpp quase sem paralelismo: medido 4,2 s contra 2,8 s com 6 threads
+    // (base, 15 s de áudio, Ryzen 5 5500). Metade dos processadores lógicos ~ núcleos físicos; 12 threads só ganhou 4%.
+    private static final int THREADS = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+
     private final Path modelsDir;
     private final Supplier<Settings.Model> model;
     private WhisperJNI whisper;
@@ -90,6 +94,11 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         for (int i = 0; i < pcm16k.length; i++) samples[i] = pcm16k[i] / 32768f;
 
         WhisperFullParams params = new WhisperFullParams(WhisperSamplingStrategy.GREEDY);
+        params.nThreads = THREADS;
+        // Encoder só do tamanho do áudio (1500 = 30 s; 1 posição = 320 amostras), com folga. Medido com 9,5 s de fala:
+        // turbo 16,5 s -> 5,0 s e base 1,0 s -> 0,35 s, mesmo texto.
+        // shortcut: whisper.cpp avisa que pode perder precisão; voltar ao padrão (0) se aparecer erro em frase curta.
+        params.audioCtx = Math.min(1500, samples.length / 320 + 64);
         params.language = "pt";
         params.initialPrompt = PROMPT;
         params.printProgress = false;
