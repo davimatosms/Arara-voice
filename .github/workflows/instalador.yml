@@ -1,0 +1,149 @@
+name: instalador
+# Gera o Arara-Setup-<versão>.exe a partir do código, em runner hospedado pelo GitHub.
+# Sem o secret SIGNPATH_API_TOKEN, sai sem assinatura. Com ele, a SignPath assina, em ordem:
+# o Arara.exe (antes do Inno empacotar), o desinstalador e, por fim, o Setup. Cada pedido espera aprovação manual.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  JAVA_VERSION: '21.0.13+9'
+  INNO_VERSION: '6.7.3'
+  INNO_SHA256: 9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732
+  # Slugs no painel da SignPath (artifact configurations em instalador/signpath/)
+  SIGNPATH_PROJECT: arara
+  SIGNPATH_POLICY: release-signing
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    timeout-minutes: 360
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Inno Setup (versão fixa, hash conferido)
+        run: |
+          $exe = "$env:RUNNER_TEMP\innosetup-$env:INNO_VERSION.exe"
+          $tag = 'is-' + ($env:INNO_VERSION -replace '\.', '_')
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_VERSION.exe" -OutFile $exe
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash
+          if ($hash -ne $env:INNO_SHA256) { throw "Hash do Inno Setup não confere: $hash" }
+          $dir = "$env:RUNNER_TEMP\inno"
+          Start-Process $exe -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CURRENTUSER', "/DIR=$dir"
+          if (-not (Test-Path "$dir\ISCC.exe")) { throw 'ISCC.exe não instalado' }
+          "ISCC=$dir\ISCC.exe" >> $env:GITHUB_ENV
+
+      # ---------- Sem assinatura ----------
+      - name: Instalador (sem assinatura)
+        if: env.SIGNPATH_API_TOKEN == ''
+        run: ./gradlew :app:instalador "-Piscc=$env:ISCC" --no-daemon
+
+      # ---------- Com assinatura (SignPath) ----------
+      - name: App-image
+        if: env.SIGNPATH_API_TOKEN != ''
+        run: ./gradlew :app:jpackageImage --no-daemon
+      - id: app-sem-assinatura
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-image-sem-assinatura
+          path: app/build/jpackage/Arara
+          if-no-files-found: error
+      - name: Assinar o Arara.exe
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: app-image
+          github-artifact-id: ${{ steps.app-sem-assinatura.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: build/assinado/Arara
+
+      - name: Desinstalador para assinar
+        if: env.SIGNPATH_API_TOKEN != ''
+        run: |
+          New-Item -ItemType Directory -Force build/desinstalador | Out-Null
+          # Falha de propósito: com SignedUninstaller=yes, o ISCC para e deixa o uninst-*.e32 para assinar
+          ./gradlew :app:instalador "-Piscc=$env:ISCC" -PappImage=build/assinado/Arara -PsignedUninstallerDir=build/desinstalador --no-daemon
+          $e32 = Get-ChildItem build/desinstalador/uninst-*.e32
+          if (@($e32).Count -ne 1) { throw 'Esperava um uninst-*.e32' }
+          New-Item -ItemType Directory -Force build/desinstalador-envio | Out-Null
+          Copy-Item $e32.FullName ("build/desinstalador-envio/" + $e32.BaseName + ".exe")
+          "UNINST_E32=$($e32.FullName)" >> $env:GITHUB_ENV
+          exit 0
+      - id: desinstalador-sem-assinatura
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: desinstalador-sem-assinatura
+          path: build/desinstalador-envio
+          if-no-files-found: error
+      - name: Assinar o desinstalador
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: desinstalador
+          github-artifact-id: ${{ steps.desinstalador-sem-assinatura.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: build/desinstalador-assinado
+      - name: Instalador com o desinstalador assinado
+        if: env.SIGNPATH_API_TOKEN != ''
+        run: |
+          Copy-Item (Get-ChildItem build/desinstalador-assinado/uninst-*.exe).FullName $env:UNINST_E32 -Force
+          ./gradlew :app:instalador "-Piscc=$env:ISCC" -PappImage=build/assinado/Arara -PsignedUninstallerDir=build/desinstalador --no-daemon
+      - id: setup-sem-assinatura
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-sem-assinatura
+          path: build/instalador/Arara-Setup-*.exe
+          if-no-files-found: error
+      - name: Assinar o Setup
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: setup
+          github-artifact-id: ${{ steps.setup-sem-assinatura.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: build/instalador-assinado
+
+      # ---------- Artefatos ----------
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arara-Setup
+          path: ${{ env.SIGNPATH_API_TOKEN != '' && 'build/instalador-assinado/Arara-Setup-*.exe' || 'build/instalador/Arara-Setup-*.exe' }}
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arara-app-image
+          path: ${{ env.SIGNPATH_API_TOKEN != '' && 'build/assinado/Arara' || 'app/build/jpackage/Arara' }}
+          if-no-files-found: error

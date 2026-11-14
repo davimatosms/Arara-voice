@@ -61,7 +61,7 @@ public final class AraraCore implements AutoCloseable {
         }
         HistoryStore history = new JsonlHistoryStore(dataDir.resolve("historico.jsonl"));
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
-        SettingsStore settings = new JsonSettingsStore(dataDir.resolve("config.json"));
+        SettingsStore settings = WindowsStartup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
         Transcriber transcriber = makeTranscriber.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster());

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath, artifact configuration "setup": o Arara-Setup-<versão>.exe final, já com o Arara.exe e o desinstalador assinados dentro. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Arara-Setup-*.exe">
+      <authenticode-sign description="Instalador do Arara" description-url="https://github.com/davimatosms/Arara-voice" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>
