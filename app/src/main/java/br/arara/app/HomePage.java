@@ -18,6 +18,9 @@ import java.time.LocalTime;
 final class HomePage extends MainView.Page {
     private final SettingsStore settings;
     private final JPanel keys = Ui.row(0);
+    // O atalho também chega ao app em foco (o JNativeHook não engole teclas): com Espaço, alguns apps digitam um espaço.
+    private final JLabel spaceHint = Ui.label("Se este atalho digitar um espaço em algum app, troque por outro.",
+            Theme.regular(13), Theme.YELLOW);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
 
     HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings) {
@@ -40,7 +43,7 @@ final class HomePage extends MainView.Page {
                 Ui.label("Pronto para ditar", Theme.bold(22), Theme.TEXT), Ui.gap(8),
                 Ui.label("Aperte uma vez para começar a ouvir e de novo para colar. Esc cancela.",
                         Theme.regular(15), Theme.TEXT_SOFT),
-                Ui.gap(22), Ui.caption("ATALHO"), Ui.gap(8), keys, Ui.gap(16),
+                Ui.gap(22), Ui.caption("ATALHO"), Ui.gap(8), keys, Ui.gap(8), spaceHint, Ui.gap(16),
                 Ui.row(16, test, change));
 
         Ui.Round hero = Ui.card(new BorderLayout(32, 0));
@@ -69,6 +72,7 @@ final class HomePage extends MainView.Page {
         Settings s = settings.load();
         keys.removeAll();
         keys.add(Ui.keycaps(s.hotkey()));
+        spaceHint.setVisible(s.hotkey().endsWith("+Space"));
         boolean cpu = s.accel() == Settings.Accel.CPU;
         grid.removeAll();
         grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local", "Pronto", Theme.GREEN));
