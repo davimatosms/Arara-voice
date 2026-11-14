@@ -21,6 +21,7 @@ final class DefaultDictationEngine implements DictationEngine {
         void paste(String text) throws Exception;
     }
 
+    private static final int EDGE = Vad.RATE; // 1 s
     private final HistoryStore history;
     private final DictionaryStore dictionary;
     private final Transcriber transcriber;
@@ -119,15 +120,26 @@ final class DefaultDictationEngine implements DictationEngine {
 
     private void finish() {
         mic.stop();
-        short[] pcm = Arrays.copyOf(audio, size);
+        short[] all = audio;
         audio = null;
         // Whisper inventa frases em áudio sem fala ("A gente pode precisar."): nem chega a transcrever.
         if (!vad.heardSpeech()) {
             fail("Não detectei fala.");
             return;
         }
+        short[] pcm = speechOnly(all, size, vad);
         setState(DictationState.TRANSCRIBING);
         worker.execute(() -> transcribe(pcm));
+    }
+
+    /**
+     * Corta o silêncio antes da primeira fala e depois da última, com folga para sílabas fracas. Silêncio longo
+     * nas pontas faz o Whisper inventar frases (medido: "Obrigado. Obrigado. Obrigado.") e gasta tempo de CPU.
+     */
+    static short[] speechOnly(short[] audio, int size, Vad vad) {
+        int from = (int) Math.max(0, vad.speechStart() - EDGE);
+        int to = (int) Math.min(size, vad.speechEnd() + EDGE);
+        return Arrays.copyOfRange(audio, from, to);
     }
 
     /** Roda na thread de transcrição, fora do lock, para o Whisper não travar o atalho. */
