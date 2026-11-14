@@ -24,6 +24,14 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+
+/* Barra de rolagem na paleta: padrão (Chrome/Edge 121+, Firefox) e ::-webkit-scrollbar para o Safari,
+   que o Chromium ignora quando scrollbar-color está definido. No celular a barra é a do sistema. */
+html { scrollbar-color: var(--verde) var(--fundo); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--fundo); }
+::-webkit-scrollbar-thumb { background: var(--verde); border: 3px solid var(--fundo); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--verde-claro); }
 body {
   margin: 0;
   font-family: "Nunito Sans", system-ui, sans-serif;
