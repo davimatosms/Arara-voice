@@ -45,6 +45,8 @@ final class Arara extends JComponent {
     int beak;
     /** Volume suavizado que o bico segue. */
     float voice;
+    /** Opacidade (microfone bloqueado na primeira execução deixa a arara apagada). */
+    float alpha = 1f;
     private int blinkIn = nextBlink(), blinkLeft;
     /** Notinhas em pixels do sprite pousado: {x, y, idade, lado (-1 ou 1), cor}. */
     final List<int[]> notes = new ArrayList<>();
@@ -121,6 +123,7 @@ final class Arara extends JComponent {
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(alpha));
         int w = IMAGE.getWidth() * scale, h = IMAGE.getHeight() * scale;
         int x = (getWidth() - w) / 2, y = (getHeight() - h) / 2 + hop * scale;
         int sw = sprite.getWidth() * scale, sh = sprite.getHeight() * scale;
@@ -150,7 +153,7 @@ final class Arara extends JComponent {
         g2.dispose();
     }
 
-    private static BufferedImage read(String name) {
+    static BufferedImage read(String name) {
         try {
             return ImageIO.read(Arara.class.getResource(name));
         } catch (IOException e) {

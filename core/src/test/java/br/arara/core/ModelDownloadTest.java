@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -13,7 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,13 +32,18 @@ class ModelDownloadTest {
     Path dir;
     HttpServer server;
     URI url;
+    final List<Integer> ranges = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void serve() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/m.bin", ex -> {
-            ex.sendResponseHeaders(200, MODEL.length);
-            ex.getResponseBody().write(MODEL);
+            String range = ex.getRequestHeaders().getFirst("Range");
+            int from = range == null ? 0 : Integer.parseInt(range.substring("bytes=".length(), range.length() - 1));
+            ranges.add(from);
+            if (from > 0) ex.getResponseHeaders().add("Content-Range", "bytes " + from + "-" + (MODEL.length - 1) + "/" + MODEL.length);
+            ex.sendResponseHeaders(from > 0 ? 206 : 200, MODEL.length - from);
+            ex.getResponseBody().write(MODEL, from, MODEL.length - from);
             ex.close();
         });
         server.start();
@@ -49,16 +59,36 @@ class ModelDownloadTest {
     void downloadsAndChecksHash() throws Exception {
         String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(MODEL));
         Path target = dir.resolve("models").resolve("m.bin");
-        AtomicReference<Double> last = new AtomicReference<>();
-        WhisperTranscriber.download(url, sha, target, last::set);
+        AtomicReference<long[]> last = new AtomicReference<>();
+        assertTrue(WhisperTranscriber.download(url, sha, target, (d, t) -> last.set(new long[] {d, t}), () -> false));
         assertArrayEquals(MODEL, Files.readAllBytes(target));
-        assertEquals(1.0, last.get());
+        assertArrayEquals(new long[] {MODEL.length, MODEL.length}, last.get());
+    }
+
+    @Test
+    void resumesFromPartAfterConnectionDrop() throws Exception {
+        String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(MODEL));
+        Path target = dir.resolve("m.bin");
+        Files.write(dir.resolve("m.bin.part"), Arrays.copyOf(MODEL, 5)); // a internet caiu depois de 5 bytes
+        List<Long> seen = new ArrayList<>();
+        WhisperTranscriber.download(url, sha, target, (d, t) -> seen.add(d), () -> false);
+        assertEquals(List.of(5), ranges, "pediu só o resto");
+        assertEquals(5L, seen.get(0));
+        assertArrayEquals(MODEL, Files.readAllBytes(target));
+    }
+
+    @Test
+    void cancelKeepsPartForLater() throws Exception {
+        Path target = dir.resolve("m.bin");
+        assertFalse(WhisperTranscriber.download(url, "00", target, (d, t) -> {}, () -> true));
+        assertFalse(Files.exists(target));
+        assertTrue(Files.exists(dir.resolve("m.bin.part")));
     }
 
     @Test
     void wrongHashLeavesNoModel() {
         Path target = dir.resolve("m.bin");
-        assertThrows(IOException.class, () -> WhisperTranscriber.download(url, "00", target, p -> {}));
+        assertThrows(IOException.class, () -> WhisperTranscriber.download(url, "00", target, (d, t) -> {}, () -> false));
         assertFalse(Files.exists(target));
         assertFalse(Files.exists(dir.resolve("m.bin.part")));
     }

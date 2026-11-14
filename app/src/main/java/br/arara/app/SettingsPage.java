@@ -24,11 +24,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /** Configurações: Geral, Atalho, Voz e captura, Histórico e privacidade. */
 final class SettingsPage extends MainView.Page {
     private static final String DEFAULT_MIC = "Microfone padrão do sistema";
+    private static final String RECORDING = "Aperte as teclas…";
 
     private final SettingsStore settings;
     private final HistoryStore history;
@@ -77,17 +79,9 @@ final class SettingsPage extends MainView.Page {
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> new Settings(
                                 x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), on))))));
 
-        List<String> mics = new ArrayList<>(List.of(DEFAULT_MIC));
-        mics.addAll(AraraCore.microphones());
-        if (s.microphone() != null && !mics.contains(s.microphone())) mics.add(s.microphone());
-        JComboBox<String> mic = new JComboBox<>(mics.toArray(String[]::new));
-        mic.setSelectedItem(s.microphone() == null ? DEFAULT_MIC : s.microphone());
+        JComboBox<String> mic = micChoice(s, m -> update(x -> new Settings(x.hotkey(), x.model(), x.accel(), m,
+                x.startWithWindows(), x.showPopup(), x.escCancels())));
         mic.setPreferredSize(new Dimension(280, 40));
-        mic.getAccessibleContext().setAccessibleName("Microfone");
-        mic.addActionListener(e -> {
-            String m = DEFAULT_MIC.equals(mic.getSelectedItem()) ? null : (String) mic.getSelectedItem();
-            update(x -> new Settings(x.hotkey(), x.model(), x.accel(), m, x.startWithWindows(), x.showPopup(), x.escCancels()));
-        });
         Settings.Model[] models = Settings.Model.values();
         Settings.Accel[] accels = Settings.Accel.values();
         content.add(section("Voz e captura", "Microfone, modelo e velocidade.",
@@ -112,14 +106,38 @@ final class SettingsPage extends MainView.Page {
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
     }
 
+    /** Lista de microfones; onChange recebe o nome escolhido, ou null para o padrão do sistema. */
+    static JComboBox<String> micChoice(Settings s, Consumer<String> onChange) {
+        List<String> mics = new ArrayList<>(List.of(DEFAULT_MIC));
+        mics.addAll(AraraCore.microphones());
+        if (s.microphone() != null && !mics.contains(s.microphone())) mics.add(s.microphone());
+        JComboBox<String> mic = new JComboBox<>(mics.toArray(String[]::new));
+        mic.setSelectedItem(s.microphone() == null ? DEFAULT_MIC : s.microphone());
+        mic.getAccessibleContext().setAccessibleName("Microfone");
+        mic.addActionListener(e -> onChange.accept(DEFAULT_MIC.equals(mic.getSelectedItem()) ? null : (String) mic.getSelectedItem()));
+        return mic;
+    }
+
     private void update(UnaryOperator<Settings> change) {
         settings.save(change.apply(settings.load()));
         onChange.run();
     }
 
     private void recordHotkey(JButton button) {
-        if (!button.getText().equals("Gravar")) return; // já está gravando
-        button.setText("Aperte as teclas…");
+        recordHotkey(button, hotkey -> {
+            keys.removeAll();
+            keys.add(Ui.keycaps(hotkey));
+            keys.revalidate();
+            update(x -> new Settings(hotkey, x.model(), x.accel(), x.microphone(),
+                    x.startWithWindows(), x.showPopup(), x.escCancels()));
+        });
+    }
+
+    /** Grava o próximo atalho apertado com o botão em foco; recusa os ruins com um aviso. Também usado na primeira execução. */
+    static void recordHotkey(JButton button, Consumer<String> onHotkey) {
+        String idle = button.getText();
+        if (idle.equals(RECORDING)) return; // já está gravando
+        button.setText(RECORDING);
         KeyAdapter listener = new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -132,16 +150,12 @@ final class SettingsPage extends MainView.Page {
                 if (hotkey == null) return; // só modificador até agora
                 String problem = problem(hotkey);
                 if (problem != null) {
-                    JOptionPane.showMessageDialog(SettingsPage.this, problem, "Atalho", JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(button, problem, "Atalho", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
                 button.removeKeyListener(this);
-                button.setText("Gravar");
-                keys.removeAll();
-                keys.add(Ui.keycaps(hotkey));
-                keys.revalidate();
-                update(x -> new Settings(hotkey, x.model(), x.accel(), x.microphone(),
-                        x.startWithWindows(), x.showPopup(), x.escCancels()));
+                button.setText(idle);
+                onHotkey.accept(hotkey);
             }
         };
         button.addKeyListener(listener);
@@ -150,7 +164,7 @@ final class SettingsPage extends MainView.Page {
             public void focusLost(FocusEvent e) {
                 button.removeKeyListener(listener);
                 button.removeFocusListener(this);
-                button.setText("Gravar");
+                button.setText(idle);
             }
         });
         button.requestFocusInWindow();

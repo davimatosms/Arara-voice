@@ -15,10 +15,12 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.HexFormat;
-import java.util.function.DoubleConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -65,21 +67,28 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         };
     }
 
-    /** Baixa (se faltar) e carrega o modelo das configurações. progress recebe de 0.0 a 1.0 durante o download. */
-    synchronized void prepare(DoubleConsumer progress) throws IOException {
-        Settings.Model m = model.get();
-        if (m == loaded) return;
-        Path file = modelsDir.resolve(fileName(m));
-        if (!Files.exists(file)) download(URI.create(MODELS_URL + fileName(m)), sha256(m), file, progress);
-        if (whisper == null) {
-            WhisperJNI.loadLibrary();
-            WhisperJNI.setLibraryLogger(null); // sem log do whisper.cpp no console
-            whisper = new WhisperJNI();
+    /** Baixa (se faltar) e carrega o modelo das configurações. progress recebe os bytes durante o download. */
+    synchronized void prepare(AraraCore.DownloadProgress progress) throws IOException {
+        for (;;) {
+            Settings.Model m = model.get();
+            if (m == loaded) return;
+            Path file = modelsDir.resolve(fileName(m));
+            // Trocou de modelo no meio do download: o .part fica para continuar depois e o novo modelo é baixado já.
+            if (!Files.exists(file)
+                    && !download(URI.create(MODELS_URL + fileName(m)), sha256(m), file, progress, () -> model.get() != m)) {
+                continue;
+            }
+            if (whisper == null) {
+                WhisperJNI.loadLibrary();
+                WhisperJNI.setLibraryLogger(null); // sem log do whisper.cpp no console
+                whisper = new WhisperJNI();
+            }
+            WhisperContext next = whisper.init(file);
+            if (context != null) context.close();
+            context = next;
+            loaded = m;
+            return;
         }
-        WhisperContext next = whisper.init(file);
-        if (context != null) context.close();
-        context = next;
-        loaded = m;
     }
 
     @Override
@@ -90,7 +99,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     @Override
     public synchronized String transcribe(short[] pcm16k, String previous) {
         try {
-            prepare(p -> {}); // a UI deveria ter chamado antes; aqui só garante
+            prepare((done, total) -> {}); // a UI deveria ter chamado antes; aqui só garante
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -126,14 +135,24 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         loaded = null;
     }
 
-    /** Baixa para .part, confere o SHA-256 e só então renomeia: download interrompido ou adulterado não vira modelo. */
-    static void download(URI url, String sha256, Path target, DoubleConsumer progress) throws IOException {
+    /**
+     * Baixa para .part, confere o SHA-256 e só então renomeia: download interrompido ou adulterado não vira modelo.
+     * Se já existe um .part (a internet caiu), pede só o resto (Range) e continua de onde parou.
+     *
+     * @return false se {@code cancelled} pediu para parar (o .part fica para continuar depois)
+     */
+    static boolean download(URI url, String sha256, Path target, AraraCore.DownloadProgress progress,
+            BooleanSupplier cancelled) throws IOException {
         Files.createDirectories(target.getParent());
         Path part = target.resolveSibling(target.getFileName() + ".part");
-        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
+        long have = Files.exists(part) ? Files.size(part) : 0;
+        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(15)).build();
+        HttpRequest.Builder request = HttpRequest.newBuilder(url);
+        if (have > 0) request.header("Range", "bytes=" + have + "-");
         HttpResponse<InputStream> response;
         try {
-            response = client.send(HttpRequest.newBuilder(url).build(), HttpResponse.BodyHandlers.ofInputStream());
+            response = client.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Download do modelo interrompido.", e);
@@ -145,18 +164,35 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             throw new IllegalStateException(e);
         }
         try (InputStream in = response.body()) {
-            if (response.statusCode() != 200) {
-                throw new IOException("Falha ao baixar o modelo (HTTP " + response.statusCode() + ").");
+            int status = response.statusCode();
+            if (status == 416) { // .part maior que o arquivo: recomeça do zero
+                Files.deleteIfExists(part);
+                return download(url, sha256, target, progress, cancelled);
             }
-            long total = response.headers().firstValueAsLong("content-length").orElse(-1);
-            try (OutputStream out = Files.newOutputStream(part)) {
-                byte[] buf = new byte[1 << 20];
-                long done = 0;
+            boolean resume = status == 206
+                    && response.headers().firstValue("content-range").orElse("").startsWith("bytes " + have + "-");
+            if (status != 200 && !resume) {
+                throw new IOException("Falha ao baixar o modelo (HTTP " + status + ").");
+            }
+            byte[] buf = new byte[1 << 20];
+            if (resume) {
+                try (InputStream old = Files.newInputStream(part)) {
+                    for (int n; (n = old.read(buf)) > 0; ) digest.update(buf, 0, n);
+                }
+            } else {
+                have = 0;
+            }
+            long length = response.headers().firstValueAsLong("content-length").orElse(-1);
+            long total = length > 0 ? have + length : -1;
+            try (OutputStream out = resume ? Files.newOutputStream(part, StandardOpenOption.APPEND) : Files.newOutputStream(part)) {
+                long done = have;
+                progress.update(done, total);
                 for (int n; (n = in.read(buf)) > 0; ) {
+                    if (cancelled.getAsBoolean()) return false;
                     out.write(buf, 0, n);
                     digest.update(buf, 0, n);
                     done += n;
-                    if (total > 0) progress.accept((double) done / total);
+                    progress.update(done, total);
                 }
             }
         }
@@ -165,5 +201,6 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             throw new IOException("O modelo baixado veio corrompido. Tente de novo.");
         }
         Files.move(part, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        return true;
     }
 }

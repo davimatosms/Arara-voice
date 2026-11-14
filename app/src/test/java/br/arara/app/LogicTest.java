@@ -3,10 +3,15 @@ package br.arara.app;
 import br.arara.core.DictationState;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.io.TempDir;
+
 import java.awt.event.KeyEvent;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -76,5 +81,40 @@ class LogicTest {
         assertSame(Arara.VOO[Arara.VOO.length - 1], a.sprite);
         a.animate(DictationState.PASTED, 0f, fly);
         assertTrue(a.sprite == Arara.IMAGE || a.sprite == Arara.PISCAR, "pousou");
+    }
+
+    @Test
+    void primeiraExecucaoSoSemConfig(@TempDir Path dir) throws Exception {
+        assertTrue(Onboarding.firstRun(dir), "pasta nova: mostra");
+        Files.writeString(dir.resolve("config.json"), "{}");
+        assertFalse(Onboarding.firstRun(dir), "quem já usa o app não vê de novo");
+    }
+
+    @Test
+    void ordemEEstadoDosPassos() {
+        assertEquals(6, Onboarding.STEPS.length);
+        assertEquals("Boas-vindas", Onboarding.STEPS[0]);
+        assertEquals("Pronto", Onboarding.STEPS[5]);
+        assertEquals(Onboarding.Mark.DONE, Onboarding.mark(0, 2));
+        assertEquals(Onboarding.Mark.CURRENT, Onboarding.mark(2, 2));
+        assertEquals(Onboarding.Mark.TODO, Onboarding.mark(3, 2));
+        assertEquals("Ctrl + Shift + Espaço", Onboarding.spoken("Ctrl+Shift+Space"));
+        assertEquals("Ctrl", Onboarding.keyName(KeyEvent.VK_CONTROL));
+        assertEquals("Space", Onboarding.keyName(KeyEvent.VK_SPACE));
+    }
+
+    @Test
+    void velocidadeMediaETempoRestante() {
+        ModelDownload.Rate rate = new ModelDownload.Rate();
+        long s = 1_000_000_000L;
+        assertEquals(0, rate.add(0, 0), "uma amostra só: sem velocidade");
+        assertEquals(8e6, rate.add(s, 8_000_000), 1);
+        assertEquals(9e6, rate.add(2 * s, 18_000_000), 1, "média desde o começo da janela");
+        for (int i = 3; i <= 10; i++) rate.add(i * s, 18_000_000 + (i - 2) * 2_000_000L);
+        assertEquals(2e6, rate.add(11 * s, 36_000_000), 1e5, "só os últimos ~5 s contam");
+        assertEquals("8,4 MB/s · faltam 26 s", ModelDownload.detail(8.4e6, 356_000_000, 574_000_000));
+        assertEquals("1,0 MB/s · faltam 4 min", ModelDownload.detail(1e6, 356_000_000, 574_000_000));
+        assertEquals("calculando a velocidade…", ModelDownload.detail(0, 0, 574_000_000));
+        assertEquals("356 de 574 MB", ModelDownload.mb(356_000_000, 574_000_000));
     }
 }

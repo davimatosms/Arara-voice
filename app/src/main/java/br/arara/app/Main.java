@@ -3,6 +3,7 @@ package br.arara.app;
 import br.arara.app.demo.DemoCore;
 import br.arara.core.AraraCore;
 import br.arara.core.DictationEngine;
+import br.arara.core.DictationListener;
 import br.arara.core.DictionaryStore;
 import br.arara.core.HistoryStore;
 import br.arara.core.Settings;
@@ -17,12 +18,20 @@ import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.util.List;
 
-/** Abre o app. Com {@code --demo}, usa dados falsos em memória em vez do backend real. */
+/**
+ * Abre o app. Com {@code --demo}, usa dados falsos em memória em vez do backend real; com {@code --demo --primeira-execucao},
+ * mostra a primeira execução com um download de mentira.
+ */
 public final class Main {
     public static void main(String[] args) {
         boolean demo = List.of(args).contains("--demo");
+        // Primeira execução: ainda não existe config.json (decidido antes de o core criar qualquer coisa).
+        boolean firstRun = demo ? List.of(args).contains("--primeira-execucao") : Onboarding.firstRun(AraraCore.defaultDataDir());
         SwingUtilities.invokeLater(() -> {
             Theme.install();
             DictationEngine engine;
@@ -59,21 +68,42 @@ public final class Main {
                 }
             }));
 
-            MainView[] viewRef = new MainView[1];
             AraraCore core = real;
-            if (core != null) settings = reloadModelOnChange(settings, () -> prepareModel(core, viewRef[0]));
+            ModelDownload download = new ModelDownload(core != null ? core::prepareModel : firstRun ? Main::fakeDownload : p -> {});
+            settings = reloadModelOnChange(settings, download::start);
             MainView view = new MainView(engine, history, dictionary, settings);
-            viewRef[0] = view;
+            download.addListener(() -> modelStatus(view, download.phase, download.fraction()));
             RecordingPopup popup = new RecordingPopup(settings);
             engine.addListener(Ui.onEdt(view));
             engine.addListener(Ui.onEdt(popup));
-            if (core != null) prepareModel(core, view);
+            download.start(); // já na tela de boas-vindas, em segundo plano
 
             JFrame frame = new JFrame("Arara");
             frame.setIconImage(Arara.IMAGE);
-            frame.setContentPane(view);
-            frame.setSize(1100, 720);
             frame.setMinimumSize(new java.awt.Dimension(960, 640));
+            if (firstRun) {
+                DictationListener[] listener = new DictationListener[1];
+                Onboarding onboarding = new Onboarding(engine, settings, download, AraraCore::listen, () -> {
+                    engine.removeListener(listener[0]);
+                    frame.setContentPane(view);
+                    frame.setResizable(true);
+                    frame.setSize(1100, 720);
+                    frame.validate();
+                    view.refresh();
+                });
+                listener[0] = Ui.onEdt(onboarding);
+                engine.addListener(listener[0]);
+                frame.addWindowFocusListener(new WindowAdapter() {
+                    @Override public void windowGainedFocus(WindowEvent e) { onboarding.windowFocus(true); }
+                    @Override public void windowLostFocus(WindowEvent e) { onboarding.windowFocus(false); }
+                });
+                frame.setContentPane(onboarding);
+                frame.setResizable(false); // posições fixas do design
+                frame.pack();
+            } else {
+                frame.setContentPane(view);
+                frame.setSize(1100, 720);
+            }
             frame.setLocationRelativeTo(null);
             boolean tray = tray(frame);
             frame.setDefaultCloseOperation(tray ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
@@ -81,20 +111,29 @@ public final class Main {
         });
     }
 
-    /** Baixa/carrega o modelo fora da EDT e mostra o progresso no cartão do modelo. */
-    private static void prepareModel(AraraCore core, MainView view) {
-        view.modelStatus("Carregando", Theme.YELLOW);
-        Thread t = new Thread(() -> {
-            try {
-                core.prepareModel(p -> SwingUtilities.invokeLater(
-                        () -> view.modelStatus("Baixando " + Math.round(p * 100) + "%", Theme.YELLOW)));
-                SwingUtilities.invokeLater(() -> view.modelStatus("Pronto", Theme.GREEN));
-            } catch (Exception e) {
-                SwingUtilities.invokeLater(() -> view.modelStatus("Erro no modelo", Theme.YELLOW));
+    /** Estado do modelo no cartão da barra lateral da tela principal. */
+    private static void modelStatus(MainView view, ModelDownload.Phase phase, double fraction) {
+        switch (phase) {
+            case LOADING -> view.modelStatus("Carregando", Theme.YELLOW);
+            case DOWNLOADING -> view.modelStatus("Baixando " + Math.round(fraction * 100) + "%", Theme.YELLOW);
+            case PAUSED -> view.modelStatus("Sem internet", Theme.YELLOW);
+            case READY -> view.modelStatus("Pronto", Theme.GREEN);
+            case FAILED -> view.modelStatus("Erro no modelo", Theme.YELLOW);
+        }
+    }
+
+    /** Download de mentira para o {@code --demo --primeira-execucao}: 574 MB a ~20 MB/s. */
+    private static void fakeDownload(AraraCore.DownloadProgress progress) throws IOException {
+        long total = 574_041_195L;
+        try {
+            for (long done = 0; done < total; done += 2_000_000) {
+                progress.update(done, total);
+                Thread.sleep(100);
             }
-        }, "arara-modelo");
-        t.setDaemon(true);
-        t.start();
+        } catch (InterruptedException e) {
+            throw new IOException(e);
+        }
+        progress.update(total, total);
     }
 
     /** Quando o usuário troca o modelo nas configurações, o backend precisa preparar o novo. */
