@@ -8,7 +8,7 @@ dependencies {
 application { mainClass = 'br.arara.app.Main' }
 
 // ---- Empacotamento para Windows: jpackage (app-image com runtime enxuto) + Inno Setup ----
-def versao = version.toString() - '-SNAPSHOT'
+def versao = version.toString() // gradle.properties
 def instaladorDir = rootProject.file('instalador')
 def appImageDir = layout.buildDirectory.dir('jpackage')
 def jdk = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
@@ -40,14 +40,19 @@ tasks.register('jpackageImage', Exec) {
 tasks.register('instalador', Exec) {
     group = 'distribution'
     description = 'Gera build/instalador/Arara-Setup-<versão>.exe com o Inno Setup 6.7+ (ISCC).'
-    dependsOn 'jpackageImage'
+    // -PappImage=<pasta>: usa um app-image pronto (ex.: o Arara.exe já assinado no CI) em vez de rodar o jpackage
+    def pronto = findProperty('appImage')
+    def imagem = pronto ? rootProject.file(pronto) : new File(appImageDir.get().asFile, 'Arara')
+    if (!pronto) dependsOn 'jpackageImage'
     def saida = rootProject.layout.buildDirectory.dir('instalador')
-    inputs.dir(appImageDir)
+    inputs.dir(imagem)
     inputs.dir(instaladorDir)
     outputs.dir(saida)
     // -Piscc=C:\...\ISCC.exe; senão o lugar padrão da instalação por usuário; senão o PATH
     def padrao = new File(System.getenv('LOCALAPPDATA') ?: '', 'Programs/Inno Setup 6/ISCC.exe')
     executable(findProperty('iscc') ?: (padrao.exists() ? padrao : 'ISCC.exe'))
-    args "/DAppVersion=$versao", "/DAppImage=${appImageDir.get().asFile}/Arara", "/O${saida.get().asFile}", '/Q',
-            new File(instaladorDir, 'arara.iss')
+    args "/DAppVersion=$versao", "/DAppImage=$imagem", "/O${saida.get().asFile}", '/Q'
+    // -PsignedUninstallerDir=<pasta>: desinstalador assinado à parte (veja .github/workflows/instalador.yml)
+    if (findProperty('signedUninstallerDir')) args "/DSignedUninstallerDir=${rootProject.file(findProperty('signedUninstallerDir'))}"
+    args new File(instaladorDir, 'arara.iss')
 }

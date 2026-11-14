@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath, artifact configuration "desinstalador": o uninst-<versão do Inno>-<hash>.e32 que o ISCC deixa para
+     assinar (SignedUninstaller=yes). O CI o envia renomeado para .exe, extensão que a SignPath reconhece como PE. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="uninst-*.exe">
+      <authenticode-sign description="Desinstalador do Arara" description-url="https://github.com/davimatosms/Arara-voice" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

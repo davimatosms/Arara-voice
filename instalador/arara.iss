@@ -1,9 +1,9 @@
 ; Instalador do Arara (Inno Setup 6.7+). Gere com ./gradlew :app:instalador.
-; O Gradle passa /DAppVersion e /DAppImage (pasta do app-image do jpackage).
+; O Gradle passa /DAppVersion (de gradle.properties, fonte única) e /DAppImage (pasta do app-image do jpackage).
 ; Design: design/arara-v1.figcraft, página "10 · Instalador".
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #error Passe /DAppVersion (o ./gradlew :app:instalador passa a versão de gradle.properties)
 #endif
 #ifndef AppImage
   #define AppImage "..\app\build\jpackage\Arara"
@@ -16,7 +16,17 @@ AppVersion={#AppVersion}
 AppVerName=Arara {#AppVersion}
 AppPublisher=Arara
 AppPublisherURL=https://github.com/davimatosms/Arara-voice
+; Metadados do Setup e do desinstalador: mesmo produto e versão do Arara.exe do jpackage
+VersionInfoProductName=Arara
+VersionInfoProductVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}
+VersionInfoCompany=Arara
+VersionInfoDescription=Instalador do Arara
+#ifdef SignedUninstallerDir
+; CI com SignPath: o ISCC para e deixa o uninst-*.e32 nesta pasta para assinar; na 2ª compilação, embute o assinado
+SignedUninstaller=yes
+SignedUninstallerDir={#SignedUninstallerDir}
+#endif
 ; Por usuário, sem UAC: {autopf} vira %LOCALAPPDATA%\Programs
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\Arara

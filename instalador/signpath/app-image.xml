@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath, artifact configuration "app-image": o app-image do jpackage, enviado como zip pelo upload-artifact.
+     Só o Arara.exe (lançador do jpackage, sem assinatura). As DLLs do runtime já vêm assinadas pela Eclipse Foundation;
+     o resto do zip volta como foi enviado. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Arara.exe">
+      <authenticode-sign description="Arara" description-url="https://github.com/davimatosms/Arara-voice" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>
