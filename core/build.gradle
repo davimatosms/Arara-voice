@@ -3,3 +3,19 @@ dependencies {
     implementation 'com.github.kwhat:jnativehook:2.2.2'
     implementation 'io.github.givimad:whisper-jni:1.7.1'
 }
+
+// Teste ponta a ponta com hardware real (microfone, alto-falante, Notepad). Fora do `build`/`check`: rode à mão.
+sourceSets {
+    e2e {
+        compileClasspath += sourceSets.main.output + configurations.runtimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+tasks.register('e2e', JavaExec) {
+    description = 'Teste ponta a ponta com microfone, Whisper e Notepad reais. Ex.: ./gradlew e2e --args="mic"'
+    group = 'verification'
+    classpath = sourceSets.e2e.runtimeClasspath
+    mainClass = 'br.arara.core.E2E'
+    jvmArgs '-Dstdout.encoding=UTF-8'
+}
