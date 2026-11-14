@@ -16,3 +16,17 @@ Só Windows na primeira versão. Decisões do projeto em [DECISOES.md](DECISOES.
 ```
 
 Requer JDK 21.
+
+## Instalador (Windows)
+
+```
+./gradlew :app:instalador
+```
+
+Gera `build/instalador/Arara-Setup-0.1.0.exe` (~39 MB). Requer JDK 21 e [Inno Setup 6.7+](https://jrsoftware.org/isinfo.php); o Gradle procura o `ISCC.exe` em `%LOCALAPPDATA%\Programs\Inno Setup 6`, no `PATH` ou em `-Piscc=C:\caminho\ISCC.exe`.
+
+- `./gradlew :app:jpackageImage`: só o app-image em `app/build/jpackage/Arara` (`Arara.exe` + runtime enxuto do jlink, ~57 MB, sem WiX).
+- `instalador/arara.iss`: script do Inno (por usuário, sem UAC, em `%LOCALAPPDATA%\Programs\Arara`, atalho no Menu Iniciar).
+- `instalador/assets/`: imagens exportadas do FigCraft (página "10 · Instalador") e o ícone. O 16 px é retocado à mão em `instalador/icone.py`, que também gera o `arara.ico`.
+- O modelo de voz não vai no instalador: o app baixa na primeira vez.
+- O desinstalador não apaga `%APPDATA%\Arara` (configurações, histórico e modelos).

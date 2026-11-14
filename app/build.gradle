@@ -6,3 +6,48 @@ dependencies {
     implementation 'com.formdev:flatlaf-extras:3.8'
 }
 application { mainClass = 'br.arara.app.Main' }
+
+// ---- Empacotamento para Windows: jpackage (app-image com runtime enxuto) + Inno Setup ----
+def versao = version.toString() - '-SNAPSHOT'
+def instaladorDir = rootProject.file('instalador')
+def appImageDir = layout.buildDirectory.dir('jpackage')
+def jdk = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+
+tasks.register('jpackageImage', Exec) {
+    group = 'distribution'
+    description = 'Gera app/build/jpackage/Arara (Arara.exe + runtime jlink enxuto), sem WiX.'
+    dependsOn tasks.named('installDist')
+    def lib = layout.buildDirectory.dir('install/app/lib')
+    inputs.dir(lib)
+    inputs.file(new File(instaladorDir, 'assets/arara.ico'))
+    outputs.dir(appImageDir)
+    doFirst {
+        delete appImageDir
+        executable jdk.get().metadata.installationPath.file('bin/jpackage.exe').asFile
+        args '--type', 'app-image', '--dest', appImageDir.get().asFile,
+                '--name', 'Arara', '--app-version', versao, '--vendor', 'Arara',
+                '--description', 'Ditado por voz local em português',
+                '--icon', new File(instaladorDir, 'assets/arara.ico'),
+                '--input', lib.get().asFile, '--main-jar', tasks.jar.archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                // jdeps nos jars: base, desktop, logging, net.http, prefs. Mais: EC para o HTTPS do download do
+                // modelo, localedata (meses em PT-BR no histórico) e accessibility (leitores de tela).
+                '--add-modules', 'java.base,java.desktop,java.logging,java.net.http,java.prefs,jdk.crypto.ec,jdk.localedata,jdk.accessibility',
+                '--jlink-options', '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6 --include-locales=en,pt'
+    }
+}
+
+tasks.register('instalador', Exec) {
+    group = 'distribution'
+    description = 'Gera build/instalador/Arara-Setup-<versão>.exe com o Inno Setup 6.7+ (ISCC).'
+    dependsOn 'jpackageImage'
+    def saida = rootProject.layout.buildDirectory.dir('instalador')
+    inputs.dir(appImageDir)
+    inputs.dir(instaladorDir)
+    outputs.dir(saida)
+    // -Piscc=C:\...\ISCC.exe; senão o lugar padrão da instalação por usuário; senão o PATH
+    def padrao = new File(System.getenv('LOCALAPPDATA') ?: '', 'Programs/Inno Setup 6/ISCC.exe')
+    executable(findProperty('iscc') ?: (padrao.exists() ? padrao : 'ISCC.exe'))
+    args "/DAppVersion=$versao", "/DAppImage=${appImageDir.get().asFile}/Arara", "/O${saida.get().asFile}", '/Q',
+            new File(instaladorDir, 'arara.iss')
+}
