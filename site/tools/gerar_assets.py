@@ -1,9 +1,11 @@
-"""Gera e copia os assets pixel art da landing para site/assets/img (tudo em 1x).
+"""Gera e copia os assets pixel art da landing v2 para site/assets/img (tudo em 1x).
 
-- paisagem.png: paisagem 320x60 (céu em faixas, nuvens, serra, mata com copas,
-  gramado com flores), mesmo método da paisagem do design; o CSS amplia 8x/4x.
-- arara-pousada.png: arara v3 sem o galho (31x38), para pousar no botão.
-- copia a folha do voo (6 quadros), a arara no galho e o piscar de arte/.
+- atriz.png: folha da arara atriz, 7 quadros 81x58 lado a lado: os 6 do voo
+  (arte/sprites/folha-voo.png) e a arara pousada (31x38) no quadro 7, centrada e
+  apoiada na base. O CSS amplia em escala inteira (2x a 5x).
+- morros.png: serra, mata e gramado da paisagem 320x60, sem o céu (320x34).
+- nuvem.png: nuvem pixel 76x24 com sombra embaixo e contorno azul claro.
+- arara-pousada.png: arara v3 sem o galho (31x38), usada como favicon.
 - copia as telas reais de design/telas para site/assets/telas.
 
 Uso (na raiz do repo): python site/tools/gerar_assets.py
@@ -76,18 +78,47 @@ def paisagem(W=320, H=60):
     return im
 
 
+def nuvem(W=76, H=24, blobs=((14, 15, 9), (28, 11, 11), (44, 9, 12), (58, 13, 10), (66, 16, 7), (22, 17, 7), (50, 17, 8))):
+    m = [[any((x - cx) ** 2 + (y - cy) ** 2 <= r * r for cx, cy, r in blobs) and y < H - 2 for x in range(W)] for y in range(H)]
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for y in range(H):
+        for x in range(W):
+            if not m[y][x]:
+                viz = any(0 <= y + dy < H and 0 <= x + dx < W and m[y + dy][x + dx] for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                if viz:
+                    im.putpixel((x, y), (150, 200, 240, 255))
+                continue
+            baixo = y + 3 < H and not m[y + 3][x]
+            im.putpixel((x, y), ((214, 236, 255) if baixo else (255, 255, 255)) + (255,))
+    return im
+
+
+def morros(pa):
+    """Recorta a faixa de baixo da paisagem e apaga os pixels de céu e nuvem."""
+    ceu = {(214, 240, 255), (196, 232, 255), (176, 222, 252), (156, 210, 248), (255, 255, 255), (226, 240, 250)}
+    m = pa.crop((0, 26, 320, 60))
+    for y in range(m.height):
+        for x in range(m.width):
+            if m.getpixel((x, y))[:3] in ceu:
+                m.putpixel((x, y), (0, 0, 0, 0))
+    return m
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     TELAS.mkdir(parents=True, exist_ok=True)
-    paisagem().save(IMG / "paisagem.png")
+    morros(paisagem()).save(IMG / "morros.png")
+    nuvem().save(IMG / "nuvem.png")
     # sem o galho (linhas 30-33), com a cauda colada ao corpo
     pousada = sprite(g.GRADE[:30] + g.GRADE[34:])
     assert pousada.size == (31, 38), pousada.size
     pousada.save(IMG / "arara-pousada.png")
-    sprites = RAIZ / "arte" / "sprites"
-    shutil.copy(sprites / "folha-voo.png", IMG / "folha-voo.png")  # 6 quadros 81x58 lado a lado
-    shutil.copy(sprites / "piscar.png", IMG / "piscar.png")
-    shutil.copy(RAIZ / "arte" / "arara-v3.png", IMG / "arara-galho.png")
+    voo = Image.open(RAIZ / "arte" / "sprites" / "folha-voo.png").convert("RGBA")  # 6 quadros 81x58
+    assert voo.size == (486, 58), voo.size
+    atriz = Image.new("RGBA", (81 * 7, 58), (0, 0, 0, 0))
+    atriz.paste(voo, (0, 0))
+    atriz.paste(pousada, (81 * 6 + (81 - 31) // 2, 58 - 38), pousada)
+    atriz.save(IMG / "atriz.png")
     for nome in ["1-inicio", "2-historico", "3-dicionario", "5-popup"]:
         shutil.copy(RAIZ / "design" / "telas" / f"{nome}.png", TELAS / f"{nome}.png")
     print("ok:", sorted(p.name for p in IMG.iterdir()))

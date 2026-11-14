@@ -1,154 +1,244 @@
-// Landing do Arara: animações no scroll, sem dependências.
-// Sem .anim (prefers-reduced-motion ou sem JS) a página fica estática e legível.
+// Landing v2 do Arara: HTML/CSS/JS puro, sem dependências.
+// Sem .anim (prefers-reduced-motion ou sem JS) a página fica estática e legível,
+// com a arara parada no herói. Com .anim, a mesma #atriz voa pela página.
 (() => {
   "use strict";
-  const $ = (s) => document.querySelector(s);
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const anim = document.documentElement.classList.contains("anim");
 
-  // ondas do passo 2 (alturas fixas, atrasos variados)
-  const alturas = [10, 22, 34, 18, 44, 28, 14, 38, 48, 20, 12, 26, 40, 22, 46, 30, 16, 36, 48, 24, 14];
-  $(".ondas").innerHTML = alturas.map((h, i) => `<i style="--h:${h}px;--atraso:-${(i * 0.37) % 1}s"></i>`).join("");
+  // ---------- ondas (alturas do design) ----------
+  const ALT = [8, 18, 28, 14, 34, 22, 10, 26, 36, 16, 8, 20, 30, 18, 34, 24, 12, 28];
+  for (const el of $$(".ondas")) {
+    const n = el.classList.contains("grande") ? 34 : el.classList.contains("pop") ? 16 : 26;
+    el.innerHTML = Array.from({ length: n }, (_, i) => `<i style="--h:${ALT[i % ALT.length]};--d:-${((i * 0.37) % 1).toFixed(2)}s"></i>`).join("");
+  }
+
+  // ---------- abas do app (funcionam também sem animação) ----------
+  const abas = $$('[role="tab"]');
+  const ativa = (aba, foco) => {
+    for (const a of abas) {
+      const sel = a === aba;
+      a.setAttribute("aria-selected", String(sel));
+      a.tabIndex = sel ? 0 : -1;
+      document.getElementById(a.getAttribute("aria-controls")).classList.toggle("ativa", sel);
+    }
+    if (foco) aba.focus();
+  };
+  abas.forEach((a, i) => {
+    a.addEventListener("click", () => ativa(a));
+    a.addEventListener("keydown", (e) => {
+      const n = abas.length;
+      const j = { ArrowRight: i + 1, ArrowLeft: i - 1 + n, Home: 0, End: n - 1 }[e.key];
+      if (j === undefined) return;
+      e.preventDefault();
+      ativa(abas[j % n], true);
+    });
+  });
+
   if (!anim) return;
 
-  // ---------- entradas: telas do app e passos ----------
-  const revela = new IntersectionObserver((es) => {
-    for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); revela.unobserve(e.target); }
-  }, { threshold: 0.2 });
-  document.querySelectorAll(".revela").forEach((el) => revela.observe(el));
-
-  // ---------- a arara do hero pisca de vez em quando ----------
-  const heroAve = $("#hero-ave");
-  const pisca = () => {
-    heroAve.src = "assets/img/piscar.png";
-    setTimeout(() => { heroAve.src = "assets/img/arara-galho.png"; }, 160);
-    setTimeout(pisca, 3000 + Math.random() * 2000);
-  };
-  new Image().src = "assets/img/piscar.png";
-  setTimeout(pisca, 2500);
-
-  // ---------- a arara que voa ----------
-  const ave = $("#ave"), logo = $("#logo-ave"), vaga = $("#vaga-ave");
-  const secAgentes = $("#agentes"), cards = [...document.querySelectorAll(".card")];
-  const baixar = $(".baixar"), pousada = $("#ave-pousada");
-  const QW = 81, QH = 58, QUADROS = 6, MS_QUADRO = 90;
+  // =====================================================================
+  // A ATRIZ: um só elemento de arara, uma máquina de estados explícita.
+  //   pousada-no-hero -> voando-com-scroll -> pegando-agente -> saindo-com-agente -> pousada-no-download
+  // Regras: as transições são decididas só em quadro(), pela zona do scroll; entrar() cancela o
+  // estado anterior (solta o cartão, limpa timers); a posição só muda por mover(), com passo
+  // máximo VMAX por quadro, então ela nunca teleporta enquanto está na tela.
+  // =====================================================================
+  const atriz = $("#atriz"), tira = $(".tira", atriz), corpo = $(".corpo", atriz);
+  const ninho = $(".ninho"), rastro = $(".rastro"), lista = $(".agentes"), cards = $$(".agente");
+  const pouso = $(".pouso"), btn = $("#btn-baixar"), heroEl = $(".hero");
+  const pares = $$(".cartoes .par"), demo = $(".demo-palco"), passos = $(".passos");
+  const linha = $$(".linha-tempo li");
+  const QW = 81, QH = 58, POUSADA = 6, MS_QUADRO = 90, VMAX = 36;
+  document.body.append(atriz); // fixa e acima de tudo; o .ninho guarda o lugar dela no herói
 
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
-  const suave = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
-  const centro = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r }; };
-  const escalaMax = () => (innerWidth <= 900 ? 2 : 3);
+  const suave = (t) => t * t * (3 - 2 * t);
+  const pag = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height }; };
 
-  let modo = "scroll"; // scroll | pega | sumiu | pousa | pousado
-  let pos = { x: -999, y: -999, s: 1, visivel: false }; // centro na viewport
-  let anima = null; // animação por tempo: função (agora) -> terminou?
-  let ultimoAgente = -1, podePegar = true, querPousar = false;
-
-  function desenha(agora) {
-    const s = pos.s, w = Math.round(QW * s), h = Math.round(QH * s);
-    const q = Math.floor(agora / MS_QUADRO) % QUADROS;
-    ave.style.width = w + "px";
-    ave.style.height = h + "px";
-    ave.style.backgroundSize = `${w * QUADROS}px ${h}px`;
-    ave.style.backgroundPosition = `${-q * w}px 0`;
-    ave.style.transform = `translate3d(${Math.round(pos.x - w / 2)}px, ${Math.round(pos.y - h / 2)}px, 0)`;
-    ave.style.opacity = pos.visivel ? 1 : 0;
+  // ---------- âncoras: medidas no load, em fonts.ready e no resize (nunca por quadro) ----------
+  let A = null;
+  const revelas = [];
+  $$(".tela-frente, .telas, .c-atalho, .popup-real").forEach((el, i) => { el.classList.add("revela"); el.style.setProperty("--d", `${(i % 3) * 0.12}s`); revelas.push(el); });
+  function medir() {
+    const estreito = innerWidth <= 760;
+    const kHero = estreito ? 3 : 5;
+    const n = pag(ninho), r = pag(rastro), l = pag(lista), p = pag(pouso), b = pag(btn), h = pag(heroEl);
+    const r8 = rastro.lastElementChild.getBoundingClientRect();
+    A = {
+      kHero, kVoo: estreito ? 2 : 3, kPouso: estreito ? 3 : 4,
+      hero: { x: n.x + n.w / 2, y: n.y + (QH * kHero) / 2 },
+      // fim do voo ligado ao scroll: logo depois do último ponto do rastro na seção 2
+      oque: { x: Math.min(r8.right + scrollX + 40, innerWidth - 60), y: r8.top + scrollY - 40 },
+      agentes: l.y + Math.min(l.h, 200) / 2,
+      pouso: { x: p.x + p.w / 2, y: p.y + p.h },
+      baixar: b.y + b.h,
+      heroFim: h.y + h.h,
+      demo: pag(demo), passos: pag(passos),
+      revelas: revelas.map((el) => pag(el).y),
+    };
+    if (r.w === 0) A.oque = { x: n.x + n.w / 2, y: h.y + h.h + 200 };
   }
 
-  // 1. do logo até a seção 2, ligada ao scroll
-  function vooDoScroll(agora) {
+  // ---------- zona: só o scroll decide ----------
+  function zona() {
     const y = scrollY, vh = innerHeight;
-    const a = centro(logo), b = centro(vaga);
-    const ax = a.x, ay = a.y + y, bx = b.x, by = b.y + y; // coordenadas da página
-    const fim = Math.max(1, by - vh / 2); // scroll em que a vaga fica no meio da tela
-    const p = clamp(y / fim, 0, 1), e = suave(p);
-    const curva = Math.sin(p * Math.PI * 2) * Math.min(160, innerWidth * 0.12);
-    const flutua = Math.sin(agora / 380) * 6 * e;
-    pos = { x: lerp(ax, bx, e) + curva, y: lerp(ay, by, e) - y + flutua, s: lerp(1, escalaMax(), e), visivel: y > 4 };
-    logo.classList.toggle("solta", y > 4);
+    if (A.baixar <= y + vh * 0.92) return "download";
+    if (A.agentes <= y + vh * 0.55) return "agentes";
+    return "topo";
   }
 
-  // 2. pega um agente aleatório e sai voando com ele
-  function pegaAgente() {
-    let i;
-    do i = Math.floor(Math.random() * cards.length); while (cards.length > 1 && i === ultimoAgente);
-    ultimoAgente = i;
-    const card = cards[i];
-    const de = pos.visivel && pos.y > -50 && pos.y < innerHeight + 50 ? { ...pos } : { x: innerWidth * 0.5, y: -80, s: escalaMax() };
-    const s = escalaMax(), t0 = performance.now();
-    const alvo = () => { const c = centro(card); return { x: c.x, y: c.r.top - QH * s * 0.32 }; };
-    modo = "pega";
-    logo.classList.add("solta");
-    anima = (agora) => {
-      const t = agora - t0;
-      if (t < 1000) { // voa até o card
-        const k = suave(t / 1000), a = alvo();
-        pos = { x: lerp(de.x, a.x, k), y: lerp(de.y, a.y, k) - Math.sin(k * Math.PI) * 60, s: lerp(de.s, s, k), visivel: true };
-        return false;
-      }
-      if (!card.classList.contains("pega")) card.classList.add("pega"); // agarrou: o card levanta e inclina
-      if (t >= 1350) { // sobe com o card até sumir
-        const dt = t - 1350, dy = 0.0005 * dt * dt + 0.1 * dt;
-        card.style.transition = "transform 0s";
-        card.style.transform = `translateY(${-12 - dy}px) rotate(${-6 + Math.sin(dt / 120) * 2}deg)`;
-        if (card.getBoundingClientRect().bottom < -20 || dt > 4000) {
-          card.classList.remove("pega");
-          card.classList.add("sumiu");
-          card.style.transform = "";
-          setTimeout(() => {
-            card.style.transition = "";
-            card.classList.replace("sumiu", "volta");
-            card.addEventListener("animationend", () => card.classList.remove("volta"), { once: true });
-          }, 900);
-          pos.visivel = false;
-          modo = "sumiu";
-          return true;
-        }
-      }
-      const a = alvo();
-      pos = { x: a.x, y: a.y + Math.sin(t / 120) * 3, s, visivel: true };
-      return false;
-    };
+  // ---------- estado ----------
+  let estado = null, t0 = 0, pos = null, k = 0, q = 1, visivel = true;
+  let card = null, pega = null, timers = [], subindo = false, ultimo = -1, vSobe = 0, sumiu = false, pousou = false;
+
+  function soltarCartao() {
+    if (!card) return;
+    card.classList.remove("pego");
+    card.style.transform = "";
+    card = null;
+  }
+  function limpar(manterCartao) {
+    timers.forEach(clearTimeout);
+    timers = [];
+    cards.forEach((c) => c.classList.remove("sumiu"));
+    corpo.classList.remove("pousou");
+    if (!manterCartao) soltarCartao();
+  }
+  function entrar(novo, agora) {
+    limpar(novo === "saindo-com-agente");
+    estado = novo;
+    t0 = agora;
+    atriz.dataset.estado = novo;
+    sumiu = false;
+    pousou = false;
+    if (novo === "pegando-agente") {
+      let i;
+      do i = Math.floor(Math.random() * cards.length); while (cards.length > 1 && i === ultimo);
+      ultimo = i;
+      card = cards[i];
+    }
+    if (novo === "saindo-com-agente") vSobe = 2;
   }
 
-  // 5. volta e pousa no botão de download
-  function pousa() {
-    querPousar = false;
-    const s0 = escalaMax(), t0 = performance.now();
-    const de = pos.visivel ? { ...pos } : { x: innerWidth * 0.75, y: -80, s: s0 };
-    modo = "pousa";
-    anima = (agora) => {
-      const k = suave(clamp((agora - t0) / 1300, 0, 1)), c = centro(pousada);
-      pos = { x: lerp(de.x, c.x, k), y: lerp(de.y, c.y - 10, k) - Math.sin(k * Math.PI) * 80, s: lerp(de.s, s0, k), visivel: true };
-      if (k < 1) return false;
-      pos.visivel = false;
-      pousada.classList.add("pousou");
-      modo = "pousado";
-      return true;
-    };
+  function escala(novo) {
+    if (novo === k) return;
+    k = novo;
+    atriz.style.setProperty("--k", k); // muda só na troca de escala, nunca por quadro
   }
 
-  new IntersectionObserver(([e]) => {
-    if (!e.isIntersecting) { podePegar = true; return; }
-    if (podePegar && (modo === "scroll" || modo === "sumiu")) { podePegar = false; pegaAgente(); }
-  }, { threshold: 0.6 }).observe($(".cards"));
+  // anda até o alvo; f = fração da distância por quadro, limitada a VMAX px
+  function mover(alvo, f) {
+    const dx = alvo.x - pos.x, dy = alvo.y - pos.y, d = Math.hypot(dx, dy);
+    if (d < 0.75) { pos.x = alvo.x; pos.y = alvo.y; return 0; }
+    const s = Math.min(Math.max(d * f, Math.min(d, 1.5)), VMAX);
+    pos.x += (dx / d) * s;
+    pos.y += (dy / d) * s;
+    return d - s;
+  }
 
-  new IntersectionObserver(([e]) => {
-    if (e.isIntersecting && modo !== "pousa" && modo !== "pousado") querPousar = true;
-  }, { threshold: 1, rootMargin: "0px 0px -12% 0px" }).observe($("#btn-baixar"));
+  function alvoScroll(agora) {
+    const y = scrollY, vh = innerHeight;
+    const p = clamp(y / Math.max(1, A.oque.y - vh * 0.45), 0, 1), e = suave(p);
+    const curva = Math.sin(p * Math.PI) * Math.min(160, innerWidth * 0.12);
+    escala(Math.round(lerp(A.kHero, A.kVoo, e)));
+    return { x: lerp(A.hero.x, A.oque.x, e) - curva, y: lerp(A.hero.y, A.oque.y, e) + Math.sin(agora / 380) * 6 };
+  }
 
   function quadro(agora) {
-    if (anima) { if (anima(agora)) anima = null; }
-    else {
-      if (querPousar && modo !== "pega") pousa();
-      // longe da seção 6 de novo: a arara do botão volta a voar
-      if (modo === "pousado" && baixar.getBoundingClientRect().top > innerHeight + 200) { pousada.classList.remove("pousou"); modo = "sumiu"; }
-      // acima da seção 3 de novo: volta a seguir o scroll
-      if (modo === "sumiu" && secAgentes.getBoundingClientRect().top > innerHeight) modo = "scroll";
-      if (modo === "scroll") vooDoScroll(agora);
-      else if (!anima) pos.visivel = false;
-    }
-    desenha(agora);
     requestAnimationFrame(quadro);
+    if (!A) return;
+    const y = scrollY, vh = innerHeight, vw = innerWidth;
+
+    // 1) transições (o único lugar que muda o estado)
+    const z = zona();
+    if (z === "topo") {
+      subindo = false;
+      const alvo = y <= 4 ? "pousada-no-hero" : "voando-com-scroll";
+      if (estado !== alvo) entrar(alvo, agora);
+    } else if (z === "agentes") {
+      if (estado === "pousada-no-download") { subindo = true; entrar("voando-com-scroll", agora); }
+      else if (!subindo && (estado === null || estado === "pousada-no-hero" || estado === "voando-com-scroll")) entrar("pegando-agente", agora);
+    } else if (estado !== "pousada-no-download") entrar("pousada-no-download", agora);
+
+    if (!pos) { escala(A.kHero); pos = { ...A.hero }; }
+
+    // 2) fora da tela ela espera colada à borda: ao voltar, entra pela borda mais próxima.
+    // A margem usa a maior escala e um passo, para ela não aparecer no mesmo quadro.
+    const w = QW * k, h = QH * k, wm = QW * A.kHero + 2 * VMAX, hm = QH * A.kHero + 2 * VMAX;
+    const fora = pos.y + h / 2 < y || pos.y - h / 2 > y + vh || pos.x + w / 2 < 0 || pos.x - w / 2 > vw;
+    if (fora) {
+      pos.x = clamp(pos.x, -wm / 2 - 10, vw + wm / 2 + 10);
+      pos.y = clamp(pos.y, y - hm / 2 - 10, y + vh + hm / 2 + 10);
+    }
+
+    // 3) movimento do estado atual
+    q = Math.floor(agora / MS_QUADRO) % 6;
+    visivel = true;
+    if (estado === "pousada-no-hero" || estado === "voando-com-scroll") {
+      mover(alvoScroll(agora), 0.35);
+    } else if (estado === "pegando-agente") {
+      escala(A.kVoo);
+      const c = card.getBoundingClientRect();
+      const alvo = { x: c.left + c.width / 2 + scrollX, y: c.top + scrollY - QH * k * 0.18 };
+      if (mover(alvo, 0.12) < 2) {
+        card.classList.add("pego");
+        pega = { x: pos.x, y: pos.y };
+        entrar("saindo-com-agente", agora); // continua segurando o cartão
+      }
+    } else if (estado === "saindo-com-agente") {
+      if (!sumiu) {
+        vSobe = Math.min(VMAX, vSobe * 1.07 + 0.3);
+        pos.y -= vSobe;
+        card.style.transform = `translate(${Math.round(pos.x - pega.x)}px, ${Math.round(pos.y - pega.y - 12)}px) rotate(${-7 + Math.sin((agora - t0) / 120) * 2}deg)`;
+        if (pos.y + h / 2 < y) { // saiu por cima: some com o cartão; o cartão volta 0,9 s depois
+          sumiu = true;
+          const c = card;
+          soltarCartao();
+          c.classList.add("sumiu");
+          timers.push(setTimeout(() => c.classList.remove("sumiu"), 900));
+        }
+      }
+      if (sumiu) { visivel = false; pos.y = Math.min(pos.y, y - h / 2 - 10); }
+    } else if (estado === "pousada-no-download") {
+      // voa na escala de voo até o botão; ao chegar, troca para a pose pousada (squash) e fica
+      escala(pousou ? A.kPouso : A.kVoo);
+      const resta = mover({ x: A.pouso.x, y: A.pouso.y - (QH * k) / 2 }, pousou ? 0.5 : 0.12);
+      if (!pousou && resta < 3) { pousou = true; escala(A.kPouso); corpo.classList.add("pousou"); }
+      if (pousou) q = POUSADA;
+    }
+
+    // 4) desenho: por quadro, só transform e opacity
+    const W = QW * k, H = QH * k;
+    atriz.style.transform = `translate3d(${Math.round(pos.x - scrollX - W / 2)}px, ${Math.round(pos.y - y - H / 2)}px, 0)`;
+    atriz.style.opacity = visivel ? "1" : "0";
+    tira.style.transform = `translateX(${-q * W}px)`;
+
+    // ---------- o resto da página no mesmo laço ----------
+    if (y < A.heroFim) for (const el of pares) el.style.transform = `translateY(${(-y * el.dataset.par).toFixed(1)}px)`;
+    for (let i = 0; i < revelas.length; i++) if (A.revelas[i] < y + vh * 0.88) revelas[i].classList.add("in");
+    passos.classList.toggle("visivel", A.passos.y < y + vh && A.passos.y + A.passos.h > y);
+    const demoNaTela = A.demo.y < y + vh && A.demo.y + A.demo.h > y;
+    demo.classList.toggle("visivel", demoNaTela);
+    if (demoNaTela) {
+      if (!demoT0) demoT0 = agora;
+      const t = (agora - demoT0) % 8000;
+      const fase = t < 700 ? "vazio" : t < 3600 ? "ouvindo" : t < 5000 ? "transcrevendo" : "colado";
+      if (demo.dataset.fase !== fase) {
+        demo.dataset.fase = fase;
+        const ativo = { vazio: 0, ouvindo: 1, transcrevendo: 1, colado: 2 }[fase];
+        linha.forEach((li, i) => li.classList.toggle("ativo", i === ativo));
+      }
+    } else demoT0 = 0;
   }
+  let demoT0 = 0;
+
+  medir();
+  document.fonts.ready.then(medir);
+  addEventListener("load", medir);
+  addEventListener("resize", medir);
+  new ResizeObserver(medir).observe(document.body);
   requestAnimationFrame(quadro);
 })();
