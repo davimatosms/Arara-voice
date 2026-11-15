@@ -40,11 +40,12 @@ Gera `build/instalador/Arara-Setup-0.1.0.exe` (~39 MB). Requer JDK 21 e [Inno Se
 - O desinstalador não apaga `%APPDATA%\Arara` (configurações, histórico e modelos).
 - A versão vem só de `gradle.properties` e vai para os jars, o `Arara.exe`, o Setup e o desinstalador.
 - Ao publicar uma release, anexe o instalador também com o nome fixo `Arara-Setup.exe`: os botões do site baixam direto de `releases/latest/download/Arara-Setup.exe`.
+- **Atualização no app:** o Arara consulta `site/versao.json` (publicado em `https://arara-voice.vercel.app/versao.json` a cada merge na `main`) e pergunta ao usuário se há versão nova. Regra a cada release, depois de anexar os arquivos com versão no nome (`Arara-Setup-<versão>.exe`, `Arara-<versão>-Mac-AppleSilicon.dmg`, `Arara-<versão>-Mac-Intel.dmg`): rode `python instalador/gerar_versao.py <versão> "<notas curtas>" <os 3 arquivos>` e abra um PR com o `site/versao.json` novo. Só faça o merge depois de a release estar publicada: o app baixa das URLs da release e confere o SHA-256.
 - No GitHub Actions, `.github/workflows/instalador.yml` gera o instalador (em tag `v*` ou à mão) e publica o Setup e o app-image como artefatos. A assinatura pela SignPath fica desligada até existir o secret `SIGNPATH_API_TOKEN` (e a variável `SIGNPATH_ORGANIZATION_ID`); as configurações de artefato estão em `instalador/signpath/`.
 
 ## Licença
 
-[MIT](LICENSE). O app não manda áudio, texto nem telemetria para lugar nenhum: a única conexão é o download do modelo de voz da Hugging Face. Detalhes na [política de privacidade e de assinatura de código](site/politica.html).
+[MIT](LICENSE). O app não manda áudio, texto nem telemetria para lugar nenhum. Ele só se conecta para baixar o modelo de voz da Hugging Face e para consultar o `versao.json` do site (verificação de atualizações, que dá para desligar; o instalador só é baixado se você aceitar). Detalhes na [política de privacidade e de assinatura de código](site/politica.html).
 
 Componentes de terceiros (versões, licenças e links em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)):
 
