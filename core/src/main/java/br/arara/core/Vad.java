@@ -26,7 +26,7 @@ final class Vad {
     Result feed(short[] chunk) {
         fed += chunk.length;
         double db = lastDb = dbfs(chunk);
-        boolean loud = db > Math.max(MIN_SPEECH_DB, floorDb + MARGIN_DB);
+        boolean loud = db > threshold();
         // Piso desce na hora e sobe devagar (~16 s), para acompanhar ruído de fundo sem engolir a fala.
         floorDb = db < floorDb ? db : floorDb + 0.002 * (db - floorDb);
         loudRun = loud ? loudRun + 1 : 0;
@@ -38,6 +38,11 @@ final class Vad {
         sinceSpeech = loudRun >= SPEECH_CHUNKS ? 0 : sinceSpeech + chunk.length;
         if (sinceSpeech >= TIMEOUT_AFTER) return Result.TIMEOUT;
         return sinceSpeech >= SILENCE_AFTER ? Result.SILENCE : Result.LISTENING;
+    }
+
+    /** Nível (dBFS) acima do qual um bloco conta como fala. */
+    double threshold() {
+        return Math.max(MIN_SPEECH_DB, floorDb + MARGIN_DB);
     }
 
     /** Houve fala em algum momento desde o início. */

@@ -7,6 +7,12 @@ public interface DictationListener {
     /** Nível do microfone de 0.0 a 1.0 (RMS normalizado), umas 30 vezes por segundo enquanto grava. */
     default void onLevel(float level) {}
 
+    /**
+     * Texto do ditado até agora, enquanto a pessoa fala: chega a cada trecho transcrito, sempre o texto inteiro
+     * (não só o trecho novo), ainda sem o dicionário. Vem da thread de transcrição.
+     */
+    default void onPartialText(String textSoFar) {}
+
     /** Transcrição pronta e já salva no histórico. */
     default void onResult(HistoryEntry entry) {}
 

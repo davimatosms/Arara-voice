@@ -37,8 +37,9 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/";
 
     // O padrão do whisper-jni (0) deixa o whisper.cpp quase sem paralelismo: medido 4,2 s contra 2,8 s com 6 threads
-    // (base, 15 s de áudio, Ryzen 5 5500). Metade dos processadores lógicos ~ núcleos físicos; 12 threads só ganhou 4%.
-    private static final int THREADS = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+    // (base, 15 s de áudio, Ryzen 5 5500). Com o turbo os processadores lógicos ajudam: 10 s de áudio em 7,4 s com 6
+    // threads, 5,3 s com 10 e 5,2 s com 12. Sobram 2 para o microfone e o resto do sistema.
+    static final int THREADS = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
 
     private final Path modelsDir;
     private final Supplier<Settings.Model> model;

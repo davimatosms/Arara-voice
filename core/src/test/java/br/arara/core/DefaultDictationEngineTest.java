@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -207,43 +208,108 @@ class DefaultDictationEngineTest {
     }
 
     @Test
-    void longDictationIsTranscribedInPartsAtPausesAndJoinedInOrder() throws Exception {
+    void afterSoftLengthCutsAtBreathWithoutWaitingForPause() throws Exception {
         List<String> pasted = new ArrayList<>();
-        PartsTranscriber t = new PartsTranscriber("Primeira frase.", "frase. Segunda frase,", "e o fim.");
+        List<String> partials = new ArrayList<>();
+        List<String> partialThreads = new ArrayList<>();
+        PartsTranscriber t = new PartsTranscriber("Primeira frase", "frase e o fim.");
         DefaultDictationEngine e = engine(t, pasted::add);
+        e.addListener(new DictationListener() {
+            @Override
+            public void onPartialText(String textSoFar) { // só a thread de transcrição chama; o PASTED vem depois
+                partials.add(textSoFar);
+                partialThreads.add(Thread.currentThread().getName());
+            }
+        });
         e.toggle();
+        push(VadTest.QUIET, 0.2);
         push(VadTest.SPEECH, 5);
-        push(VadTest.QUIET, 0.7); // pausa: corta aqui
-        push(VadTest.SPEECH, 5);
-        push(VadTest.QUIET, 0.3); // curta demais: não corta
-        push(VadTest.SPEECH, 0.5);
-        push(VadTest.QUIET, 0.7);
-        push(VadTest.SPEECH, 1); // menos de 4 s de fala desde o último corte: fica para o fim
+        push(VadTest.QUIET, 0.3); // respiro antes de 8 s de fala: não corta
+        push(VadTest.SPEECH, 2.5);
+        push(VadTest.QUIET, 0.3); // respiro depois de 8 s: curto demais para ser pausa, mas é o ponto de corte
+        push(VadTest.SPEECH, 2);
         e.toggle();
         assertEquals(DictationState.LISTENING, next());
         assertEquals(DictationState.TRANSCRIBING, next(), "sem piscar estado durante a fala");
         assertEquals(DictationState.PASTED, next());
 
-        assertEquals(3, t.samples.size());
-        assertEquals(List.of("", "Primeira frase.", "Primeira frase. Segunda frase,"), t.contexts);
-        assertEquals(List.of("Primeira frase. Segunda frase, e o fim."), pasted, "palavra repetida na fronteira some");
+        assertEquals(2, t.samples.size());
+        int first = t.samples.get(0);
+        assertTrue(first >= 8.0 * Vad.RATE && first <= 8.3 * Vad.RATE, "cortou no segundo respiro: " + first);
+        assertEquals(List.of("", "Primeira frase"), t.contexts);
+        assertEquals(List.of("Primeira frase e o fim."), pasted, "palavra repetida na fronteira some");
         assertTrue(t.threads.stream().allMatch("arara-transcricao"::equals), "fora da thread do microfone");
+        assertEquals(List.of("Primeira frase", "Primeira frase e o fim."), partials, "texto inteiro até agora");
+        assertTrue(partialThreads.stream().allMatch("arara-transcricao"::equals), "não bloqueia o microfone");
     }
 
     @Test
-    void speechWithoutPauseIsCutAtMaxLength() throws Exception {
-        PartsTranscriber t = new PartsTranscriber("um", "dois");
+    void busyWorkerQueuesPartsCutAtBreathPauseAndMaxLength() throws Exception {
+        CountDownLatch busy = new CountDownLatch(1), release = new CountDownLatch(1);
+        PartsTranscriber t = new PartsTranscriber("um", "dois", "três", "quatro") {
+            @Override
+            public String transcribe(short[] pcm16k, String previous) {
+                busy.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException ex) {
+                    throw new IllegalStateException(ex);
+                }
+                return super.transcribe(pcm16k, previous);
+            }
+        };
         List<String> pasted = new ArrayList<>();
         DefaultDictationEngine e = engine(t, pasted::add);
         e.toggle();
-        for (int i = 0; i < 22 * Vad.RATE / VadTest.CHUNK; i++) mic.push(i % 6 == 5 ? VadTest.QUIET : VadTest.SPEECH); // fala sem pausa de frase
+        push(VadTest.SPEECH, 8); // sem respiro: ainda não corta
+        assertEquals(1, busy.getCount(), "não partiu a fala");
+        push(VadTest.QUIET, 0.3);
+        push(VadTest.SPEECH, 1); // respiro depois de 8 s: corta ali
+        assertTrue(busy.await(5, TimeUnit.SECONDS), "primeiro trecho no Whisper");
+        push(VadTest.SPEECH, 4.5);
+        push(VadTest.QUIET, 0.7); // pausa: corta, e o trecho espera na fila
+        for (int i = 0; i < 13 * Vad.RATE / VadTest.CHUNK; i++) mic.push(i % 6 == 5 ? VadTest.QUIET : VadTest.SPEECH); // sem pausa
         e.toggle();
+        release.countDown();
         assertEquals(DictationState.LISTENING, next());
         assertEquals(DictationState.TRANSCRIBING, next());
         assertEquals(DictationState.PASTED, next());
-        assertEquals(DefaultDictationEngine.MAX_PART, t.samples.get(0));
+
+        assertEquals(4, t.samples.size());
+        assertTrue(t.samples.get(0) >= 8 * Vad.RATE && t.samples.get(0) <= 8.3 * Vad.RATE, "no respiro: " + t.samples.get(0));
+        assertTrue(t.samples.get(2) <= DefaultDictationEngine.SOFT_PART + DefaultDictationEngine.NO_BREATH
+                && t.samples.get(2) > 10 * Vad.RATE,
+                "cortou no máximo: " + t.samples.get(2));
+        assertEquals(List.of("", "um", "um dois", "um dois três"), t.contexts);
+        assertEquals(List.of("um dois três quatro"), pasted);
+    }
+
+    @Test
+    void fastModelKeepsLongPartsAndCutsOnlyAtPauses() throws Exception {
+        PartsTranscriber t = new PartsTranscriber("um.", "dois.");
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(t, pasted::add);
+        e.toggle();
+        push(VadTest.SPEECH, 5);
+        push(VadTest.QUIET, 0.7); // pausa: primeiro trecho, que mostra o Whisper rápido
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 100 && t.samples.isEmpty(); i++) Thread.sleep(10);
+        push(VadTest.SPEECH, 8.5);
+        push(VadTest.QUIET, 0.3); // respiro depois de 8 s: com modelo rápido não precisa cortar
+        push(VadTest.SPEECH, 2);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertEquals(DictationState.PASTED, next());
         assertEquals(2, t.samples.size());
-        assertEquals(List.of("um dois"), pasted);
+        assertEquals(List.of("um. dois."), pasted);
+    }
+
+    @Test
+    void quietestFindsTheGapInsideSpeech() {
+        short[] a = new short[Vad.RATE];
+        for (int i = 0; i < a.length; i++) a[i] = (short) (i >= 6000 && i < 9000 ? 0 : (i % 2 == 0 ? 3000 : -3000));
+        int cut = DefaultDictationEngine.quietest(a, 0, a.length);
+        assertTrue(cut - DefaultDictationEngine.GAP / 2 >= 6000 && cut + DefaultDictationEngine.GAP / 2 <= 9000, "corte " + cut);
     }
 
     @Test
@@ -267,6 +333,13 @@ class DefaultDictationEngineTest {
         };
         List<String> pasted = new ArrayList<>();
         DefaultDictationEngine e = engine(t, pasted::add);
+        List<String> partials = new CopyOnWriteArrayList<>();
+        e.addListener(new DictationListener() {
+            @Override
+            public void onPartialText(String textSoFar) {
+                partials.add(textSoFar);
+            }
+        });
         e.toggle();
         push(VadTest.SPEECH, 5);
         push(VadTest.QUIET, 0.7);
@@ -280,6 +353,7 @@ class DefaultDictationEngineTest {
         assertNull(states.poll(500, TimeUnit.MILLISECONDS), "nada depois do cancelamento");
         assertEquals(1, calls.size(), "trecho da fila descartado");
         assertTrue(pasted.isEmpty());
+        assertTrue(partials.isEmpty(), "texto parcial descartado junto");
         assertTrue(history.all().isEmpty());
     }
 
@@ -292,6 +366,20 @@ class DefaultDictationEngineTest {
         DefaultDictationEngine.join(b, "bem?");
         DefaultDictationEngine.join(b, "Sim.");
         assertEquals("Olá, mundo. tudo bem? Sim.", b.toString());
+    }
+
+    @Test
+    void joinDropsRepeatedSentenceAndWhisperLoops() {
+        StringBuilder b = new StringBuilder("Essa lista vai estar na pasta compartilhada.");
+        DefaultDictationEngine.join(b, "Essa lista vai estar na pasta compartilhada. Até amanhã.");
+        assertEquals("Essa lista vai estar na pasta compartilhada. Até amanhã.", b.toString());
+        DefaultDictationEngine.join(b, "Na terça, o time de design... na terça, o time de design... na terça, o time de design apresentou.");
+        assertEquals("Essa lista vai estar na pasta compartilhada. Até amanhã. Na terça, o time de design... apresentou.",
+                b.toString());
+        DefaultDictationEngine.join(b, "o time de design... apresentou as telas novas."); // repete o meio do anterior
+        assertTrue(b.toString().endsWith("o time de design... apresentou. as telas novas."), b.toString());
+        DefaultDictationEngine.join(b, "que que eu disse"); // repetição curta é fala normal
+        assertTrue(b.toString().endsWith("novas. que que eu disse"), b.toString());
     }
 
     @Test
