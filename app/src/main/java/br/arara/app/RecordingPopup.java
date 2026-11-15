@@ -10,7 +10,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JWindow;
-import javax.swing.SwingConstants;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
@@ -21,6 +20,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Window;
+import java.util.function.LongSupplier;
 
 /** Pop-up de gravação: sempre por cima, sem roubar o foco, perto do pé da tela. */
 final class RecordingPopup implements DictationListener {
@@ -29,11 +29,16 @@ final class RecordingPopup implements DictationListener {
     private final SettingsStore settings;
     final Arara arara = new Arara(2);
     private final Waves mini = new Waves(22, 2, 4, 10);
-    private final Waves waves = new Waves(27, 4, 6, 34);
-    private final Ui.Badge badge = new Ui.Badge();
+    private final Waves waves = new Waves(27, 4, 6, 24);
+    final Ui.Badge badge = new Ui.Badge();
+    /** Texto ao vivo no lugar do título; o título só aparece sem texto ("Não ouvi nada", "Transcrevendo", erro). */
+    final LiveText live = new LiveText();
     private final JLabel title = Ui.label(" ", Theme.extrabold(22), Theme.TEXT);
     private final JLabel quote = Ui.label(" ", Theme.regular(13), Theme.TEXT_SOFT);
     private final JLabel esc = Ui.label("Esc cancela", Theme.regular(12), Theme.TEXT_SOFT);
+    private final JLabel pasted = Ui.label("colado no app em foco", Theme.bold(12), Theme.GREEN);
+    private final CardLayout textCards = new CardLayout();
+    private final JPanel text = new JPanel(textCards);
     private final JProgressBar progress = new JProgressBar(0, 1000);
     private final CardLayout middleCards = new CardLayout();
     private final JPanel middle = new JPanel(middleCards);
@@ -42,6 +47,8 @@ final class RecordingPopup implements DictationListener {
     /** Conteúdo do pop-up; fica separado da janela para poder ser desenhado em teste sem tela. */
     final Ui.Round view = new Ui.Round(new BorderLayout(20, 0), Theme.SURFACE, Theme.BORDER, 32);
 
+    /** Relógio das animações em ms; o teste troca para desenhar quadros exatos. */
+    LongSupplier clock = () -> System.nanoTime() / 1_000_000;
     private JWindow window;
     private DictationState state = DictationState.IDLE;
     private float level;
@@ -60,20 +67,30 @@ final class RecordingPopup implements DictationListener {
 
         progress.setForeground(Theme.YELLOW);
         progress.setBackground(Theme.BG);
-        progress.setPreferredSize(new Dimension(270, 10));
+        progress.setPreferredSize(new Dimension(270, 8));
         progress.setBorderPainted(false);
         progress.getAccessibleContext().setAccessibleName("Transcrevendo");
         middle.setOpaque(false);
         middle.add(waves, "waves");
         middle.add(Ui.centerY(progress), "progress");
         middle.add(Ui.centerY(quote), "quote");
-        middle.setPreferredSize(new Dimension(270, 40));
-        esc.setHorizontalAlignment(SwingConstants.RIGHT);
+        pasted.setIcon(Ui.icon("check", 12, Theme.GREEN));
+        pasted.setIconTextGap(4);
+        middle.add(Ui.centerY(pasted), "pasted");
+        middle.setPreferredSize(new Dimension(270, 24));
+        text.setOpaque(false);
+        text.add(live, "live");
+        text.add(title, "title");
+        text.setPreferredSize(new Dimension(LiveText.WIDTH, LiveText.HEIGHT));
+        live.placeholder = "Pode falar…";
 
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.add(badge, BorderLayout.WEST);
+        top.add(esc, BorderLayout.EAST);
         JPanel right = new JPanel(new BorderLayout());
         right.setOpaque(false);
-        right.add(Ui.column(Ui.gap(4), badge, Ui.gap(6), title, Ui.gap(2), middle), BorderLayout.NORTH);
-        right.add(esc, BorderLayout.SOUTH);
+        right.add(Ui.column(Ui.gap(4), top, Ui.gap(7), text, Ui.gap(5), middle), BorderLayout.NORTH);
 
         view.setBorder(new EmptyBorder(14, 14, 14, 26));
         view.add(box, BorderLayout.WEST);
@@ -101,9 +118,19 @@ final class RecordingPopup implements DictationListener {
     }
 
     @Override
+    public void onPartialText(String textSoFar) {
+        boolean had = live.hasText();
+        live.setText(textSoFar, false, now());
+        // O primeiro texto troca o título ("Não ouvi nada", "Transcrevendo") pelo texto e o selo por "Pausa".
+        if (!had && state != DictationState.PASTED && state != DictationState.ERROR && state != DictationState.IDLE) show(state);
+    }
+
+    @Override
     public void onResult(HistoryEntry entry) {
         String t = entry.texto().strip();
-        quote.setText(t.isEmpty() ? "Nenhuma fala detectada." : "“" + (t.length() > 42 ? t.substring(0, 40) + "…" : t) + "”");
+        if (t.isEmpty()) live.clear();
+        else live.setText(t, true, now());
+        quote.setText("Nenhuma fala detectada.");
     }
 
     @Override
@@ -114,23 +141,33 @@ final class RecordingPopup implements DictationListener {
 
     /** Ajusta o conteúdo para o estado, sem abrir janela. */
     void show(DictationState s) {
-        if (s != state) {
+        boolean changed = s != state;
+        if (changed) {
             frame = 0;
             arara.reset();
+        }
+        // Ditado novo: o texto do anterior sai.
+        if (s == DictationState.LISTENING && (state == DictationState.IDLE || state == DictationState.PASTED || state == DictationState.ERROR)) {
+            live.clear();
         }
         state = s;
         boolean recording = s == DictationState.LISTENING || s == DictationState.SILENCE;
         waves.dashed = s == DictationState.SILENCE;
         mini.dashed = s != DictationState.LISTENING;
         arara.mark = s == DictationState.SILENCE ? "?" : s == DictationState.TRANSCRIBING ? "..." : null;
+        boolean has = live.hasText();
+        live.caret = s == DictationState.LISTENING;
         switch (s) {
-            case LISTENING -> set("Ouvindo", Theme.BLUE, true, "Ouvindo", "waves");
-            case SILENCE -> set("Silêncio", Theme.TEXT_SOFT, false, "Não ouvi nada", "waves");
+            case LISTENING -> set("Ouvindo", Theme.BLUE, true, null, "waves");
+            case SILENCE -> set(has ? "Pausa" : "Silêncio", Theme.TEXT_SOFT, false, has ? null : "Não ouvi nada", "waves");
             case TRANSCRIBING -> {
-                progress.setValue(0);
-                set("Transcrevendo", Theme.YELLOW, false, "Transcrevendo", "progress");
+                if (changed) progress.setValue(0);
+                set("Transcrevendo", Theme.YELLOW, false, has ? null : "Transcrevendo", "progress");
             }
-            case PASTED -> set("Pronto", Theme.GREEN, false, "Colado!", "quote");
+            case PASTED -> {
+                if (has) set("Colado!", Theme.GREEN, false, null, "pasted");
+                else set("Pronto", Theme.GREEN, false, "Colado!", "quote");
+            }
             case ERROR -> {
                 quote.setText(lastError);
                 set("Erro", Theme.YELLOW, false, "Não deu certo", "quote");
@@ -139,7 +176,6 @@ final class RecordingPopup implements DictationListener {
         }
         Settings cfg = settings.load();
         esc.setVisible(cfg.escCancels() && (recording || s == DictationState.TRANSCRIBING));
-        view.getAccessibleContext().setAccessibleName(title.getText());
         if (s == DictationState.PASTED || s == DictationState.ERROR) {
             hide.setInitialDelay(s == DictationState.PASTED ? 1500 : 3000);
             hide.restart();
@@ -149,19 +185,27 @@ final class RecordingPopup implements DictationListener {
         view.repaint();
     }
 
+    /** titleText null: mostra o texto ao vivo no lugar do título. */
     private void set(String badgeText, Color color, boolean solid, String titleText, String card) {
         badge.set(badgeText, color, solid);
-        title.setText(titleText);
+        if (titleText != null) title.setText(titleText);
+        textCards.show(text, titleText == null ? "live" : "title");
         middleCards.show(middle, card);
+        view.getAccessibleContext().setAccessibleName(titleText != null ? titleText : badgeText);
     }
 
     /** Arara viva: bico segue a voz, notinhas, piscar e voo no "Colado!". Só roda com o pop-up aberto. */
     void tick() {
         frame++;
         arara.animate(state, level, frame);
+        live.tick(now());
         // Sem progresso real do Whisper: a barra anda rápido no começo e vai freando perto do fim.
         if (state == DictationState.TRANSCRIBING) progress.setValue(progress.getValue() + (950 - progress.getValue()) / 40);
         arara.repaint();
+    }
+
+    private long now() {
+        return clock.getAsLong();
     }
 
     private void showWindow() {

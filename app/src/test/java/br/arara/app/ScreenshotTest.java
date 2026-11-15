@@ -79,6 +79,97 @@ class ScreenshotTest {
         });
     }
 
+    private static final String FRASE = "Oi, pessoal! Só passando para avisar que a reunião de amanhã mudou para as dez "
+            + "horas, na sala grande do segundo andar.";
+
+    private static String ate(int n) {
+        return String.join(" ", java.util.Arrays.copyOf(FRASE.split(" "), n));
+    }
+
+    /** Pop-up com texto ao vivo (design 12, variação A): estados A1-A5 e quadros da rolagem, para comparar com o FigCraft. */
+    @Test
+    void desenhaTextoAoVivo() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        String dir = "popup-texto-ao-vivo/";
+        new File(DIR, dir).mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            long[] t = {0};
+            RecordingPopup p = new RecordingPopup(new DemoCore().settings());
+            p.clock = () -> t[0];
+            int w = p.view.getWidth(), h = p.view.getHeight();
+
+            p.show(DictationState.LISTENING);
+            p.onLevel(0.1f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "A1-comecando");
+
+            p.onPartialText(ate(12));
+            run(p, t, 3000, 0.8f);
+            while (p.arara.notes.size() < 3 || p.arara.sprite == Arara.PISCAR) run(p, t, 33, 0.8f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "A2-falando");
+
+            p.onPartialText(ate(16));
+            run(p, t, 3000, 0.8f);
+            p.show(DictationState.SILENCE);
+            run(p, t, 300, 0.02f);
+            save(p.view, w, h, dir + "A3-pausa");
+
+            p.onPartialText(FRASE);
+            run(p, t, 3000, 0.02f);
+            p.show(DictationState.TRANSCRIBING);
+            run(p, t, 43 * 33, 0);
+            save(p.view, w, h, dir + "A4-transcrevendo");
+
+            p.onResult(new HistoryEntry(LocalDateTime.now(), FRASE));
+            p.show(DictationState.PASTED);
+            while (p.arara.sprite != Arara.VOO[3]) run(p, t, 33, 0);
+            save(p.view, w, h, dir + "A5-colado");
+
+            // Rolagem: 2 linhas cheias, chega "mudou para as dez" e a 3ª linha empurra o texto para cima.
+            p.show(DictationState.IDLE);
+            p.show(DictationState.LISTENING);
+            p.onPartialText(ate(11));
+            run(p, t, 3000, 0.8f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "rolagem-1-antes");
+            p.onPartialText(ate(15));
+            int top = p.live.top();
+            while (p.live.top() == top) run(p, t, 33, 0.8f);
+            run(p, t, 33, 0.8f);
+            save(p.view, w, h, dir + "rolagem-2-subindo");
+            run(p, t, 66, 0.8f);
+            save(p.view, w, h, dir + "rolagem-3-quase");
+            run(p, t, 3000, 0.8f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "rolagem-4-assentou");
+
+            p.show(DictationState.IDLE);
+            p.show(DictationState.LISTENING);
+            p.onPartialText(ate(3));
+            run(p, t, 3000, 0.8f);
+            p.onPartialText(ate(5));
+            run(p, t, 99, 0.8f);
+            save(p.view, w, h, dir + "palavra-entrando");
+        });
+    }
+
+    /** Avança o relógio do pop-up em quadros de 33 ms, com o microfone no nível dado. */
+    private static void run(RecordingPopup p, long[] t, long ms, float level) {
+        for (long end = t[0] + ms; t[0] < end; ) {
+            t[0] += 33;
+            p.onLevel(level * (0.35f + 0.65f * Math.abs((float) Math.sin(t[0] * 0.07))));
+            p.tick();
+        }
+    }
+
+    /** Leva o relógio para a metade em que o cursor pisca aceso. */
+    private static void caretOn(RecordingPopup p, long[] t) {
+        t[0] = (t[0] / 1000 + 1) * 1000 + 100;
+        p.tick();
+    }
+
     /** Os 6 passos da primeira execução e os 2 erros, nos estados do design (para comparar com o FigCraft). */
     @Test
     void desenhaPrimeiraExecucao() throws Exception {

@@ -32,10 +32,8 @@ final class Waves extends JComponent {
         Graphics2D g2 = Ui.smooth(g);
         int step = bar + gap, x0 = (getWidth() - levels.length * step + gap) / 2, mid = getHeight() / 2;
         if (dashed) {
-            g2.setColor(Theme.alpha(Theme.TEXT_SOFT, 90));
-            for (int x = x0; x + bar * 2 <= x0 + levels.length * step; x += bar * 3) {
-                g2.fillRoundRect(x, mid - 1, bar * 2, 2, 2, 2);
-            }
+            g2.setColor(Theme.alpha(Theme.TEXT_SOFT, 153));
+            for (int i = 0; i < levels.length; i++) g2.fillRoundRect(x0 + i * step, mid - 1, bar, 2, 2, 2);
         } else {
             g2.setColor(Theme.GREEN);
             for (int i = 0; i < levels.length; i++) {

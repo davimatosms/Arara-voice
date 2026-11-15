@@ -13,6 +13,7 @@ import br.arara.core.Term;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -86,10 +87,13 @@ public final class DemoCore {
 
     /**
      * Simula o ditado numa thread própria, como o backend real: fala 4 s, fica em silêncio 4 s e repete.
+     * A cada 2 s manda o texto parcial com mais umas palavras da frase (sem o dicionário, como o motor real).
      * No segundo toggle "transcreve" por 1,2 s, salva, "cola" e volta a IDLE 1,5 s depois.
      */
     private static final class Engine implements DictationEngine {
         private static final String[] PHRASES = {
+                "Oi, pessoal! Só passando para avisar que a reunião de amanhã mudou para as dez horas, na sala grande "
+                        + "do segundo andar. Quem não puder, me avisa por aqui que a gente remarca com o uísper.",
                 "Testando o Arara com o uísper rodando aqui no computador.",
                 "Amanhã eu mando o relatório em PT-BR, pode deixar.",
                 "Lembrar de abrir o vê esse code e revisar o PR antes do almoço."};
@@ -103,7 +107,7 @@ public final class DemoCore {
         private final History history;
         private final Dictionary dictionary;
         private DictationState state = DictationState.IDLE;
-        private ScheduledFuture<?> mic;
+        private ScheduledFuture<?> mic, partial;
         private int phrase;
 
         Engine(History history, Dictionary dictionary) {
@@ -121,6 +125,7 @@ public final class DemoCore {
 
         public synchronized void cancel() {
             if (mic != null) mic.cancel(false);
+            if (partial != null) partial.cancel(false);
             if (state != DictationState.IDLE) set(DictationState.IDLE);
         }
 
@@ -143,10 +148,18 @@ public final class DemoCore {
                     if (want != state) set(want);
                 }
             }, 0, 33, TimeUnit.MILLISECONDS);
+            String[] words = PHRASES[phrase % PHRASES.length].split(" ");
+            int[] said = {0};
+            partial = thread.scheduleAtFixedRate(() -> {
+                said[0] = Math.min(words.length, said[0] + 5);
+                String soFar = String.join(" ", Arrays.copyOf(words, said[0]));
+                for (DictationListener l : listeners) l.onPartialText(soFar);
+            }, 2000, 2000, TimeUnit.MILLISECONDS);
         }
 
         private void stop() {
             mic.cancel(false);
+            partial.cancel(false);
             set(DictationState.TRANSCRIBING);
             thread.schedule(() -> {
                 HistoryEntry entry;

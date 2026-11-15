@@ -137,4 +137,57 @@ class LogicTest {
         assertEquals("calculando a velocidade…", ModelDownload.detail(0, 0, 574_000_000));
         assertEquals("356 de 574 MB", ModelDownload.mb(356_000_000, 574_000_000));
     }
+
+    @Test
+    void textoAoVivoQuebraPorPalavraEMostraAsDuasUltimasLinhas() {
+        java.util.List<String> words = java.util.List.of("aa", "bb", "cc", "dd", "ee", "ff", "gg");
+        java.util.List<Integer> starts = LiveText.wrap(words, String::length, 5); // "aa bb" cabe, "aa bb cc" não
+        assertEquals(java.util.List.of(0, 2, 4, 6), starts);
+        assertEquals(java.util.List.of(0), LiveText.wrap(java.util.List.of("palavralongademais"), String::length, 5));
+
+        LiveText live = new LiveText();
+        String longo = "Oi, pessoal! Só passando para avisar que a reunião de amanhã mudou para as dez horas, "
+                + "na sala grande do segundo andar. Quem não puder, me avisa por aqui.";
+        live.setText(longo, true, 0);
+        assertTrue(live.top() >= 2, "texto longo: só as 2 últimas linhas ficam na área");
+        assertEquals(longo.split(" ").length, live.shown());
+    }
+
+    @Test
+    void textoAoVivoRolaNoMaximoUmaVezACada400ms() {
+        LiveText live = new LiveText();
+        String linha = "WWWWWWWWWWWWWWWW"; // cada palavra ocupa uma linha inteira
+        live.setText(String.join(" ", linha, linha, linha, linha, linha), false, 0);
+        java.util.List<Long> rolagens = new java.util.ArrayList<>();
+        int top = live.top();
+        for (long t = 0; t <= 3000; t += 33) {
+            live.tick(t);
+            if (live.top() != top) {
+                assertEquals(top + 1, live.top(), "sobe uma linha por vez");
+                top = live.top();
+                rolagens.add(t);
+            }
+        }
+        assertEquals(5, live.shown());
+        assertEquals(3, live.top());
+        assertEquals(3, rolagens.size());
+        for (int i = 1; i < rolagens.size(); i++) assertTrue(rolagens.get(i) - rolagens.get(i - 1) >= 400, rolagens.toString());
+    }
+
+    @Test
+    void seloDizPausaComTextoESilencioSemTexto() {
+        RecordingPopup popup = new RecordingPopup(new br.arara.app.demo.DemoCore().settings());
+        popup.show(DictationState.LISTENING);
+        popup.show(DictationState.SILENCE);
+        assertEquals("Silêncio", popup.badge.getText());
+        popup.onPartialText("Oi, pessoal!");
+        assertEquals("Pausa", popup.badge.getText());
+        popup.show(DictationState.LISTENING);
+        popup.show(DictationState.SILENCE);
+        assertEquals("Pausa", popup.badge.getText());
+        popup.show(DictationState.IDLE);
+        popup.show(DictationState.LISTENING); // ditado novo começa sem texto
+        popup.show(DictationState.SILENCE);
+        assertEquals("Silêncio", popup.badge.getText());
+    }
 }

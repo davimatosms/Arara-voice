@@ -78,6 +78,9 @@ public final class Main {
             RecordingPopup popup = new RecordingPopup(settings);
             engine.addListener(Ui.onEdt(view));
             engine.addListener(Ui.onEdt(popup));
+            Thread motion = new Thread(() -> popup.live.reduceMotion = Ui.reducedMotion(), "arara-movimento");
+            motion.setDaemon(true);
+            motion.start();
             download.start(); // já na tela de boas-vindas, em segundo plano
 
             JFrame frame = new JFrame("Arara");

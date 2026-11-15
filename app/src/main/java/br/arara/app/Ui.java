@@ -37,6 +37,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.RenderingHints;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
@@ -283,11 +285,35 @@ final class Ui {
         return g2;
     }
 
+    /**
+     * "Reduzir movimento" ligado no sistema (Windows: Efeitos de animação desligados, SPI_GETCLIENTAREAANIMATION;
+     * macOS: Acessibilidade > Reduzir movimento). Bloqueia (o PowerShell leva ~1 s): chame fora da EDT. Na dúvida, anima.
+     */
+    static boolean reducedMotion() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        boolean win = os.contains("win");
+        String ps = "Add-Type -Namespace A -Name U -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool "
+                + "SystemParametersInfo(uint a, uint b, ref bool c, uint d);'; $v = $true; "
+                + "[void][A.U]::SystemParametersInfo(0x1042, 0, [ref]$v, 0); $v";
+        String[] cmd = win ? new String[] {"powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+                Base64.getEncoder().encodeToString(ps.getBytes(StandardCharsets.UTF_16LE))}
+                : os.contains("mac") ? new String[] {"defaults", "read", "com.apple.universalaccess", "reduceMotion"} : null;
+        if (cmd == null) return false;
+        try {
+            Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+            return win ? out.equalsIgnoreCase("False") : out.equals("1");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /** O motor pode avisar de qualquer thread; a UI só mexe na EDT. */
     static DictationListener onEdt(DictationListener l) {
         return new DictationListener() {
             public void onState(DictationState s) { SwingUtilities.invokeLater(() -> l.onState(s)); }
             public void onLevel(float level) { SwingUtilities.invokeLater(() -> l.onLevel(level)); }
+            public void onPartialText(String text) { SwingUtilities.invokeLater(() -> l.onPartialText(text)); }
             public void onResult(HistoryEntry e) { SwingUtilities.invokeLater(() -> l.onResult(e)); }
             public void onError(String msg) { SwingUtilities.invokeLater(() -> l.onError(msg)); }
         };
