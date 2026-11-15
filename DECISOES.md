@@ -33,7 +33,7 @@ O FluidVoice erra muito no reconhecimento de PT-BR. A ideia é criar uma alterna
 
 ## Plataforma
 
-- **Windows** desde a v0.1.0. **macOS** (Apple Silicon e Intel) a partir de 2026-11-14: `.dmg` pelo GitHub Actions, sem Developer ID (assinatura ad-hoc). Detalhes em `docs/macos.md`.
+- **Windows** desde a v0.1.0. **macOS** (Apple Silicon e Intel) a partir da v0.2.0: `.dmg` pelo GitHub Actions, sem Developer ID (assinatura ad-hoc). Detalhes em `docs/macos.md`.
 - No macOS: dados em `~/Library/Application Support/Arara`, colar com Cmd+V, "Abrir ao iniciar sessão" por LaunchAgent, barra de menus no lugar da bandeja. O atalho e o colar precisam da permissão de Acessibilidade; sem ela o app abre mesmo assim e orienta o usuário.
 - Linux fica para depois.
 
