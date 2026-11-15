@@ -19,11 +19,13 @@ public final class AraraCore implements AutoCloseable {
     private final DictionaryStore dictionary;
     private final SettingsStore settings;
     private final Transcriber transcriber;
+    private final Transcriber preview; // null: sem prévia
     private final DefaultDictationEngine engine;
     private GlobalHotkey hotkey; // null no macOS enquanto o Arara não tem permissão de Acessibilidade
 
     private AraraCore(HistoryStore history, DictionaryStore dictionary, SettingsStore settings,
-            Transcriber transcriber, DefaultDictationEngine engine, GlobalHotkey hotkey) {
+            Transcriber transcriber, Transcriber preview, DefaultDictationEngine engine, GlobalHotkey hotkey) {
+        this.preview = preview;
         this.history = history;
         this.dictionary = dictionary;
         this.settings = settings;
@@ -71,15 +73,18 @@ public final class AraraCore implements AutoCloseable {
      *         abre sem atalho: veja {@link #retryHotkey})
      */
     public static AraraCore start(Path dataDir) {
-        return create(dataDir, s -> new WhisperTranscriber(dataDir.resolve("models"), () -> s.load().model()));
+        Path models = dataDir.resolve("models");
+        return create(dataDir, s -> new WhisperTranscriber(models, () -> s.load().model()),
+                s -> new WhisperTranscriber.Preview(models, () -> s.load().model()));
     }
 
     /** @throws IllegalStateException se não der para registrar o atalho global */
     public static AraraCore start(Path dataDir, Transcriber transcriber) {
-        return create(dataDir, s -> transcriber);
+        return create(dataDir, s -> transcriber, s -> null);
     }
 
-    private static AraraCore create(Path dataDir, Function<SettingsStore, Transcriber> makeTranscriber) {
+    private static AraraCore create(Path dataDir, Function<SettingsStore, Transcriber> makeTranscriber,
+            Function<SettingsStore, Transcriber> makePreview) {
         try {
             Files.createDirectories(dataDir);
         } catch (IOException e) {
@@ -89,12 +94,13 @@ public final class AraraCore implements AutoCloseable {
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
         SettingsStore settings = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
         Transcriber transcriber = makeTranscriber.apply(settings);
+        Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
-                new Microphone(() -> settings.load().microphone()), new ClipboardPaster());
+                new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
         try {
-            return new AraraCore(history, dictionary, settings, transcriber, engine, GlobalHotkey.register(engine, settings));
+            return new AraraCore(history, dictionary, settings, transcriber, preview, engine, GlobalHotkey.register(engine, settings));
         } catch (NativeHookException e) {
-            if (MAC) return new AraraCore(history, dictionary, settings, transcriber, engine, null); // falta Acessibilidade
+            if (MAC) return new AraraCore(history, dictionary, settings, transcriber, preview, engine, null); // falta Acessibilidade
             engine.close();
             throw new IllegalStateException("Não consegui registrar o atalho global.", e);
         }
@@ -149,5 +155,6 @@ public final class AraraCore implements AutoCloseable {
         if (hotkey != null) hotkey.close();
         engine.close();
         if (transcriber instanceof WhisperTranscriber w) w.close(); // espera a transcrição em andamento
+        if (preview instanceof WhisperTranscriber.Preview p) p.close();
     }
 }

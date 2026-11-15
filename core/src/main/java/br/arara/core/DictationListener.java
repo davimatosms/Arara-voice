@@ -13,6 +13,15 @@ public interface DictationListener {
      */
     default void onPartialText(String textSoFar) {}
 
+    /**
+     * Texto ao vivo para o pop-up: o confirmado (o mesmo do {@link #onPartialText}) e, depois dele, a prévia provisória
+     * do que foi dito e ainda não voltou do modelo escolhido, feita pelo modelo leve (pode ser vazia). A prévia é só
+     * para mostrar (tom mais fraco) e nunca entra no texto colado. Cada chamada substitui a anterior; chega a cada
+     * prévia e a cada trecho confirmado. Depois do Esc não chega mais nada; depois da parada, só as confirmações que
+     * faltam. Vem da thread da prévia ou da de transcrição.
+     */
+    default void onLiveText(String confirmed, String provisional) {}
+
     /** Transcrição pronta e já salva no histórico. */
     default void onResult(HistoryEntry entry) {}
 

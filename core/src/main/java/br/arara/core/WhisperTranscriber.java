@@ -41,15 +41,74 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     // threads, 5,3 s com 10 e 5,2 s com 12. Sobram 2 para o microfone e o resto do sistema.
     static final int THREADS = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
 
+    // A prévia divide a CPU com o modelo escolhido: poucas threads, para atrasar pouco o trecho dele.
+    static final int PREVIEW_THREADS = 2;
+
     private final Path modelsDir;
     private final Supplier<Settings.Model> model;
+    private final int threads;
     private WhisperJNI whisper;
     private WhisperContext context;
     private Settings.Model loaded;
 
     WhisperTranscriber(Path modelsDir, Supplier<Settings.Model> model) {
+        this(modelsDir, model, THREADS);
+    }
+
+    WhisperTranscriber(Path modelsDir, Supplier<Settings.Model> model, int threads) {
         this.modelsDir = modelsDir;
         this.model = model;
+        this.threads = threads;
+    }
+
+    /**
+     * Prévia do texto ao vivo com o modelo LEVE num segundo contexto do Whisper. Carrega na primeira prévia; se o
+     * arquivo falta, baixa ali mesmo (na thread da prévia, que pula as rodadas enquanto isso) e só então mostra.
+     * Devolve null (sem prévia) quando o modelo escolhido já é o LEVE, sem espaço em disco ou com o download falhando.
+     */
+    static final class Preview implements Transcriber, AutoCloseable {
+        private static final long MIN_FREE = 1L << 30; // o modelo leve tem 148 MB: deixa folga para o resto do disco
+        private final WhisperTranscriber light;
+        private final Path modelsDir;
+        private final Supplier<Settings.Model> chosen;
+        private long retryAt; // depois de falhar o download, espera antes de tentar de novo
+
+        Preview(Path modelsDir, Supplier<Settings.Model> chosen) {
+            // Se o usuário escolhe o LEVE no meio do download da prévia, o modelo "some" (null): o download para e
+            // deixa o .part para o transcritor principal continuar, sem dois escrevendo no mesmo arquivo.
+            this.light = new WhisperTranscriber(modelsDir, () -> chosen.get() == Settings.Model.LEVE ? null : Settings.Model.LEVE,
+                    PREVIEW_THREADS);
+            this.modelsDir = modelsDir;
+            this.chosen = chosen;
+        }
+
+        @Override
+        public String transcribe(short[] pcm16k) {
+            return transcribe(pcm16k, "");
+        }
+
+        @Override
+        public synchronized String transcribe(short[] pcm16k, String previous) {
+            if (chosen.get() == Settings.Model.LEVE) return null; // o próprio modelo escolhido já é rápido
+            if (light.loaded == null) {
+                if (System.nanoTime() < retryAt) return null;
+                boolean have = Files.exists(modelsDir.resolve(fileName(Settings.Model.LEVE)));
+                if (!have && modelsDir.toFile().getUsableSpace() < MIN_FREE) return null;
+                try {
+                    light.prepare((done, total) -> {});
+                } catch (IOException | RuntimeException e) {
+                    retryAt = System.nanoTime() + Duration.ofMinutes(5).toNanos();
+                    return null;
+                }
+                return null; // só a partir da próxima rodada: esta já está velha
+            }
+            return light.transcribe(pcm16k, previous);
+        }
+
+        @Override
+        public synchronized void close() {
+            light.close();
+        }
     }
 
     private static String fileName(Settings.Model m) {
@@ -109,7 +168,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         for (int i = 0; i < pcm16k.length; i++) samples[i] = pcm16k[i] / 32768f;
 
         WhisperFullParams params = new WhisperFullParams(WhisperSamplingStrategy.GREEDY);
-        params.nThreads = THREADS;
+        params.nThreads = threads;
         // Encoder só do tamanho do áudio (1500 = 30 s; 1 posição = 320 amostras), com folga. Medido com 9,5 s de fala:
         // turbo 16,5 s -> 5,0 s e base 1,0 s -> 0,35 s, mesmo texto.
         // shortcut: whisper.cpp avisa que pode perder precisão; voltar ao padrão (0) se aparecer erro em frase curta.

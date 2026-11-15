@@ -6,15 +6,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
  * Grava, transcreve, aplica o dicionário, salva no histórico e só então cola. Ditado longo é transcrito aos
  * pedaços durante a fala, para no fim só faltar um resto curto: corta nas pausas e, quando o trecho fica longo para
  * a velocidade do modelo, no primeiro respiro entre palavras (fala corrida quase não tem pausa de 0,6 s).
+ * Enquanto o trecho não volta do Whisper, uma prévia com o modelo leve mostra o que já foi dito (nunca vai para o
+ * texto colado). A prévia refaz o trecho em andamento a cada {@link #PREVIEW_EVERY}; a de um trecho já cortado fica na
+ * tela até ele voltar do Whisper, e a do trecho seguinte começa um pouco antes, onde ela parou, para não abrir buraco.
  */
 final class DefaultDictationEngine implements DictationEngine {
     interface AudioSource {
@@ -40,11 +45,24 @@ final class DefaultDictationEngine implements DictationEngine {
     // 150 ms abaixo do limiar de fala: espaço entre palavras. Cortar no ponto mais baixo de 20 ms partia palavras nas
     // oclusivas (p, t, k: < 100 ms de silêncio) e o Whisper inventava texto na emenda (medido: WER 2% -> 16-64%).
     static final int GAP = Vad.RATE * 15 / 100;
+    // A prévia rouba CPU do modelo escolhido durante a fala, e o último trecho cortado no respiro ainda roda quando a
+    // pessoa para: prévia demais atrasa o fim. Medido (PRECISO em CPU, fala corrida, Ryzen 5 5500): prévia a cada 1,2 s
+    // de 6-8 s de áudio, RTF 0,47 -> 0,58 e espera final +2,1 s; refazer cada trecho cortado inteiro (8 s, sempre junto
+    // com o Whisper dele), +1,5 s; assim (a cada 2,4 s, só o trecho em andamento), +0,0-0,15 s, com a fala na tela ~2 s
+    // depois de dita (p50; p90 ~3 s; sem prévia, p50 ~8,5 s).
+    static final int PREVIEW_EVERY = Vad.RATE * 24 / 10; // refaz o trecho em andamento a cada 2,4 s de fala nova
+    static final int PREVIEW_MAX = Vad.RATE * 12; // trecho em andamento mais longo que isto: só o fim
+    static final int PREVIEW_OVERLAP = Vad.RATE / 2; // emenda com a prévia do trecho anterior; o join tira a repetição
+    // Prévias que demoram mais que isto 3 vezes seguidas (CPU fraca ou ocupada) chegam velhas e ainda disputam CPU com o
+    // trecho final: o ditado segue sem elas (uma só lenta acontece em pico de CPU e não diz nada). Medido junto com o
+    // PRECISO: p50 0,75 s, picos isolados de 1-3 s.
+    static final double PREVIEW_SLOW = 2.0;
     private final HistoryStore history;
     private final DictionaryStore dictionary;
     private final Transcriber transcriber;
     private final AudioSource mic;
     private final Paster paster;
+    private final Transcriber preview; // modelo leve para a prévia; null: sem prévia
     private final List<DictationListener> listeners = new CopyOnWriteArrayList<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "arara-transcricao");
@@ -59,6 +77,16 @@ final class DefaultDictationEngine implements DictationEngine {
     private Take take;
     private int partStart; // amostra onde começa o trecho ainda não enviado ao Whisper
     private long partSpeech; // primeira fala desse trecho, ou -1
+    private final ExecutorService previewer = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "arara-previa");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+    private final AtomicBoolean previewBusy = new AtomicBoolean(); // rodada ocupada: pula, sem fila
+    private long previewSpeech; // fim da fala na última prévia: em silêncio não repete
+    private int liveEnd; // fim do áudio da última prévia do trecho em andamento, ou -1
+    private int prevLiveEnd = -1; // idem, do último trecho cortado que teve prévia
     private volatile double rtf = 1; // segundos de Whisper por segundo de áudio no último trecho; começa pessimista
     Consumer<String> trace = s -> {}; // diagnóstico de latência (o e2e liga)
 
@@ -67,10 +95,21 @@ final class DefaultDictationEngine implements DictationEngine {
         final StringBuilder text = new StringBuilder(); // só a thread de transcrição mexe
         boolean failed; // idem
         volatile boolean cancelled;
+        int confirmed; // fim (amostra) do último trecho já transcrito; muda com o lock do engine
+        volatile String confirmedText = "";
+        final TreeMap<Integer, String> drafts = new TreeMap<>(); // prévia por início de trecho ainda não confirmado; idem
+        volatile boolean noPreview; // prévia lenta demais neste ditado
+        int slowPreviews; // seguidas; só a thread da prévia mexe
     }
 
     DefaultDictationEngine(HistoryStore history, DictionaryStore dictionary, Transcriber transcriber,
             AudioSource mic, Paster paster) {
+        this(history, dictionary, transcriber, mic, paster, null);
+    }
+
+    DefaultDictationEngine(HistoryStore history, DictionaryStore dictionary, Transcriber transcriber,
+            AudioSource mic, Paster paster, Transcriber preview) {
+        this.preview = preview;
         this.history = history;
         this.dictionary = dictionary;
         this.transcriber = transcriber;
@@ -115,6 +154,7 @@ final class DefaultDictationEngine implements DictationEngine {
     public synchronized void close() {
         cancel();
         worker.shutdown();
+        previewer.shutdown();
     }
 
     private boolean recording() {
@@ -128,6 +168,8 @@ final class DefaultDictationEngine implements DictationEngine {
         take = new Take();
         partStart = 0;
         partSpeech = -1;
+        previewSpeech = 0;
+        liveEnd = prevLiveEnd = -1;
         try {
             mic.start(this::onChunk); // os blocos esperam o lock: nenhum chega antes do LISTENING
         } catch (Exception e) {
@@ -161,8 +203,11 @@ final class DefaultDictationEngine implements DictationEngine {
         }
         if (to >= 0) {
             trace.accept("corte " + why + " " + to);
-            submit(cutPart(to));
+            submit(cutPart(to), to);
+            if (liveEnd >= 0) prevLiveEnd = liveEnd;
+            liveEnd = -1;
         }
+        if (preview != null) maybePreview();
         float level = vad.level();
         for (DictationListener l : listeners) l.onLevel(level);
         switch (r) {
@@ -186,7 +231,7 @@ final class DefaultDictationEngine implements DictationEngine {
         Take t = take;
         setState(DictationState.TRANSCRIBING);
         worker.execute(() -> {
-            if (rest != null) transcribePart(t, rest);
+            if (rest != null) transcribePart(t, rest, Integer.MAX_VALUE);
             deliver(t);
         });
     }
@@ -195,10 +240,54 @@ final class DefaultDictationEngine implements DictationEngine {
         return (int) Math.min(MAX_SOFT, Math.max(SOFT_PART, TARGET / rtf * Vad.RATE));
     }
 
-    private void submit(short[] pcm) {
+    private void submit(short[] pcm, int to) {
         if (pcm == null) return;
         Take t = take;
-        worker.execute(() -> transcribePart(t, pcm));
+        worker.execute(() -> transcribePart(t, pcm, to));
+    }
+
+    /**
+     * Com fala nova desde a última prévia, manda o trecho em andamento para o modelo leve, na thread da prévia. Se o
+     * trecho anterior ainda não voltou do Whisper, começa onde a prévia dele parou (o fim dele não ficou sem prévia).
+     * Se a anterior ainda roda, pula esta rodada (sem fila).
+     */
+    private void maybePreview() {
+        Take t = take;
+        long end = vad.speechEnd();
+        if (t.noPreview || end - previewSpeech < PREVIEW_EVERY || end <= partStart) return;
+        if (!previewBusy.compareAndSet(false, true)) return;
+        previewSpeech = end;
+        boolean tail = prevLiveEnd > t.confirmed; // o trecho anterior ainda não voltou
+        int from = Math.max(tail ? Math.max(t.confirmed, prevLiveEnd - PREVIEW_OVERLAP) : partStart, size - PREVIEW_MAX);
+        short[] pcm = speechOnly(audio, from, size, tail ? from : Math.max(from, partSpeech), end);
+        int key = partStart, to = size;
+        liveEnd = size;
+        trace.accept("previa " + from + " " + to);
+        previewer.execute(() -> runPreview(t, key, to, pcm));
+    }
+
+    /** key: início do trecho dono desta prévia; to: fim do áudio dela. */
+    private void runPreview(Take t, int key, int to, short[] pcm) {
+        try {
+            long start = System.nanoTime();
+            String text = preview.transcribe(pcm, t.confirmedText);
+            double took = (System.nanoTime() - start) / 1e9;
+            t.slowPreviews = took > PREVIEW_SLOW ? t.slowPreviews + 1 : 0;
+            if (t.slowPreviews >= 3) t.noPreview = true;
+            trace.accept("previa-fim " + took);
+            if (text == null) return; // modelo leve ainda não está pronto
+            synchronized (this) {
+                // Cancelou, parou, ou o trecho já confirmou: esta prévia já não vale.
+                if (t != take || t.cancelled || !recording() || to <= t.confirmed) return;
+                t.drafts.put(key, text.strip());
+                trace.accept("previa-ok " + to);
+                emitLive(t);
+            }
+        } catch (RuntimeException e) {
+            t.noPreview = true; // a prévia é opcional: o ditado segue sem ela
+        } finally {
+            previewBusy.set(false);
+        }
     }
 
     /**
@@ -241,7 +330,7 @@ final class DefaultDictationEngine implements DictationEngine {
     }
 
     /** Roda na thread de transcrição, fora do lock, para o Whisper não travar o atalho nem o microfone. */
-    private void transcribePart(Take t, short[] pcm) {
+    private void transcribePart(Take t, short[] pcm, int to) {
         if (t.cancelled || t.failed) return;
         try {
             // O texto anterior vai de contexto: mantém pontuação e continuidade entre os trechos.
@@ -253,9 +342,24 @@ final class DefaultDictationEngine implements DictationEngine {
             t.failed = true;
             return;
         }
-        if (t.cancelled) return;
         String soFar = t.text.toString();
-        for (DictationListener l : listeners) l.onPartialText(soFar);
+        t.confirmedText = soFar;
+        synchronized (this) { // junto com a prévia: nenhuma prévia velha chega depois deste texto
+            t.confirmed = to;
+            t.drafts.headMap(to).clear(); // a prévia deste trecho sai: o texto dele chegou
+            if (t.cancelled) return;
+            for (DictationListener l : listeners) l.onPartialText(soFar);
+            emitLive(t);
+        }
+    }
+
+    /** Texto ao vivo: confirmado + prévias dos trechos que ainda não voltaram do modelo escolhido. Com o lock. */
+    private void emitLive(Take t) {
+        StringBuilder all = new StringBuilder(t.confirmedText);
+        int confirmed = all.length();
+        for (String d : t.drafts.values()) join(all, d); // tira a palavra repetida nas emendas
+        String provisional = all.substring(confirmed).strip();
+        for (DictationListener l : listeners) l.onLiveText(t.confirmedText, provisional);
     }
 
     /**

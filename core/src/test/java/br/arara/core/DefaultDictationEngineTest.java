@@ -61,11 +61,12 @@ class DefaultDictationEngineTest {
     final List<String> errors = new ArrayList<>();
     HistoryStore history;
     DictionaryStore dictionary;
+    Transcriber preview; // prévia com o modelo leve; null: sem prévia
 
     DefaultDictationEngine engine(Transcriber t, DefaultDictationEngine.Paster paster) {
         history = new JsonlHistoryStore(dir.resolve("historico.jsonl"));
         dictionary = new JsonDictionaryStore(dir.resolve("dicionario.json"));
-        DefaultDictationEngine e = new DefaultDictationEngine(history, dictionary, t, mic, paster);
+        DefaultDictationEngine e = new DefaultDictationEngine(history, dictionary, t, mic, paster, preview);
         e.addListener(new DictationListener() {
             @Override
             public void onState(DictationState s) {
@@ -392,5 +393,193 @@ class DefaultDictationEngineTest {
         assertEquals(DictationState.TRANSCRIBING, next());
         assertEquals(DictationState.ERROR, next());
         assertTrue(history.all().isEmpty());
+    }
+
+    // ---------- prévia provisória (modelo leve) ----------
+
+    static void waitFor(java.util.function.BooleanSupplier ok) throws InterruptedException {
+        for (int i = 0; i < 500 && !ok.getAsBoolean(); i++) Thread.sleep(10);
+        assertTrue(ok.getAsBoolean(), "esperou 5 s");
+    }
+
+    static void await(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    /** Texto ao vivo como "confirmado | prévia". */
+    List<String> live(DefaultDictationEngine e) {
+        List<String> events = new CopyOnWriteArrayList<>();
+        e.addListener(new DictationListener() {
+            @Override
+            public void onLiveText(String confirmed, String provisional) {
+                events.add(confirmed + " | " + provisional);
+            }
+        });
+        return events;
+    }
+
+    void drainUntil(DictationState last) throws InterruptedException {
+        for (DictationState s = next(); s != last; s = next()) assertTrue(s != null, "esperava " + last);
+    }
+
+    /** Prévia falsa: devolve "p1", "p2", ... e guarda o tamanho e a thread de cada chamada. */
+    static class FakePreview implements Transcriber {
+        final List<Integer> samples = new CopyOnWriteArrayList<>();
+        final List<String> threads = new CopyOnWriteArrayList<>();
+
+        @Override
+        public String transcribe(short[] pcm16k) {
+            throw new AssertionError("a prévia também recebe o contexto");
+        }
+
+        @Override
+        public String transcribe(short[] pcm16k, String previous) {
+            samples.add(pcm16k.length);
+            threads.add(Thread.currentThread().getName());
+            return "p" + samples.size();
+        }
+    }
+
+    @Test
+    void previewShowsUnconfirmedSpeechUntilThePartConfirmsAndNeverReachesThePaste() throws Exception {
+        CountDownLatch inSecond = new CountDownLatch(1), releaseSecond = new CountDownLatch(1);
+        FakePreview fake = new FakePreview() {
+            @Override
+            public String transcribe(short[] pcm16k, String previous) {
+                String r = super.transcribe(pcm16k, previous);
+                if (samples.size() == 2) {
+                    inSecond.countDown();
+                    await(releaseSecond);
+                }
+                return r;
+            }
+        };
+        preview = fake;
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(new PartsTranscriber("Olá mundo.", "fim."), pasted::add);
+        List<String> events = live(e);
+        e.toggle();
+        push(VadTest.SPEECH, 3); // 1ª prévia
+        waitFor(() -> events.size() == 1);
+        push(VadTest.SPEECH, 3); // 2ª prévia fica presa no modelo leve
+        assertTrue(inSecond.await(5, TimeUnit.SECONDS));
+        push(VadTest.SPEECH, 1.5);
+        push(VadTest.QUIET, 0.7); // pausa: o trecho volta do modelo escolhido
+        waitFor(() -> events.size() == 2);
+        assertEquals(2, fake.samples.size(), "prévia ocupada: rodadas puladas, sem fila");
+        releaseSecond.countDown(); // a 2ª termina depois da confirmação: já não vale
+        for (int i = 0; i < 300 && fake.samples.size() < 3; i++) {
+            mic.push(VadTest.SPEECH);
+            Thread.sleep(5);
+        }
+        waitFor(() -> events.size() == 3);
+        e.toggle();
+        drainUntil(DictationState.PASTED);
+
+        assertEquals(List.of(" | p1", "Olá mundo. | ", "Olá mundo. | p3", "Olá mundo. fim. | "), events);
+        assertEquals(List.of("Olá mundo. fim."), pasted, "a prévia nunca entra no texto colado");
+        assertTrue(fake.samples.get(2) < 3 * Vad.RATE, "só o trecho em andamento: " + fake.samples.get(2));
+        assertTrue(fake.threads.stream().allMatch("arara-previa"::equals), "fora do microfone e da transcrição");
+    }
+
+    @Test
+    void cutPartKeepsItsPreviewAndTheNextPreviewCoversItsEnd() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        PartsTranscriber t = new PartsTranscriber("A.", "B.") {
+            @Override
+            public String transcribe(short[] pcm16k, String previous) {
+                if (samples.isEmpty()) await(release);
+                return super.transcribe(pcm16k, previous);
+            }
+        };
+        FakePreview fake = new FakePreview();
+        preview = fake;
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(t, pasted::add);
+        List<String> events = live(e);
+        e.toggle();
+        push(VadTest.SPEECH, 3);
+        waitFor(() -> events.size() == 1);
+        push(VadTest.SPEECH, 3);
+        waitFor(() -> events.size() == 2);
+        push(VadTest.SPEECH, 1); // menos de 2,4 s desde a 2ª prévia: sem prévia nova em A
+        push(VadTest.QUIET, 0.7); // pausa: trecho A cortado e preso no modelo escolhido
+        push(VadTest.SPEECH, 1); // trecho B em andamento
+        waitFor(() -> events.size() == 3);
+        release.countDown();
+        waitFor(() -> events.size() == 4);
+        e.toggle();
+        drainUntil(DictationState.PASTED);
+
+        assertEquals(List.of(" | p1", " | p2", " | p2 p3", "A. | p3", "A. B. | "), events,
+                "a prévia de A fica até A voltar; a de B vem depois dela");
+        assertTrue(fake.samples.get(2) > 3 * Vad.RATE, "a prévia de B começa no fim da prévia de A: " + fake.samples.get(2));
+        assertEquals(List.of("A. B."), pasted);
+    }
+
+    @Test
+    void noPreviewAfterEscOrStop() throws Exception {
+        java.util.concurrent.Semaphore entered = new java.util.concurrent.Semaphore(0), allowed = new java.util.concurrent.Semaphore(0);
+        preview = new Transcriber() {
+            @Override
+            public String transcribe(short[] pcm16k) {
+                entered.release();
+                allowed.acquireUninterruptibly();
+                return "tarde demais";
+            }
+        };
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(new FakeTranscriber("texto final"), pasted::add);
+        List<String> events = live(e);
+
+        e.toggle();
+        push(VadTest.SPEECH, 3);
+        assertTrue(entered.tryAcquire(5, TimeUnit.SECONDS));
+        e.cancel(); // Esc com a prévia no meio
+        allowed.release();
+        drainUntil(DictationState.IDLE);
+        Thread.sleep(200); // a prévia cancelada termina e libera a vez
+
+        e.toggle();
+        push(VadTest.SPEECH, 3);
+        assertTrue(entered.tryAcquire(5, TimeUnit.SECONDS));
+        e.toggle(); // parou com a prévia no meio
+        drainUntil(DictationState.PASTED);
+        allowed.release();
+        Thread.sleep(200);
+
+        assertEquals(List.of("texto final | "), events, "nenhuma prévia depois do Esc nem da parada");
+        assertEquals(List.of("texto final"), pasted);
+    }
+
+    @Test
+    void failingPreviewTurnsOffWithoutHurtingTheDictation() throws Exception {
+        List<Integer> calls = new CopyOnWriteArrayList<>();
+        preview = pcm -> {
+            calls.add(pcm.length);
+            throw new IllegalStateException("modelo leve quebrado");
+        };
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(new FakeTranscriber("tudo certo"), pasted::add);
+        e.toggle();
+        push(VadTest.SPEECH, 3);
+        waitFor(() -> calls.size() == 1);
+        Thread.sleep(50);
+        push(VadTest.SPEECH, 3);
+        e.toggle();
+        drainUntil(DictationState.PASTED);
+        assertEquals(1, calls.size(), "prévia desligada neste ditado");
+        assertEquals(List.of("tudo certo"), pasted);
+    }
+
+    @Test
+    void lightModelChosenSkipsTheSeparatePreview() {
+        try (WhisperTranscriber.Preview p = new WhisperTranscriber.Preview(dir, () -> Settings.Model.LEVE)) {
+            assertNull(p.transcribe(new short[Vad.RATE], ""), "o LEVE já é o modelo escolhido: nem carrega outro");
+        }
     }
 }

@@ -8,6 +8,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -48,6 +49,19 @@ public final class Smoke {
         String text = whisper.transcribe(pcm);
         System.out.printf(Locale.ROOT, "whisper: %.1f s de áudio transcritos em %.2f s: \"%s\"%n",
                 pcm.length / (double) Vad.RATE, (System.nanoTime() - t) / 1e9, text);
+
+        // 1b. Prévia do texto ao vivo: segundo contexto do modelo leve, rodando junto com o modelo escolhido
+        try (WhisperTranscriber.Preview preview = new WhisperTranscriber.Preview(dir.resolve("models"), () -> Settings.Model.PRECISO)) {
+            preview.transcribe(pcm); // a primeira só carrega
+            CompletableFuture<String> main = CompletableFuture.supplyAsync(() -> whisper.transcribe(pcm));
+            t = System.nanoTime();
+            String draft = preview.transcribe(pcm);
+            double took = (System.nanoTime() - t) / 1e9;
+            main.join();
+            if (draft == null) throw new IllegalStateException("a prévia não carregou o modelo leve");
+            System.out.printf(Locale.ROOT, "whisper prévia (%d threads, junto com o principal): %.2f s: \"%s\"%n",
+                    WhisperTranscriber.PREVIEW_THREADS, took, draft);
+        }
         whisper.close();
 
         // 2. Backend do whisper.cpp (Metal no Apple Silicon?): o log da biblioteca diz ao carregar o modelo

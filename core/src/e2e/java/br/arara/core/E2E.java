@@ -35,8 +35,9 @@ import javax.sound.sampled.AudioSystem;
  * ./gradlew e2e --args="fluxo"      # 4 e 5: AraraCore + atalho + Notepad, Esc, gravação sem fala
  * ./gradlew e2e --args="colar"      # só o ClipboardPaster no Notepad, 5 vezes (diagnóstico)
  * ./gradlew e2e --args="longo"      # ditado de ~30 s: tudo no fim (antes) contra incremental (depois), LEVE e PRECISO
- * ./gradlew e2e --args="latencia [MODELO|-] [respira|corrido|-] [s]"  # ditado de ~90 s em WAV sintético, parada s
- *                                   # segundos depois da última palavra (padrão 0,5): tempos por trecho
+ * ./gradlew e2e --args="latencia [MODELO|-] [respira|corrido|-] [s] [previa]"  # ditado de ~90 s em WAV sintético,
+ *                                   # parada s segundos depois da última palavra (padrão 0,5): tempos por trecho;
+ *                                   # "previa" liga a prévia com o modelo leve e mede quando cada fala aparece
  * </pre>
  *
  * Precisa de alto-falante ligado (não mudo) perto do microfone padrão e da voz pt-BR do Windows (Maria).
@@ -72,7 +73,8 @@ public final class E2E {
             if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("bench")) bench(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("latencia")) latencia(args.length > 1 && !args[1].equals("-") ? Settings.Model.valueOf(args[1]) : null,
-                    args.length > 2 && !args[2].equals("-") ? args[2] : null, args.length > 3 ? Double.parseDouble(args[3]) : 0.5);
+                    args.length > 2 && !args[2].equals("-") ? args[2] : null, args.length > 3 ? Double.parseDouble(args[3]) : 0.5,
+                    args.length > 4 && args[4].equals("previa"));
         } finally {
             System.out.println("\n===== RELATÓRIO =====");
             report.forEach(System.out::println);
@@ -306,7 +308,7 @@ public final class E2E {
      * "respira": com pontuação, a voz pausa nas vírgulas e pontos. "corrido": sem pontuação e mais rápido, quase
      * sem pausa, como fala real de quem não para.
      */
-    static void latencia(Settings.Model only, String onlyKind, double tail) throws Exception {
+    static void latencia(Settings.Model only, String onlyKind, double tail, boolean withPreview) throws Exception {
         log("== Latência de ditado longo ==");
         Settings.Model[] models = only != null ? new Settings.Model[] {only}
                 : new Settings.Model[] {Settings.Model.LEVE, Settings.Model.EQUILIBRADO, Settings.Model.PRECISO};
@@ -329,14 +331,19 @@ public final class E2E {
             long over6 = pauses.stream().filter(p -> p >= 0.6).count(), over3 = pauses.stream().filter(p -> p >= 0.3).count();
             log("%s: áudio %.1f s, fala %.1f s; pausas >= 0,3 s: %d, >= 0,6 s: %d, maior %.2f s", kind,
                     full.length / (double) Vad.RATE, speech, over3, over6, pauses.stream().mapToDouble(d -> d).max().orElse(0));
-            for (Settings.Model m : models) latenciaRun(m, kind, full, speech);
+            for (Settings.Model m : models) latenciaRun(m, kind, full, speech, withPreview);
         }
     }
 
-    static void latenciaRun(Settings.Model m, String kind, short[] full, double speech) throws Exception {
+    static void latenciaRun(Settings.Model m, String kind, short[] full, double speech, boolean withPreview) throws Exception {
         WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
         w.prepare((done, total) -> {});
         w.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // aquece
+        WhisperTranscriber.Preview preview = withPreview ? new WhisperTranscriber.Preview(MODELS, () -> m) : null;
+        if (preview != null) {
+            preview.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // carrega
+            preview.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // aquece
+        }
         long t0 = System.nanoTime();
         List<String> rows = new ArrayList<>();
         List<String> texts = new ArrayList<>();
@@ -361,9 +368,16 @@ public final class E2E {
         Path data = Files.createTempDirectory("arara-e2e-latencia-");
         BlockingQueue<String> results = new LinkedBlockingQueue<>();
         DefaultDictationEngine engine = new DefaultDictationEngine(new JsonlHistoryStore(data.resolve("h.jsonl")),
-                new JsonDictionaryStore(data.resolve("d.json")), logged, new Replay(full), results::add);
+                new JsonDictionaryStore(data.resolve("d.json")), logged, new Replay(full), results::add, preview);
+        List<double[]> shown = new ArrayList<>(); // [áudio de, áudio até, relógio]: quando cada parte da fala apareceu
+        double[] lastPreview = new double[1]; // fim do áudio já coberto pela prévia
+        List<Double> previewTook = new ArrayList<>();
         engine.trace = s -> {
             String[] p = s.split(" ");
+            synchronized (cuts) {
+                if (p[0].equals("previa-ok")) lastPreview[0] = Math.max(lastPreview[0], Integer.parseInt(p[1]) / (double) Vad.RATE);
+                if (p[0].equals("previa-fim")) previewTook.add(Double.parseDouble(p[1]));
+            }
             if (!p[0].equals("corte")) return;
             synchronized (cuts) {
                 cuts.add(new double[] {Integer.parseInt(p[2]) / (double) Vad.RATE, (System.nanoTime() - t0) / 1e9,
@@ -374,7 +388,13 @@ public final class E2E {
         engine.addListener(new DictationListener() {
             @Override public void onError(String msg) { results.add("ERRO: " + msg); }
             @Override public void onPartialText(String text) {
-                synchronized (partials) { partials.add(String.format("%.1f s: %d palavras", (System.nanoTime() - t0) / 1e9, words(text).length)); }
+                double now = (System.nanoTime() - t0) / 1e9;
+                synchronized (partials) { partials.add(String.format("%.1f s: %d palavras", now, words(text).length)); }
+                synchronized (cuts) { shown.add(new double[] {0, cuts.get(partials.size() - 1)[0], now}); }
+            }
+            @Override public void onLiveText(String confirmed, String provisional) {
+                double now = (System.nanoTime() - t0) / 1e9;
+                synchronized (cuts) { if (!provisional.isEmpty()) shown.add(new double[] {0, lastPreview[0], now}); }
             }
         });
         engine.toggle();
@@ -385,15 +405,53 @@ public final class E2E {
         double lat = (System.nanoTime() - stop) / 1e9;
         engine.close();
         w.close();
+        if (preview != null) preview.close();
         double wer = wer(LONGA, text);
+        // Para cada 0,1 s de fala (antes da parada): quanto depois de dito apareceu no pop-up (prévia ou confirmado).
+        List<Double> delays = new ArrayList<>();
+        Vad v = new Vad();
+        double stopAt = (stop - t0) / 1e9;
+        for (int i = 0; i + 512 <= full.length; i += 512) {
+            long before = v.speechEnd();
+            v.feed(Arrays.copyOfRange(full, i, i + 512));
+            double tau = (i + 512) / (double) Vad.RATE;
+            if (v.speechEnd() == before || tau > stopAt || i % 1536 != 0) continue;
+            double first = Double.MAX_VALUE;
+            synchronized (cuts) {
+                for (double[] e : shown) if (e[0] <= tau && e[1] >= tau) first = Math.min(first, e[2]);
+            }
+            if (first < Double.MAX_VALUE && first < stopAt) delays.add(first - tau);
+        }
         log("%s %s: fala %.1f s, parada em %.1f s", m, kind, speech, (stop - t0) / 1e9);
         log("| # | corte | áudio no corte (s) | trecho (s) | cortado em (s) | fila (s) | Whisper (s) | RTF |");
         rows.forEach(E2E::log);
         for (int i = 0; i < texts.size(); i++) log("trecho %d: %s", i + 1, texts.get(i));
         if (!partials.isEmpty()) log("texto parcial: %s", String.join("; ", partials));
+        synchronized (cuts) {
+            StringBuilder b = new StringBuilder();
+            for (double[] e : shown) b.append(String.format("[%.1f-%.1f em %.1f] ", e[0], e[1], e[2]));
+            log("na tela (áudio de-até, relógio): %s", b);
+        }
         log("texto: %s", text);
-        result("Latência " + m + " " + kind, true, "latência %.2f s, WER %.1f%%, %d trechos, Whisper total %.1f s (RTF %.2f)",
-                lat, wer * 100, rows.size(), busy[0], busy[0] / speech);
+        result("Latência " + m + " " + kind + (withPreview ? " com prévia" : ""), true,
+                "latência %.2f s, WER %.1f%%, %d trechos, Whisper total %.1f s (RTF %.2f); fala na tela antes da parada: "
+                + "atraso p50 %.1f s, p90 %.1f s (%d de cada 100 pontos); prévias %d (eventos com prévia %d), Whisper leve p50 %.2f s, máx %.2f s",
+                lat, wer * 100, rows.size(), busy[0], busy[0] / speech, pct(delays, 50), pct(delays, 90),
+                Math.round(100.0 * delays.size() / Math.max(1, countSpeech(full, stopAt))), previewTook.size(),
+                shown.size() - partials.size(),
+                pct(previewTook, 50), previewTook.stream().mapToDouble(d -> d).max().orElse(0));
+    }
+
+    /** Pontos de 0,1 s com fala até a parada (o mesmo critério do atraso no {@link #latenciaRun}). */
+    static int countSpeech(short[] full, double stopAt) {
+        Vad v = new Vad();
+        int n = 0;
+        for (int i = 0; i + 512 <= full.length; i += 512) {
+            long before = v.speechEnd();
+            v.feed(Arrays.copyOfRange(full, i, i + 512));
+            if (v.speechEnd() != before && (i + 512) / (double) Vad.RATE <= stopAt && i % 1536 == 0) n++;
+        }
+        return n;
     }
 
     /** Tempo do Whisper por tamanho de trecho, sem e com o texto anterior no prompt: separa custo fixo e por segundo. */
