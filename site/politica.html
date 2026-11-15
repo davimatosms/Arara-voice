@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arara · Code signing policy e privacidade</title>
-  <meta name="description" content="Política de assinatura de código, privacidade e licença do Arara, ditado por voz em PT-BR que roda 100% no seu PC.">
+  <meta name="description" content="Política de assinatura de código, privacidade e licença do Arara, ditado por voz em PT-BR que roda 100% no seu computador, no Windows e no Mac.">
   <meta name="theme-color" content="#0F1712">
   <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,7 +58,7 @@
   <main id="conteudo" class="wrap doc">
     <p class="chip">Transparência</p>
     <h1>Assinatura, privacidade e licença</h1>
-    <p class="sub">O Arara é open source, roda no seu PC e não manda a sua voz nem o seu texto para lugar nenhum. Esta página explica como os instaladores são assinados, o que o app acessa na rede e no sistema, e sob qual licença ele é distribuído.</p>
+    <p class="sub">O Arara é open source, roda no seu computador e não manda a sua voz nem o seu texto para lugar nenhum. Esta página explica como os instaladores são assinados, o que o app acessa na rede e no sistema, e sob qual licença ele é distribuído.</p>
 
     <section aria-labelledby="assinatura">
       <h2 id="assinatura"><span lang="en">Code signing policy</span></h2>
@@ -70,6 +70,7 @@
 
       <h3>Quem assina</h3>
       <p>Os instaladores e executáveis do Arara para Windows são assinados com o certificado da <a href="https://signpath.org">SignPath Foundation</a>. Por isso o Windows mostra “SignPath Foundation” como editor. A assinatura confirma que o arquivo saiu de um build automático feito a partir do código público deste repositório e que não foi alterado depois.</p>
+      <p>A SignPath assina só os arquivos do Windows. A versão para Mac (<code>.dmg</code>, Apple Silicon e Intel) ainda não tem assinatura da Apple (Developer ID) nem notarização: ela recebe só uma assinatura ad-hoc no build. Por isso o macOS bloqueia a primeira abertura. Veja <a href="mac.html">como abrir o Arara no Mac</a>.</p>
 
       <h3>Equipe e papéis</h3>
       <table class="papeis">
@@ -87,8 +88,8 @@
       <h3>Como os builds são feitos</h3>
       <ul>
         <li>O código-fonte é público: <a href="https://github.com/davimatosms/Arara-voice">github.com/davimatosms/Arara-voice</a>.</li>
-        <li>Os instaladores são gerados pelo GitHub Actions, em máquinas do próprio GitHub, a partir desse código. Nada é compilado à mão para ser assinado.</li>
-        <li>O build envia o arquivo sem assinatura para a SignPath, que confere de qual repositório e de qual workflow ele veio.</li>
+        <li>Os instaladores (o <code>.exe</code> do Windows e os <code>.dmg</code> do Mac) são gerados pelo GitHub Actions, em máquinas do próprio GitHub, a partir desse código. Nada é compilado à mão para ser assinado.</li>
+        <li>No Windows, o build envia o arquivo sem assinatura para a SignPath, que confere de qual repositório e de qual workflow ele veio.</li>
         <li>Cada release só é assinada depois da aprovação manual de um Approver.</li>
         <li>Os arquivos assinados ficam em <a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a>.</li>
       </ul>
@@ -110,16 +111,18 @@
       <h3>O que fica no seu computador</h3>
       <ul>
         <li>O áudio é gravado na memória, transcrito ali mesmo e descartado. Ele nunca vai para o disco.</li>
-        <li>O histórico das transcrições fica em <code>%APPDATA%\Arara\historico.jsonl</code>, sem criptografia, só no seu usuário do Windows. Você pode apagar os itens pelo app.</li>
+        <li>O histórico das transcrições fica em <code>%APPDATA%\Arara\historico.jsonl</code> no Windows, sem criptografia, só no seu usuário. Você pode apagar os itens pelo app.</li>
         <li>O dicionário e as configurações ficam em <code>%APPDATA%\Arara\dicionario.json</code> e <code>%APPDATA%\Arara\config.json</code>. Os modelos ficam em <code>%APPDATA%\Arara\models</code>.</li>
+        <li>No Mac, histórico, dicionário, configurações e modelos ficam em <code>~/Library/Application Support/Arara/</code>.</li>
       </ul>
 
       <h3>O que o Arara faz no sistema</h3>
       <ul>
         <li><strong>Atalho global:</strong> o app escuta o teclado para perceber quando você aperta o atalho. As teclas não são gravadas nem enviadas.</li>
-        <li><strong>Área de transferência:</strong> para colar, o app põe o texto na área de transferência, aperta Ctrl+V por você e, logo depois, devolve o que você tinha copiado.</li>
-        <li><strong>Iniciar com o Windows:</strong> só quando você liga essa opção, o app cria uma entrada na chave <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> do seu usuário. Desligar a opção remove a entrada.</li>
-        <li><strong>Instalação:</strong> o instalador é por usuário e não pede administrador. Ele põe o app na pasta de programas do seu usuário e cria o atalho no menu Iniciar. A desinstalação remove o app. A pasta <code>%APPDATA%\Arara</code> (histórico, dicionário, configurações e modelos) fica de propósito, para uma reinstalação não perder nada. Para apagar tudo, apague essa pasta.</li>
+        <li><strong>Área de transferência:</strong> para colar, o app põe o texto na área de transferência, aperta Ctrl+V (Cmd+V no Mac) por você e, logo depois, devolve o que você tinha copiado.</li>
+        <li><strong>Iniciar com o Windows:</strong> só quando você liga essa opção, o app cria uma entrada na chave <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> do seu usuário. Desligar a opção remove a entrada. No Mac, “Abrir ao iniciar sessão” cria <code>~/Library/LaunchAgents/br.arara.Arara.plist</code>.</li>
+        <li><strong>Permissões no Mac:</strong> o macOS pede Microfone e Acessibilidade (às vezes também Monitoramento de Entrada) para ouvir, perceber o atalho e colar.</li>
+        <li><strong>Instalação:</strong> o instalador é por usuário e não pede administrador. Ele põe o app na pasta de programas do seu usuário e cria o atalho no menu Iniciar. A desinstalação remove o app. A pasta <code>%APPDATA%\Arara</code> (histórico, dicionário, configurações e modelos) fica de propósito, para uma reinstalação não perder nada. Para apagar tudo, apague essa pasta. No Mac, instalar é arrastar o app do <code>.dmg</code> para Aplicativos; para remover, apague o Arara de Aplicativos (e a pasta de dados, se quiser).</li>
       </ul>
 
       <h3>Este site</h3>
@@ -137,13 +140,14 @@
     <div class="wrap rodape-grid">
       <div>
         <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
-        <p class="suave">Ditado por voz em PT-BR, 100% local.</p>
+        <p class="suave">Ditado por voz em PT-BR, 100% local, para Windows e Mac.</p>
       </div>
       <div>
         <ul class="rodape-links">
           <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
           <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
           <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="mac.html">Arara no Mac</a></li>
           <li><a href="politica.html" lang="en" aria-current="page">Code signing policy</a></li>
         </ul>
         <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
