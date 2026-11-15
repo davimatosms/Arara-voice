@@ -78,6 +78,8 @@ Name: "{autoprograms}\Arara"; Filename: "{app}\Arara.exe"
 
 [Run]
 Filename: "{app}\Arara.exe"; Description: "Abrir o Arara agora"; Flags: nowait postinstall skipifsilent
+; Atualização pelo app (UpdateChecker roda /SILENT /REABRIR=1): em modo silencioso o postinstall acima não roda
+Filename: "{app}\Arara.exe"; Flags: nowait skipifnotsilent; Check: Reabrir
 
 [UninstallRun]
 ; O app fica na bandeja; fecha antes de apagar os arquivos
@@ -114,6 +116,26 @@ begin
   finally
     E.Free;
     L.Free;
+  end;
+end;
+
+{ /REABRIR=1: o próprio Arara abriu este instalador para se atualizar (UpdateChecker no core). }
+function Reabrir: Boolean;
+begin
+  Result := ExpandConstant('{param:REABRIR|0}') = '1';
+end;
+
+{ Na atualização, o Arara fecha logo depois de abrir o instalador; se ainda estiver de pé, fecha à força para
+  liberar os arquivos (com /SUPPRESSMSGBOXES não há ninguém para responder "arquivo em uso"). }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Codigo: Integer;
+begin
+  Result := '';
+  if Reabrir then
+  begin
+    Sleep(2000);
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Arara.exe', '', SW_HIDE, ewWaitUntilTerminated, Codigo);
   end;
 end;
 
