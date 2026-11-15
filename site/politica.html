@@ -97,15 +97,24 @@
 
     <section aria-labelledby="privacidade">
       <h2 id="privacidade">Privacidade</h2>
-      <p>O Arara não tem telemetria, analytics, relatório de erros nem verificação de atualizações. A sua voz e o seu texto não saem do computador.</p>
+      <p>O Arara não tem telemetria, analytics nem relatório de erros. A sua voz e o seu texto não saem do computador. O app faz só duas conexões de rede, descritas abaixo: o download do modelo de voz e a verificação de atualizações.</p>
 
-      <h3>A única conexão de rede: o modelo de voz</h3>
+      <h3>Conexão 1: o modelo de voz</h3>
       <ul>
         <li>Para transcrever, o Arara precisa de um modelo Whisper. Quando o modelo escolhido ainda não está no computador, o app baixa o arquivo da <a href="https://huggingface.co/ggerganov/whisper.cpp">Hugging Face</a>, de um endereço fixo no código.</li>
         <li>Isso acontece sozinho na primeira vez que o app abre, e de novo só se você escolher nas configurações um modelo que ainda não baixou. O instalador avisa desse download.</li>
         <li>O download é um pedido comum de arquivo. Ele não leva áudio, texto, configurações nem identificador seu. Como em qualquer download, a Hugging Face vê o seu endereço IP (veja a <a href="https://huggingface.co/privacy">política de privacidade da Hugging Face</a>).</li>
         <li>O app confere o SHA-256 do arquivo antes de usar. Um arquivo corrompido ou adulterado é apagado.</li>
         <li>Depois do download, o Arara funciona sem internet.</li>
+      </ul>
+
+      <h3>Conexão 2: verificação de atualizações</h3>
+      <ul>
+        <li>Ao abrir e depois uma vez por dia, o app consulta o arquivo <code>https://arara-voice.vercel.app/versao.json</code>, no site do projeto, para saber se há versão nova.</li>
+        <li>É só o pedido (GET) desse arquivo. Ele não leva áudio, texto, configurações nem identificador seu; o app se apresenta só como <code>Arara/&lt;versão&gt;</code>. Como em qualquer acesso, o servidor do site (Vercel) vê o seu endereço IP.</li>
+        <li>Quando há versão nova, o app pergunta antes. Ele só baixa o instalador se você aceitar, e baixa das releases do projeto no GitHub (<code>github.com/davimatosms/Arara-voice/releases</code>). Você também pode responder “Não” ou “Pular esta versão”.</li>
+        <li>O app confere o SHA-256 do instalador contra o <code>versao.json</code> antes de executar. Um arquivo diferente é apagado e nunca é executado.</li>
+        <li>Para desligar: Configurações → “Verificar atualizações”. Sem internet, o app não reclama e segue funcionando.</li>
       </ul>
 
       <h3>O que fica no seu computador</h3>
