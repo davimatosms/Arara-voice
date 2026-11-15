@@ -141,6 +141,30 @@ class UpdateCheckerTest {
     }
 
     @Test
+    void searchNowIgnoresSettingAndSkipButReportsNoInternet() throws Exception {
+        UpdateChecker c = windows();
+        c.skip(c.check().orElseThrow());
+        Settings x = settings.load();
+        settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(),
+                x.showPopup(), x.escCancels(), false, x.skippedVersion()));
+        assertEquals("0.3.0", c.latest().orElseThrow().version());
+        assertEquals("0.2.0", c.current());
+        manifest.set(manifest("0.2.0", base + FILE, "a".repeat(64)));
+        assertTrue(c.latest().isEmpty());
+        manifest.set("lixo");
+        assertThrows(IOException.class, c::latest);
+        server.stop(0);
+        assertThrows(IOException.class, c::latest);
+    }
+
+    @Test
+    void cancelStopsDownloadWithoutRunning() throws Exception {
+        Update u = windows().check().orElseThrow();
+        assertFalse(windows().install(u, (d, t) -> {}, () -> true));
+        assertEquals(List.of(), started);
+    }
+
+    @Test
     void invalidManifestOrNoInternetIsSilent() {
         for (String bad : List.of("lixo", "{}", "{\"versao\":\"0.3.0\"}", manifest("três", base + FILE, "a".repeat(64)),
                 manifest("0.3.0", base + FILE, "nao-e-sha"), "{\"versao\":\"0.3.0\",\"arquivos\":{\"mac-arm64\":{}}}")) {
@@ -180,7 +204,7 @@ class UpdateCheckerTest {
     @Test
     void wrongShaDeletesAndNeverRuns() {
         Update u = new Update("0.3.0", "", "", URI.create(base + FILE), "0".repeat(64));
-        assertThrows(IOException.class, () -> windows().install(u, (d, t) -> {}));
+        assertThrows(UpdateChecker.Corrupted.class, () -> windows().install(u, (d, t) -> {}));
         assertEquals(List.of(), started);
         assertEquals(List.of(), ran);
         assertFalse(Files.exists(dir.resolve("tmp/Arara-Setup-0.3.0.exe")));

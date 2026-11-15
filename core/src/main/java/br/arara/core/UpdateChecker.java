@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -53,6 +54,13 @@ public final class UpdateChecker implements AutoCloseable {
     /** O app está numa pasta sem permissão de escrita (macOS): a UI orienta baixar à mão no site. */
     public static final class ManualInstallNeeded extends IOException {
         ManualInstallNeeded(String message) {
+            super(message);
+        }
+    }
+
+    /** O SHA-256 do arquivo baixado não bate com o do manifesto: o arquivo foi apagado e nada rodou. */
+    public static final class Corrupted extends IOException {
+        Corrupted(String message) {
             super(message);
         }
     }
@@ -132,19 +140,40 @@ public final class UpdateChecker implements AutoCloseable {
         Settings s = settings.load();
         if (!s.checkUpdates() || current == null) return Optional.empty();
         try {
+            return latest().filter(u -> !u.version().equals(s.skippedVersion()));
+        } catch (IOException e) {
+            LOG.info("Verificação de atualizações falhou: " + e);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * "Procurar agora": consulta o manifesto já, mesmo com a verificação desligada ou a versão pulada. Bloqueia: chame
+     * fora da EDT.
+     *
+     * @return a versão nova, ou vazio se esta já é a mais nova (ou a versão do app é desconhecida)
+     * @throws IOException sem internet ou manifesto inválido
+     */
+    public Optional<Update> latest() throws IOException {
+        if (current == null) return Optional.empty();
+        try {
             HttpResponse<String> r = http.send(HttpRequest.newBuilder(manifest).timeout(Duration.ofSeconds(10))
                     .header("User-Agent", "Arara/" + current).GET().build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (r.statusCode() != 200) throw new IOException("HTTP " + r.statusCode());
             Update u = parse(r.body(), platform, allowed);
-            if (compare(u.version(), current) <= 0 || u.version().equals(s.skippedVersion())) return Optional.empty();
-            return Optional.of(u);
-        } catch (IOException | RuntimeException e) {
-            LOG.info("Verificação de atualizações falhou: " + e);
+            return compare(u.version(), current) > 0 ? Optional.of(u) : Optional.empty();
+        } catch (RuntimeException e) {
+            throw new IOException("Manifesto inválido: " + e, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new IOException("Verificação interrompida.", e);
         }
-        return Optional.empty();
+    }
+
+    /** Versão deste app ("0.2.0"), ou null fora do jar (rodando pelo Gradle). */
+    public String current() {
+        return current;
     }
 
     /** "Pular esta versão": não avisa mais desta; a próxima versão avisa normalmente. */
@@ -161,10 +190,18 @@ public final class UpdateChecker implements AutoCloseable {
      *
      * @return false fora do app instalado (rodando pelo Gradle): nada é baixado nem executado
      * @throws ManualInstallNeeded se o Arara.app está numa pasta sem permissão de escrita
-     * @throws IOException         sem internet, URL fora das releases do Arara ou SHA-256 diferente (o arquivo é
-     *                             apagado e nunca executado); a mensagem serve para o usuário
+     * @throws Corrupted           SHA-256 diferente: o arquivo é apagado e nunca executado
+     * @throws IOException         sem internet ou URL fora das releases do Arara; a mensagem serve para o usuário
      */
     public boolean install(Update u, AraraCore.DownloadProgress progress) throws IOException {
+        return install(u, progress, () -> false);
+    }
+
+    /**
+     * Igual a {@link #install(Update, AraraCore.DownloadProgress)}, com "Cancelar": se {@code cancelled} ficar true
+     * durante o download, para e devolve false (o .part fica, e a próxima tentativa continua de onde parou).
+     */
+    public boolean install(Update u, AraraCore.DownloadProgress progress, BooleanSupplier cancelled) throws IOException {
         checkUrl(u.url().toString(), allowed);
         String path = exe.orElse("");
         if (!Startup.packaged(path, mac)) {
@@ -178,7 +215,11 @@ public final class UpdateChecker implements AutoCloseable {
         }
         String url = u.url().toString();
         Path file = tmp.resolve(url.substring(url.lastIndexOf('/') + 1));
-        WhisperTranscriber.download(u.url(), u.sha256(), file, progress, () -> false); // SHA errado: apaga e lança
+        try {
+            if (!WhisperTranscriber.download(u.url(), u.sha256(), file, progress, cancelled)) return false;
+        } catch (WhisperTranscriber.ChecksumMismatch e) { // o download já apagou o arquivo
+            throw new Corrupted(e.getMessage());
+        }
         if (!mac) {
             runner.start(windowsCommand(file));
             return true;

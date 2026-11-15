@@ -142,6 +142,13 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
      *
      * @return false se {@code cancelled} pediu para parar (o .part fica para continuar depois)
      */
+    /** SHA-256 diferente do esperado: o arquivo já foi apagado. */
+    static final class ChecksumMismatch extends IOException {
+        ChecksumMismatch() {
+            super("O arquivo baixado veio corrompido e foi apagado. Tente de novo.");
+        }
+    }
+
     static boolean download(URI url, String sha256, Path target, AraraCore.DownloadProgress progress,
             BooleanSupplier cancelled) throws IOException {
         Files.createDirectories(target.getParent());
@@ -199,7 +206,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         }
         if (!HexFormat.of().formatHex(digest.digest()).equals(sha256)) {
             Files.deleteIfExists(part);
-            throw new IOException("O arquivo baixado veio corrompido e foi apagado. Tente de novo.");
+            throw new ChecksumMismatch();
         }
         Files.move(part, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         return true;
