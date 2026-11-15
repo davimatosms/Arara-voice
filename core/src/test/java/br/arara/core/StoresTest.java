@@ -2,6 +2,7 @@ package br.arara.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,7 +87,7 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false);
+                false, true, false, false, "0.3.0");
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -94,6 +95,7 @@ class StoresTest {
         Settings partial = new JsonSettingsStore(file).load();
         assertEquals("Ctrl+Shift+K", partial.hotkey());
         assertEquals(Settings.defaults().model(), partial.model());
+        assertTrue(partial.checkUpdates(), "config.json antigo, sem o campo: verificar atualizações ligado");
 
         Files.writeString(file, "lixo");
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());

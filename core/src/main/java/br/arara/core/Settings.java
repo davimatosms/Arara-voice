@@ -8,6 +8,8 @@ package br.arara.core;
  * @param model       LEVE (base), EQUILIBRADO (small) ou PRECISO (large-v3-turbo)
  * @param accel       CPU ou VULKAN
  * @param microphone  nome do mixer do javax.sound, ou null para o padrão do sistema
+ * @param checkUpdates consultar o versao.json do site ao abrir e a cada 24 h ("Verificar atualizações")
+ * @param skippedVersion versão marcada com "Pular esta versão", ou null
  */
 public record Settings(
         String hotkey,
@@ -16,7 +18,9 @@ public record Settings(
         String microphone,
         boolean startWithWindows,
         boolean showPopup,
-        boolean escCancels) {
+        boolean escCancels,
+        boolean checkUpdates,
+        String skippedVersion) {
 
     public enum Model { LEVE, EQUILIBRADO, PRECISO }
 
@@ -25,6 +29,6 @@ public record Settings(
     public static Settings defaults() {
         // Igual no macOS: lá não é atalho do sistema (Spotlight é Cmd+Space, fonte de entrada é Ctrl+Space e
         // Ctrl+Option+Space, e o Cmd+Shift+Space virou a Inteligência Visual no macOS 27) e Ctrl não digita caractere.
-        return new Settings("Ctrl+Shift+Space", Model.PRECISO, Accel.CPU, null, true, true, true);
+        return new Settings("Ctrl+Shift+Space", Model.PRECISO, Accel.CPU, null, true, true, true, true, null);
     }
 }

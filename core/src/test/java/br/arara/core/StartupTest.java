@@ -44,7 +44,7 @@ class StartupTest {
     }
 
     static Settings withStart(Settings x, boolean on) {
-        return new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels());
+        return new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion());
     }
 
     @Test

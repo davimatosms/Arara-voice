@@ -156,7 +156,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             response = client.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IOException("Download do modelo interrompido.", e);
+            throw new IOException("Download interrompido.", e);
         }
         MessageDigest digest;
         try {
@@ -173,7 +173,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             boolean resume = status == 206
                     && response.headers().firstValue("content-range").orElse("").startsWith("bytes " + have + "-");
             if (status != 200 && !resume) {
-                throw new IOException("Falha ao baixar o modelo (HTTP " + status + ").");
+                throw new IOException("Falha ao baixar (HTTP " + status + ").");
             }
             byte[] buf = new byte[1 << 20];
             if (resume) {
@@ -199,7 +199,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         }
         if (!HexFormat.of().formatHex(digest.digest()).equals(sha256)) {
             Files.deleteIfExists(part);
-            throw new IOException("O modelo baixado veio corrompido. Tente de novo.");
+            throw new IOException("O arquivo baixado veio corrompido e foi apagado. Tente de novo.");
         }
         Files.move(part, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         return true;

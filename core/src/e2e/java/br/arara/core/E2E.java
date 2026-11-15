@@ -549,7 +549,7 @@ public final class E2E {
         try {
             Settings s = core.settings().load();
             core.settings().save(new Settings(s.hotkey(), Settings.Model.LEVE, s.accel(), null,
-                    s.startWithWindows(), s.showPopup(), true));
+                    s.startWithWindows(), s.showPopup(), true, s.checkUpdates(), s.skippedVersion()));
             core.prepareModel((done, total) -> {});
             core.dictionary().add(new Term("aplicativo", "app"));
             log("dataDir %s, atalho %s, termo aplicativo -> app", data, s.hotkey());

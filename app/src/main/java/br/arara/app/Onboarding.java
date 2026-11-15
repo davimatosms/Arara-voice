@@ -416,7 +416,7 @@ final class Onboarding extends JPanel implements DictationListener {
     private void useLight() {
         Settings x = settings.load();
         settings.save(new Settings(x.hotkey(), Settings.Model.LEVE, x.accel(), x.microphone(), x.startWithWindows(),
-                x.showPopup(), x.escCancels()));
+                x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
         refresh();
     }
 
@@ -619,7 +619,7 @@ final class Onboarding extends JPanel implements DictationListener {
         label(card, "MICROFONE", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 292, 28);
         JComboBox<String> choice = SettingsPage.micChoice(settings.load(), m -> {
             Settings x = settings.load();
-            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), m, x.startWithWindows(), x.showPopup(), x.escCancels()));
+            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), m, x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
             startMic();
         });
         choice.setFont(Theme.semibold(14));
@@ -656,7 +656,7 @@ final class Onboarding extends JPanel implements DictationListener {
         JButton change = put(card, pill("Trocar atalho", Ui.Kind.OUTLINE, 14), (MW - 170) / 2, 218, 170, 44);
         change.addActionListener(e -> SettingsPage.recordHotkey(change, hk -> {
             Settings x = settings.load();
-            settings.save(new Settings(hk, x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), x.escCancels()));
+            settings.save(new Settings(hk, x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
             hotkeyWorked = false;
             refresh();
         }));
@@ -740,7 +740,7 @@ final class Onboarding extends JPanel implements DictationListener {
         put(boot, on, 20, 140, on.getPreferredSize().width, 26);
         put(boot, Ui.toggle(settings.load().startWithWindows(), Ui.STARTUP, value -> {
             Settings x = settings.load();
-            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), value, x.showPopup(), x.escCancels()));
+            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), value, x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
             on.setVisible(value);
         }), 386 - 20 - 50, 23, 50, 30);
     }

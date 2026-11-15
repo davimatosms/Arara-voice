@@ -10,4 +10,6 @@ subprojects {
     }
     tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
     test { useJUnitPlatform() }
+    // UpdateChecker lê a versão do app daqui (Package.getImplementationVersion)
+    jar { manifest { attributes('Implementation-Version': project.version) } }
 }

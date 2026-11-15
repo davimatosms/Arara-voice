@@ -64,10 +64,10 @@ final class SettingsPage extends MainView.Page {
         content.add(section("Geral", "Como o Arara se comporta no dia a dia.",
                 row(Ui.STARTUP, Ui.MAC ? "Fica na barra de menus, pronto para ouvir." : "Fica na bandeja do sistema, pronto para ouvir.",
                         Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels())))),
+                                x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion())))),
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
                         Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), on, x.escCancels()))))));
+                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), on, x.escCancels(), x.checkUpdates(), x.skippedVersion()))))));
 
         JButton record = Ui.button("Gravar", null, Ui.Kind.OUTLINE);
         record.getAccessibleContext().setAccessibleName("Gravar novo atalho");
@@ -79,10 +79,10 @@ final class SettingsPage extends MainView.Page {
                         Ui.row(8, keys, record)),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), on))))));
+                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), on, x.checkUpdates(), x.skippedVersion()))))));
 
         JComboBox<String> mic = micChoice(s, m -> update(x -> new Settings(x.hotkey(), x.model(), x.accel(), m,
-                x.startWithWindows(), x.showPopup(), x.escCancels())));
+                x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion())));
         mic.setPreferredSize(new Dimension(280, 40));
         Settings.Model[] models = Settings.Model.values();
         Settings.Accel[] accels = Settings.Accel.values();
@@ -90,14 +90,14 @@ final class SettingsPage extends MainView.Page {
         JComponent modelRow = row("Modelo", "Mais preciso usa mais memória e demora um pouco mais.",
                 Ui.segmented(new String[] {"Leve", "Equilibrado", "Preciso"}, s.model().ordinal(), "Modelo",
                         i -> update(x -> new Settings(x.hotkey(), models[i], x.accel(), x.microphone(),
-                                x.startWithWindows(), x.showPopup(), x.escCancels()))));
+                                x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()))));
         // Sem Aceleração no macOS: lá não há Vulkan, e o whisper.cpp já usa o Metal sozinho no Apple Silicon.
         content.add(Ui.MAC ? section("Voz e captura", "Microfone e modelo.", micRow, modelRow)
                 : section("Voz e captura", "Microfone, modelo e velocidade.", micRow, modelRow,
                 row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
                                 i -> update(x -> new Settings(x.hotkey(), x.model(), accels[i], x.microphone(),
-                                        x.startWithWindows(), x.showPopup(), x.escCancels()))))));
+                                        x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()))))));
 
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
@@ -134,7 +134,7 @@ final class SettingsPage extends MainView.Page {
             keys.add(Ui.keycaps(hotkey));
             keys.revalidate();
             update(x -> new Settings(hotkey, x.model(), x.accel(), x.microphone(),
-                    x.startWithWindows(), x.showPopup(), x.escCancels()));
+                    x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
         });
     }
 

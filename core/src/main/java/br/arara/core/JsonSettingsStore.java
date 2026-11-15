@@ -37,7 +37,9 @@ final class JsonSettingsStore implements SettingsStore {
                 m.get("microphone") instanceof String s ? s : d.microphone(),
                 m.get("startWithWindows") instanceof Boolean b ? b : d.startWithWindows(),
                 m.get("showPopup") instanceof Boolean b ? b : d.showPopup(),
-                m.get("escCancels") instanceof Boolean b ? b : d.escCancels());
+                m.get("escCancels") instanceof Boolean b ? b : d.escCancels(),
+                m.get("checkUpdates") instanceof Boolean b ? b : d.checkUpdates(), // ausente (config antigo) = ligado
+                m.get("skippedVersion") instanceof String s ? s : d.skippedVersion());
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -57,7 +59,9 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"microphone\": " + Json.quote(s.microphone()) + ",\n"
                 + "  \"startWithWindows\": " + s.startWithWindows() + ",\n"
                 + "  \"showPopup\": " + s.showPopup() + ",\n"
-                + "  \"escCancels\": " + s.escCancels() + "\n"
+                + "  \"escCancels\": " + s.escCancels() + ",\n"
+                + "  \"checkUpdates\": " + s.checkUpdates() + ",\n"
+                + "  \"skippedVersion\": " + Json.quote(s.skippedVersion()) + "\n"
                 + "}\n");
         cached = s;
     }
