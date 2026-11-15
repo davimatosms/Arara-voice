@@ -388,8 +388,7 @@ kbd {
 .pouso { position: absolute; left: 50%; bottom: calc(100% - 6px); width: 124px; height: 152px; margin-left: -62px; }
 .nota { margin: 18px 0 0; font-size: 15px; font-weight: 600; }
 /* downloads: link do outro sistema, lista dos 3 instaladores e aviso do Mac (fundo claro, texto escuro) */
-.outro-so { margin: 14px 0 0; font-size: 15px; font-weight: 700; color: var(--escuro); }
-.outro-so a, .downloads a, .s-cta .nota a { color: var(--escuro); text-underline-offset: 3px; }
+.downloads a, .s-cta .nota a { color: var(--escuro); text-underline-offset: 3px; }
 .baixar .btn + .btn { margin-left: 16px; }
 .downloads { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 40px; list-style: none; padding: 0; margin: 26px 0 0; font-size: 15px; font-weight: 600; }
 .downloads li { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }

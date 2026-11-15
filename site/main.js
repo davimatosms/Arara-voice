@@ -36,35 +36,26 @@
     });
   });
 
-  // ---------- download por sistema (sem JS, o HTML mostra Windows + link do Mac) ----------
+  // ---------- download por sistema: Windows e Mac têm botões iguais; aqui só o botão do topo e o tipo de Mac ----------
   const REL = "https://github.com/davimatosms/Arara-voice/releases/latest/download/";
-  const MAC = { arm: REL + "Arara-Mac-AppleSilicon.dmg", intel: REL + "Arara-Mac-Intel.dmg" };
   const ua = navigator.userAgent;
   // iPad no Safari se diz "Macintosh": o toque separa ele de um Mac de verdade
   const so = /Windows/.test(ua) ? "win" : /Macintosh/.test(ua) && navigator.maxTouchPoints < 2 ? "mac" : "outro";
-  const rotulo = (a, txt) => { $("[data-rotulo]", a).textContent = txt; };
-  const paraMac = (intel) => {
-    for (const a of $$("[data-baixar]")) { rotulo(a, "Baixar para Mac"); a.href = intel ? MAC.intel : MAC.arm; }
-    for (const p of $$("[data-outro]")) {
-      const l = $("a", p);
-      l.textContent = intel ? "Mac com Apple Silicon? Baixe aqui" : "Mac com Intel? Baixe aqui";
-      l.href = intel ? MAC.arm : MAC.intel;
-    }
-  };
+  const topo = $("[data-baixar]");
+  if (topo && so === "mac") {
+    $("[data-rotulo]", topo).textContent = "Baixar para Mac";
+    topo.href = REL + "Arara-Mac-AppleSilicon.dmg";
+  } else if (topo && so === "outro") {
+    $("[data-rotulo]", topo).textContent = "Baixar";
+    topo.href = "#baixar";
+  }
+  // Safari não informa a arquitetura (Apple Silicon é a maioria); o Chromium de um Mac Intel informa "x86"
   if (so === "mac") {
-    paraMac(false); // Safari não informa a arquitetura: Apple Silicon é a maioria
-    navigator.userAgentData?.getHighEntropyValues(["architecture"])
-      .then((v) => { if (v.architecture === "x86") paraMac(true); }).catch(() => {});
-  } else if (so === "outro") {
-    for (const a of $$("[data-baixar]")) {
-      if (a.closest(".nav")) { rotulo(a, "Baixar"); a.href = "#baixar"; continue; }
-      const mac = a.cloneNode(true);
-      mac.removeAttribute("id");
-      rotulo(mac, "Baixar para Mac");
-      mac.href = MAC.arm;
-      a.after(mac);
-    }
-    for (const p of $$("[data-outro]")) p.textContent = "O Arara roda no computador (Windows ou Mac).";
+    navigator.userAgentData?.getHighEntropyValues(["architecture"]).then((v) => {
+      if (v.architecture !== "x86") return;
+      for (const el of $$("[data-mac]")) el.href = REL + "Arara-Mac-Intel.dmg";
+      if (topo) topo.href = REL + "Arara-Mac-Intel.dmg";
+    }).catch(() => {});
   }
 
   if (!anim) return;
