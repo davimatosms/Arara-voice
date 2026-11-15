@@ -387,6 +387,14 @@ kbd {
 .baixar { position: relative; display: inline-block; margin-top: 178px; }
 .pouso { position: absolute; left: 50%; bottom: calc(100% - 6px); width: 124px; height: 152px; margin-left: -62px; }
 .nota { margin: 18px 0 0; font-size: 15px; font-weight: 600; }
+/* downloads: link do outro sistema, lista dos 3 instaladores e aviso do Mac (fundo claro, texto escuro) */
+.outro-so { margin: 14px 0 0; font-size: 15px; font-weight: 700; color: var(--escuro); }
+.outro-so a, .downloads a, .s-cta .nota a { color: var(--escuro); text-underline-offset: 3px; }
+.baixar .btn + .btn { margin-left: 16px; }
+.downloads { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 40px; list-style: none; padding: 0; margin: 26px 0 0; font-size: 15px; font-weight: 600; }
+.downloads li { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
+.downloads strong { font-weight: 800; }
+.aviso-mac { max-width: 640px; margin-left: auto; margin-right: auto; font-weight: 400; }
 .rodape { background: #0B140D; color: var(--suave); padding: 40px 0 34px; }
 .rodape-grid { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px 40px; }
 .rodape .marca { margin: 0; }
@@ -573,6 +581,8 @@ kbd {
   .baixar .btn-escuro { width: 100%; max-width: 310px; min-height: 58px; justify-content: space-between; font-size: 16px; }
   .pouso { width: 93px; height: 114px; margin-left: -46px; }
   .nota { font-size: 14px; margin-top: 16px; }
+  .baixar .btn + .btn { margin: 12px 0 0; }
+  .downloads { flex-direction: column; font-size: 14px; }
   .f5 { left: -130px; top: auto; bottom: 120px; width: 260px; height: 110px; }
   .f6 { left: auto; right: -120px; top: auto; bottom: 150px; width: 260px; height: 110px; }
   .t3, .b4 { display: none; }

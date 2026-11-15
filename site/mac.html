@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arara no Mac · instalar e abrir</title>
+  <meta name="description" content="Como instalar e abrir o Arara no Mac (Apple Silicon ou Intel): o aviso da primeira abertura e as permissões de Microfone e Acessibilidade.">
+  <meta name="theme-color" content="#0F1712">
+  <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Só desta página: texto corrido sobre a base da landing (styles.css). */
+    .topo { background: var(--fundo-2); border-bottom: 1px solid var(--borda); }
+    .topo .nav { padding: 22px 20px; }
+    .topo .nav a.voltar { color: #fff; font-weight: 700; text-decoration: none; }
+    .topo .nav a.voltar:hover { text-decoration: underline; }
+    .doc { max-width: 820px; padding-top: 56px; padding-bottom: 80px; }
+    .doc h1 { font-family: var(--display); text-transform: uppercase; font-size: clamp(40px, 7vw, 72px); line-height: 1.02; }
+    .doc h2 { font-size: clamp(30px, 4.4vw, 44px); margin-top: 64px; }
+    .doc h3 { font-size: 20px; font-weight: 800; margin-top: 32px; }
+    .doc p, .doc li { font-size: 17px; line-height: 28px; }
+    .doc p { margin: 14px 0 0; }
+    .doc ul { padding-left: 22px; margin: 14px 0 0; }
+    .doc li + li { margin-top: 8px; }
+    .doc a { color: var(--verde-claro); }
+    .doc ol { padding-left: 22px; margin: 14px 0 0; }
+    .doc code { font-family: var(--mono); font-size: .88em; background: var(--sup); border: 1px solid var(--borda); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+    .doc .cartao { padding: 24px 26px; margin-top: 24px; }
+    .doc .cartao p:first-child { margin-top: 0; }
+    .frase { font-size: 19px; font-weight: 700; }
+    .papeis { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 16px; }
+    .papeis th, .papeis td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+    .papeis th { color: var(--suave); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    @media (max-width: 760px) {
+      .doc { padding-top: 36px; padding-bottom: 56px; }
+      .doc h2 { margin-top: 48px; }
+      .doc p, .doc li { font-size: 16px; line-height: 26px; }
+      .doc .cartao { padding: 18px; }
+      .papeis th, .papeis td { padding: 10px 6px; }
+    }
+  </style>
+  <!-- Vercel Web Analytics: conta visitas sem cookies; só funciona com o Analytics ligado no projeto. -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <nav class="nav" aria-label="Principal">
+      <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+      <a class="voltar" href="index.html">Voltar ao site</a>
+    </nav>
+  </header>
+
+  <main id="conteudo" class="wrap doc">
+    <p class="chip">macOS</p>
+    <h1>Arara no Mac</h1>
+    <p class="sub">O Arara roda no Mac com Apple Silicon ou com Intel, do mesmo jeito que no Windows: aperte Ctrl + Shift + Espaço, fale e o texto é colado onde está o cursor.</p>
+
+    <section aria-labelledby="qual">
+      <h2 id="qual">Qual baixar</h2>
+      <ul>
+        <li><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg">Mac com Apple Silicon</a> (M1, M2, M3, M4…): a maioria dos Macs de 2020 para cá.</li>
+        <li><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-Intel.dmg">Mac com Intel</a>.</li>
+      </ul>
+      <p>Para saber qual é o seu: menu Apple › Sobre Este Mac. “Chip Apple M…” é Apple Silicon; “Processador Intel” é Intel.</p>
+    </section>
+
+    <section aria-labelledby="abrir">
+      <h2 id="abrir">Instalar e abrir</h2>
+      <div class="cartao">
+        <p>O projeto ainda não tem a assinatura da Apple (Developer ID). Por isso, na primeira vez, o macOS avisa que não pode verificar o desenvolvedor. É esperado: o código é aberto e o <code>.dmg</code> é gerado pelo GitHub Actions a partir dele.</p>
+      </div>
+      <ol>
+        <li>Abra o <code>.dmg</code> e arraste o <strong>Arara</strong> para a pasta <strong>Aplicativos</strong>.</li>
+        <li>Abra o Arara pelos Aplicativos. Vai aparecer o aviso “O Arara não foi aberto”. Clique em <strong>OK</strong> (não em “Mover para o Lixo”).</li>
+        <li>Abra <strong>Ajustes do Sistema › Privacidade e Segurança</strong>, desça até a seção <strong>Segurança</strong> e clique em <strong>Abrir Mesmo Assim</strong> ao lado de “O Arara foi bloqueado”. Confirme com a sua senha.</li>
+        <li>Abra o Arara de novo e clique em <strong>Abrir</strong>. Daqui para frente ele abre normalmente.</li>
+      </ol>
+      <p>No macOS Sequoia (15) e mais novos, clicar com o botão direito › Abrir não pula mais o aviso: use o passo 3.</p>
+      <p>Prefere o Terminal? Este comando tira a marca de “baixado da internet”: <code>xattr -dr com.apple.quarantine /Applications/Arara.app</code></p>
+    </section>
+
+    <section aria-labelledby="permissoes">
+      <h2 id="permissoes">Permissões</h2>
+      <p>Na primeira execução, o próprio Arara pede cada uma no passo certo.</p>
+      <table class="papeis">
+        <thead>
+          <tr><th scope="col">Permissão</th><th scope="col">Para quê</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Microfone</td><td>Ouvir enquanto você dita.</td></tr>
+          <tr><td>Acessibilidade</td><td>O atalho global e colar o texto com Cmd+V.</td></tr>
+          <tr><td>Monitoramento de Entrada</td><td>O atalho global, se o macOS pedir também.</td></tr>
+        </tbody>
+      </table>
+      <p>Negou sem querer? Ajustes do Sistema › Privacidade e Segurança › Microfone (ou Acessibilidade) e ligue o Arara. O botão “Abrir Ajustes” do app abre o painel certo. Depois de atualizar o app, pode ser preciso desligar e ligar o Arara de novo nessa lista.</p>
+    </section>
+
+    <section aria-labelledby="atalho">
+      <h2 id="atalho">Atalho e dados</h2>
+      <p>O atalho padrão é <strong>Ctrl + Shift + Espaço</strong>, igual ao Windows. No Mac ele não é atalho do sistema e não digita nenhum caractere. Dá para trocar nas Configurações do app.</p>
+      <p>Histórico, dicionário, configurações e modelos de voz ficam em <code>~/Library/Application Support/Arara/</code>, só no seu Mac. Veja também a <a href="politica.html#privacidade">política de privacidade</a>.</p>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap rodape-grid">
+      <div>
+        <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+        <p class="suave">Ditado por voz em PT-BR, 100% local, para Windows e Mac.</p>
+      </div>
+      <div>
+        <ul class="rodape-links">
+          <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="mac.html" aria-current="page">Arara no Mac</a></li>
+          <li><a href="politica.html" lang="en">Code signing policy</a></li>
+        </ul>
+        <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

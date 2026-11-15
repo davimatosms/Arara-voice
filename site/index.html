@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arara · ditado por voz em PT-BR</title>
-  <meta name="description" content="Aperte Ctrl + Shift + Espaço, fale o que quer pedir ao seu agente e o Arara cola o texto onde está o cursor. Feito para o português do Brasil, roda 100% no seu PC.">
+  <meta name="description" content="Aperte Ctrl + Shift + Espaço, fale o que quer pedir ao seu agente e o Arara cola o texto onde está o cursor. Feito para o português do Brasil, roda 100% no seu computador, no Windows e no Mac.">
   <meta name="theme-color" content="#1557B8">
   <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,11 +44,11 @@
         <li><a href="#agentes">Agentes</a></li>
         <li><a href="#app">O app</a></li>
       </ul>
-      <a class="btn btn-contorno" href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe"><span class="so-largo">Baixar para Windows</span><span class="so-estreito">Baixar</span></a>
+      <a class="btn btn-contorno" data-baixar href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe"><span class="so-largo" data-rotulo>Baixar para Windows</span><span class="so-estreito">Baixar</span></a>
     </nav>
 
     <div class="hero-texto">
-      <p class="selo"><i aria-hidden="true"></i><span class="so-largo">Feito para o português do Brasil · roda 100% no seu PC</span><span class="so-estreito">Feito para o PT-BR · 100% no seu PC</span></p>
+      <p class="selo"><i aria-hidden="true"></i><span class="so-largo">Feito para o português do Brasil · 100% local, no Windows e no Mac</span><span class="so-estreito">Feito para o PT-BR · Windows e Mac</span></p>
       <h1><span class="l1">Fale.</span> <span class="l2">Não digite.</span></h1>
     </div>
 
@@ -88,11 +88,12 @@
     </div>
 
     <div class="hero-fim">
-      <p class="hero-sub">Aperte Ctrl + Shift + Espaço, fale <span class="so-largo">o que quer pedir ao seu agente </span>e o Arara cola o texto <span class="so-largo">pronto </span>onde está o cursor.<span class="so-largo"> Tudo no seu PC.</span></p>
+      <p class="hero-sub">Aperte Ctrl + Shift + Espaço, fale <span class="so-largo">o que quer pedir ao seu agente </span>e o Arara cola o texto <span class="so-largo">pronto </span>onde está o cursor.<span class="so-largo"> Tudo no seu computador, Windows ou Mac.</span></p>
       <div class="hero-botoes">
-        <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe">Baixar para Windows <span class="seta" aria-hidden="true">→</span></a>
+        <a class="btn btn-escuro" data-baixar href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe"><span data-rotulo>Baixar para Windows</span> <span class="seta" aria-hidden="true">→</span></a>
         <a class="btn btn-vidro so-largo" href="#demo">Ver demonstração</a>
       </div>
+      <p class="outro-so" data-outro><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg">Usa Mac? Baixe para Mac</a></p>
     </div>
 
     <div class="enfeites" aria-hidden="true">
@@ -118,7 +119,7 @@
           <ul class="recursos">
             <li><span class="ic" aria-hidden="true">⌨</span><span><strong>Qualquer janela</strong>Terminal, IDE, navegador, chat.</span></li>
             <li><span class="ic" aria-hidden="true">BR</span><span><strong>Português de verdade</strong>Sotaque, gíria e termo técnico.</span></li>
-            <li><span class="ic" aria-hidden="true">✓</span><span><strong>Sua voz não sai do PC</strong>O modelo roda na sua máquina.</span></li>
+            <li><span class="ic" aria-hidden="true">✓</span><span><strong>Sua voz não sai do computador</strong>O modelo roda na sua máquina.</span></li>
           </ul>
         </div>
         <div class="camadas">
@@ -228,7 +229,7 @@
           <li class="passo" style="--cor: var(--verde)">
             <span class="num" aria-hidden="true">01</span>
             <h3>Aperte o atalho</h3>
-            <p>Em qualquer janela, com o cursor onde o texto deve entrar.</p>
+            <p>Em qualquer janela, no Windows ou no Mac, com o cursor onde o texto deve entrar.</p>
             <span class="teclas"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Espaço</kbd></span>
           </li>
           <li class="passo meio" style="--cor: var(--azul)">
@@ -259,9 +260,15 @@
         <h2 id="t-cta">Sua voz, <span class="lima">direto no cursor.</span></h2>
         <div class="baixar">
           <span class="pouso" aria-hidden="true"></span>
-          <a id="btn-baixar" class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe">Baixar para Windows <span class="seta" aria-hidden="true">→</span></a>
+          <a id="btn-baixar" class="btn btn-escuro" data-baixar href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe"><span data-rotulo>Baixar para Windows</span> <span class="seta" aria-hidden="true">→</span></a>
         </div>
-        <p class="nota">Windows 10 e 11 · roda sem internet<span class="so-largo"> depois de baixar o modelo</span></p>
+        <p class="outro-so" data-outro><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg">Usa Mac? Baixe para Mac</a></p>
+        <ul class="downloads" aria-label="Todos os downloads">
+          <li><strong>Windows 10 e 11</strong><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe">Instalador para Windows (.exe)</a></li>
+          <li><strong>macOS recente</strong><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg">Mac com Apple Silicon (M1, M2, M3, M4…)</a><a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-Intel.dmg">Mac com Intel</a></li>
+        </ul>
+        <p class="nota">Roda sem internet depois de baixar o modelo · <a href="https://github.com/davimatosms/Arara-voice/releases">Todas as versões</a></p>
+        <p class="nota aviso-mac">No Mac, o app ainda não tem assinatura da Apple: na primeira vez, vá em Ajustes do Sistema › Privacidade e Segurança › “Abrir Mesmo Assim” e permita o Microfone e a Acessibilidade. <a href="mac.html">Passo a passo</a></p>
       </div>
     </section>
   </main>
@@ -270,13 +277,14 @@
     <div class="wrap rodape-grid">
       <div>
         <a class="marca" href="#"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
-        <p class="suave">Ditado por voz em PT-BR, 100% local.</p>
+        <p class="suave">Ditado por voz em PT-BR, 100% local, para Windows e Mac.</p>
       </div>
       <div>
         <ul class="rodape-links">
           <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
           <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
           <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="mac.html">Arara no Mac</a></li>
           <li><a href="politica.html" lang="en">Code signing policy</a></li>
         </ul>
         <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
