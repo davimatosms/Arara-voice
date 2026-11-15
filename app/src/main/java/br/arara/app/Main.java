@@ -9,20 +9,27 @@ import br.arara.core.HistoryStore;
 import br.arara.core.Settings;
 import br.arara.core.SettingsStore;
 
+import javax.swing.BorderFactory;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JWindow;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import java.awt.AWTException;
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
 import java.awt.MenuItem;
 import java.awt.PopupMenu;
+import java.awt.Rectangle;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.desktop.AppReopenedListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -30,8 +37,24 @@ import java.util.List;
  * mostra a primeira execução com um download de mentira.
  */
 public final class Main {
+    /** Lock de cópia única; campo estático para não ser coletado enquanto o app roda. */
+    private static SingleInstance instance;
+
     public static void main(String[] args) {
         boolean demo = List.of(args).contains("--demo");
+        // Antes do atalho global e do core: duas cópias na mesma pasta colavam cada ditado duas vezes.
+        if (!demo) {
+            Path dir = AraraCore.defaultDataDir();
+            try {
+                instance = SingleInstance.acquire(dir);
+                if (instance == null) {
+                    alreadyOpen(SingleInstance.notifyFirst(dir));
+                    return;
+                }
+            } catch (IOException e) {
+                // sem como travar (pasta sem permissão?): abre assim mesmo, e o core avisa se a pasta não servir
+            }
+        }
         // Primeira execução: ainda não existe config.json (decidido antes de o core criar qualquer coisa).
         boolean firstRun = demo ? List.of(args).contains("--primeira-execucao") : Onboarding.firstRun(AraraCore.defaultDataDir());
         SwingUtilities.invokeLater(() -> {
@@ -111,11 +134,48 @@ public final class Main {
                 frame.setSize(1100, 720);
             }
             frame.setLocationRelativeTo(null);
+            if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             boolean tray = tray(frame);
             frame.setDefaultCloseOperation(tray ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
             frame.setVisible(true);
             if (core != null && !firstRun && !core.retryHotkey()) askAccessibility(frame, core);
         });
+    }
+
+    /**
+     * Esta é a segunda cópia: aviso curto no canto da tela, sem diálogo que trave, e sai com código 0. Se não
+     * conseguiu avisar a primeira para abrir a janela, diz onde encontrar o Arara.
+     */
+    private static void alreadyOpen(boolean notified) {
+        if (GraphicsEnvironment.isHeadless()) System.exit(0);
+        String where = AraraCore.MAC ? "na barra de menus" : "na bandeja, perto do relógio";
+        String text = notified ? "O Arara já está aberto" : "O Arara já está aberto. Procure o ícone " + where + ".";
+        SwingUtilities.invokeLater(() -> {
+            Theme.install();
+            JLabel label = new JLabel(text);
+            label.setFont(Theme.semibold(14f));
+            label.setForeground(Theme.TEXT);
+            label.setOpaque(true);
+            label.setBackground(Theme.SURFACE);
+            label.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Theme.BORDER),
+                    BorderFactory.createEmptyBorder(14, 20, 14, 20)));
+            JWindow toast = new JWindow();
+            toast.setContentPane(label);
+            toast.setAlwaysOnTop(true);
+            toast.setFocusableWindowState(false);
+            toast.pack();
+            Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            toast.setLocation(screen.x + (screen.width - toast.getWidth()) / 2, screen.y + screen.height - toast.getHeight() - 48);
+            toast.setVisible(true);
+            new Timer(3000, e -> System.exit(0)).start();
+        });
+    }
+
+    /** Mostra a janela principal (bandeja, Dock, ou outra cópia que tentou abrir). */
+    private static void show(JFrame frame) {
+        frame.setVisible(true);
+        frame.setExtendedState(JFrame.NORMAL);
+        frame.toFront();
     }
 
     /** macOS sem Acessibilidade (a primeira execução tem um passo próprio para isso): explica e tenta de novo na volta. */
@@ -176,11 +236,7 @@ public final class Main {
     /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve false se o sistema não tem bandeja. */
     private static boolean tray(JFrame frame) {
         if (!SystemTray.isSupported()) return false;
-        Runnable open = () -> {
-            frame.setVisible(true);
-            frame.setExtendedState(JFrame.NORMAL);
-            frame.toFront();
-        };
+        Runnable open = () -> show(frame);
         PopupMenu menu = new PopupMenu();
         MenuItem openItem = new MenuItem("Abrir");
         openItem.addActionListener(e -> SwingUtilities.invokeLater(open));
