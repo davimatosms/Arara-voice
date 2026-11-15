@@ -175,12 +175,24 @@ class LogicTest {
     }
 
     @Test
+    void previaVemDepoisDoConfirmadoESomeQuandoOTrechoConfirma() {
+        LiveText live = new LiveText();
+        live.setLive("Oi pessoal", "só passando", 0);
+        for (long t = 0; t < 2000; t += 33) live.tick(t);
+        assertEquals(4, live.shown(), "confirmado + prévia na tela");
+        live.setLive("Oi pessoal só passando", "", 2000);
+        assertEquals(4, live.shown(), "a prévia confirmada fica na tela, sem animar de novo");
+        live.setLive("Oi pessoal só", "", 2100);
+        assertEquals(3, live.shown(), "prévia que o modelo escolhido não confirmou sai");
+    }
+
+    @Test
     void seloDizPausaComTextoESilencioSemTexto() {
         RecordingPopup popup = new RecordingPopup(new br.arara.app.demo.DemoCore().settings());
         popup.show(DictationState.LISTENING);
         popup.show(DictationState.SILENCE);
         assertEquals("Silêncio", popup.badge.getText());
-        popup.onPartialText("Oi, pessoal!");
+        popup.onLiveText("Oi, pessoal!", "");
         assertEquals("Pausa", popup.badge.getText());
         popup.show(DictationState.LISTENING);
         popup.show(DictationState.SILENCE);

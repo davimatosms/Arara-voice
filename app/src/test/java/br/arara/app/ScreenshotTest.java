@@ -82,6 +82,10 @@ class ScreenshotTest {
     private static final String FRASE = "Oi, pessoal! Só passando para avisar que a reunião de amanhã mudou para as dez "
             + "horas, na sala grande do segundo andar.";
 
+    private static String entre(int from, int to) {
+        return String.join(" ", java.util.Arrays.copyOfRange(FRASE.split(" "), from, to));
+    }
+
     private static String ate(int n) {
         return String.join(" ", java.util.Arrays.copyOf(FRASE.split(" "), n));
     }
@@ -104,19 +108,19 @@ class ScreenshotTest {
             caretOn(p, t);
             save(p.view, w, h, dir + "A1-comecando");
 
-            p.onPartialText(ate(12));
+            p.onLiveText(ate(12), "");
             run(p, t, 3000, 0.8f);
             while (p.arara.notes.size() < 3 || p.arara.sprite == Arara.PISCAR) run(p, t, 33, 0.8f);
             caretOn(p, t);
             save(p.view, w, h, dir + "A2-falando");
 
-            p.onPartialText(ate(16));
+            p.onLiveText(ate(16), "");
             run(p, t, 3000, 0.8f);
             p.show(DictationState.SILENCE);
             run(p, t, 300, 0.02f);
             save(p.view, w, h, dir + "A3-pausa");
 
-            p.onPartialText(FRASE);
+            p.onLiveText(FRASE, "");
             run(p, t, 3000, 0.02f);
             p.show(DictationState.TRANSCRIBING);
             run(p, t, 43 * 33, 0);
@@ -130,11 +134,11 @@ class ScreenshotTest {
             // Rolagem: 2 linhas cheias, chega "mudou para as dez" e a 3ª linha empurra o texto para cima.
             p.show(DictationState.IDLE);
             p.show(DictationState.LISTENING);
-            p.onPartialText(ate(11));
+            p.onLiveText(ate(11), "");
             run(p, t, 3000, 0.8f);
             caretOn(p, t);
             save(p.view, w, h, dir + "rolagem-1-antes");
-            p.onPartialText(ate(15));
+            p.onLiveText(ate(15), "");
             int top = p.live.top();
             while (p.live.top() == top) run(p, t, 33, 0.8f);
             run(p, t, 33, 0.8f);
@@ -147,11 +151,26 @@ class ScreenshotTest {
 
             p.show(DictationState.IDLE);
             p.show(DictationState.LISTENING);
-            p.onPartialText(ate(3));
+            p.onLiveText(ate(3), "");
             run(p, t, 3000, 0.8f);
-            p.onPartialText(ate(5));
+            p.onLiveText(ate(5), "");
             run(p, t, 99, 0.8f);
             save(p.view, w, h, dir + "palavra-entrando");
+
+            // Prévia do modelo leve: confirmado em branco, provisório em #9AAE9E; ao confirmar, vira branco em 150 ms.
+            p.show(DictationState.IDLE);
+            p.show(DictationState.LISTENING);
+            p.onLiveText(ate(6), entre(6, 11));
+            run(p, t, 3000, 0.8f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "previa-1-provisorio");
+            p.onLiveText(ate(11), "");
+            run(p, t, 66, 0.8f);
+            save(p.view, w, h, dir + "previa-2-confirmando");
+            p.onLiveText(ate(11), entre(11, 14));
+            run(p, t, 3000, 0.8f);
+            caretOn(p, t);
+            save(p.view, w, h, dir + "previa-3-confirmado-e-nova-previa");
         });
     }
 

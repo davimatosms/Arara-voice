@@ -118,9 +118,9 @@ final class RecordingPopup implements DictationListener {
     }
 
     @Override
-    public void onPartialText(String textSoFar) {
+    public void onLiveText(String confirmed, String provisional) {
         boolean had = live.hasText();
-        live.setText(textSoFar, false, now());
+        live.setLive(confirmed, provisional, now());
         // O primeiro texto troca o título ("Não ouvi nada", "Transcrevendo") pelo texto e o selo por "Pausa".
         if (!had && state != DictationState.PASTED && state != DictationState.ERROR && state != DictationState.IDLE) show(state);
     }

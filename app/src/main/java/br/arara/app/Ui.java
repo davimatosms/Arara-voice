@@ -327,6 +327,9 @@ final class Ui {
             public void onState(DictationState s) { SwingUtilities.invokeLater(() -> l.onState(s)); }
             public void onLevel(float level) { SwingUtilities.invokeLater(() -> l.onLevel(level)); }
             public void onPartialText(String text) { SwingUtilities.invokeLater(() -> l.onPartialText(text)); }
+            public void onLiveText(String confirmed, String provisional) {
+                SwingUtilities.invokeLater(() -> l.onLiveText(confirmed, provisional));
+            }
             public void onResult(HistoryEntry e) { SwingUtilities.invokeLater(() -> l.onResult(e)); }
             public void onError(String msg) { SwingUtilities.invokeLater(() -> l.onError(msg)); }
         };

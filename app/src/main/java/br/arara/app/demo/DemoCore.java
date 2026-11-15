@@ -150,11 +150,19 @@ public final class DemoCore {
             }, 0, 33, TimeUnit.MILLISECONDS);
             String[] words = PHRASES[phrase % PHRASES.length].split(" ");
             int[] said = {0};
+            int[] tick = {0};
+            // A cada 0,5 s a prévia cresce 2 palavras; a cada 2 s o trecho confirma 5 e a prévia recomeça.
             partial = thread.scheduleAtFixedRate(() -> {
-                said[0] = Math.min(words.length, said[0] + 5);
+                int k = ++tick[0] % 4;
+                if (k == 0) {
+                    said[0] = Math.min(words.length, said[0] + 5);
+                    String soFar = String.join(" ", Arrays.copyOf(words, said[0]));
+                    for (DictationListener l : listeners) l.onPartialText(soFar);
+                }
                 String soFar = String.join(" ", Arrays.copyOf(words, said[0]));
-                for (DictationListener l : listeners) l.onPartialText(soFar);
-            }, 2000, 2000, TimeUnit.MILLISECONDS);
+                String prov = String.join(" ", Arrays.copyOfRange(words, said[0], Math.min(words.length, said[0] + 2 * k)));
+                for (DictationListener l : listeners) l.onLiveText(soFar, prov);
+            }, 500, 500, TimeUnit.MILLISECONDS);
         }
 
         private void stop() {
