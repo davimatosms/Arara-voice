@@ -8,6 +8,7 @@ import br.arara.core.DictionaryStore;
 import br.arara.core.HistoryStore;
 import br.arara.core.Settings;
 import br.arara.core.SettingsStore;
+import br.arara.core.UpdateChecker;
 
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
@@ -29,12 +30,14 @@ import java.awt.desktop.AppReopenedListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Abre o app. Com {@code --demo}, usa dados falsos em memória em vez do backend real; com {@code --demo --primeira-execucao},
- * mostra a primeira execução com um download de mentira.
+ * mostra a primeira execução com um download de mentira; com {@code --demo --atualizacao}, avisa de uma versão de mentira.
  */
 public final class Main {
     /** Lock de cópia única; campo estático para não ser coletado enquanto o app roda. */
@@ -135,9 +138,26 @@ public final class Main {
             }
             frame.setLocationRelativeTo(null);
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
-            boolean tray = tray(frame);
-            frame.setDefaultCloseOperation(tray ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
+            TrayIcon tray = tray(frame);
+            frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
+            // Atualização: só o app de verdade consulta o site; o --demo usa uma versão de mentira para ver as telas.
+            UpdateChecker checker = core != null ? UpdateChecker.system(core.settings()) : null;
+            UpdateUi updates = new UpdateUi(frame, checker != null ? UpdateUi.of(checker) : demoUpdates(), tray,
+                    checker != null ? () -> System.exit(0) : () -> {});
+            view.settingsPage().updates(updates);
+            engine.addListener(Ui.onEdt(updates));
+            if (tray != null) tray.addActionListener(e -> SwingUtilities.invokeLater(() -> {
+                if (!updates.notificationClicked()) show(frame); // duplo clique
+            }));
             frame.setVisible(true);
+            if (checker != null) {
+                Runtime.getRuntime().addShutdownHook(new Thread(checker::close));
+                checker.start(u -> SwingUtilities.invokeLater(() -> updates.offer(u)));
+            } else if (List.of(args).contains("--atualizacao")) {
+                Timer later = new Timer(1500, e -> updates.offer(DEMO_UPDATE));
+                later.setRepeats(false);
+                later.start();
+            }
             if (core != null && !firstRun && !core.retryHotkey()) askAccessibility(frame, core);
         });
     }
@@ -220,6 +240,45 @@ public final class Main {
         progress.update(total, total);
     }
 
+    static final UpdateChecker.Update DEMO_UPDATE = new UpdateChecker.Update("0.3.0", "2026-12-01",
+            "Texto ao vivo no pop-up enquanto você fala\nDitado até 2x mais rápido em frases longas\n"
+                    + "Correção: acentos no Bloco de Notas",
+            URI.create("https://github.com/davimatosms/Arara-voice/releases/download/v0.3.0/Arara-Setup-0.3.0.exe"), "0".repeat(64));
+
+    /** Atualização de mentira para o {@code --demo}: acha a 0.3.0 e "baixa" 86 MB a ~3 MB/s, sem instalar nada. */
+    static UpdateUi.Updates demoUpdates() {
+        return new UpdateUi.Updates() {
+            public String current() { return "0.2.0"; }
+
+            public Optional<UpdateChecker.Update> latest() throws IOException {
+                sleep(1200);
+                return Optional.of(DEMO_UPDATE);
+            }
+
+            public boolean install(UpdateChecker.Update u, AraraCore.DownloadProgress progress,
+                    java.util.function.BooleanSupplier cancelled) throws IOException {
+                long total = 86_000_000L;
+                for (long done = 0; done < total; done += 320_000) {
+                    if (cancelled.getAsBoolean()) return false;
+                    progress.update(done, total);
+                    sleep(100);
+                }
+                progress.update(total, total);
+                return true;
+            }
+
+            public void skip(UpdateChecker.Update u) {}
+
+            private void sleep(long ms) throws IOException {
+                try {
+                    Thread.sleep(ms);
+                } catch (InterruptedException e) {
+                    throw new IOException(e);
+                }
+            }
+        };
+    }
+
     /** Quando o usuário troca o modelo nas configurações, o backend precisa preparar o novo. */
     private static SettingsStore reloadModelOnChange(SettingsStore store, Runnable onModelChange) {
         return new SettingsStore() {
@@ -233,9 +292,9 @@ public final class Main {
         };
     }
 
-    /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve false se o sistema não tem bandeja. */
-    private static boolean tray(JFrame frame) {
-        if (!SystemTray.isSupported()) return false;
+    /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve null se o sistema não tem bandeja. */
+    private static TrayIcon tray(JFrame frame) {
+        if (!SystemTray.isSupported()) return null;
         Runnable open = () -> show(frame);
         PopupMenu menu = new PopupMenu();
         MenuItem openItem = new MenuItem("Abrir");
@@ -247,15 +306,14 @@ public final class Main {
         menu.add(quit);
         TrayIcon icon = new TrayIcon(Arara.IMAGE, "Arara", menu);
         icon.setImageAutoSize(true);
-        icon.addActionListener(e -> SwingUtilities.invokeLater(open)); // duplo clique
         // macOS: clicar no ícone do Dock com a janela escondida também abre
         if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_EVENT_REOPENED))
             Desktop.getDesktop().addAppEventListener((AppReopenedListener) e -> SwingUtilities.invokeLater(open));
         try {
             SystemTray.getSystemTray().add(icon);
-            return true;
+            return icon;
         } catch (AWTException e) {
-            return false;
+            return null;
         }
     }
 }

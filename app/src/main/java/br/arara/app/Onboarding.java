@@ -60,12 +60,12 @@ final class Onboarding extends JPanel implements DictationListener {
     /** Barra lateral; a área principal começa em x=272 no design, que aqui é MX dentro do conteúdo. */
     private static final int SIDE = 233, MX = 39, MW = 788;
     private static final int WELCOME = 0, MODEL = 1, MIC = 2, HOTKEY = 3, DICTATION = 4, READY = 5;
-    private static final BufferedImage NUVEM = Arara.read("sprites/nuvem.png");
-    private static final BufferedImage NUVEM_PEQ = Arara.read("sprites/nuvem_peq.png");
-    private static final BufferedImage MORROS = Arara.read("sprites/morros.png");
+    static final BufferedImage NUVEM = Arara.read("sprites/nuvem.png");
+    static final BufferedImage NUVEM_PEQ = Arara.read("sprites/nuvem_peq.png");
+    static final BufferedImage MORROS = Arara.read("sprites/morros.png");
     private static final BufferedImage HEAD = Arara.IMAGE.getSubimage(5, 1, 21, 18);
-    private static final Color[] SKY = colors(0x1557B8, 0x1C72CF, 0x3E9BE6, 0x8FD3EC, 0xC2EF8A, 0xD8F6A0);
-    private static final Color[] CLOUDY = colors(0x3A5068, 0x56708A, 0x8EA3A8, 0xB6C4A0);
+    static final Color[] SKY = colors(0x1557B8, 0x1C72CF, 0x3E9BE6, 0x8FD3EC, 0xC2EF8A, 0xD8F6A0);
+    static final Color[] CLOUDY = colors(0x3A5068, 0x56708A, 0x8EA3A8, 0xB6C4A0);
     private static final String[] PHRASES = {
             "“Cria uma função que soma dois números”", "“Lembrete: revisar o pull request amanhã”",
             "“Bom dia, pessoal! A reunião mudou para as dez.”", "“Comprar pão de queijo e café no caminho”"};
@@ -780,22 +780,22 @@ final class Onboarding extends JPanel implements DictationListener {
         return c;
     }
 
-    private static Font tracked(Font f, float px) {
+    static Font tracked(Font f, float px) {
         return f.deriveFont(Map.of(TextAttribute.TRACKING, px / f.getSize2D()));
     }
 
-    private static <T extends Component> T put(JComponent parent, T c, int x, int y, int w, int h) {
+    static <T extends Component> T put(JComponent parent, T c, int x, int y, int w, int h) {
         c.setBounds(x, y, w, h);
         parent.add(c);
         return c;
     }
 
     /** Rótulo no tamanho do texto, com o topo em y (como as caixas de texto do FigCraft). */
-    private static JLabel label(JComponent parent, String s, Font f, Color c, int x, int y) {
+    static JLabel label(JComponent parent, String s, Font f, Color c, int x, int y) {
         return place(parent, Ui.label(s, f, c), x, y);
     }
 
-    private static JLabel place(JComponent parent, JLabel l, int x, int y) {
+    static JLabel place(JComponent parent, JLabel l, int x, int y) {
         Dimension d = l.getPreferredSize();
         return put(parent, l, x, y, d.width, d.height);
     }
@@ -806,13 +806,13 @@ final class Onboarding extends JPanel implements DictationListener {
     }
 
     /** Centraliza o texto numa linha de altura lh, como o FigCraft faz com lineHeight. */
-    private static JLabel line(JLabel l, int lh) {
+    static JLabel line(JLabel l, int lh) {
         l.setLocation(l.getX(), l.getY() + (lh - l.getHeight()) / 2);
         return l;
     }
 
     /** Parágrafo com quebra de linha e entrelinha lh (px). */
-    private static JTextPane para(JComponent parent, String s, Font f, Color c, int x, int y, int w, int lh) {
+    static JTextPane para(JComponent parent, String s, Font f, Color c, int x, int y, int w, int lh) {
         JTextPane t = new JTextPane();
         t.setEditable(false);
         t.setFocusable(false);
@@ -830,7 +830,7 @@ final class Onboarding extends JPanel implements DictationListener {
         return put(parent, t, x, y + (lh - fh) / 2, w, h);
     }
 
-    private static Ui.Round round(Color bg, Color border, int radius) {
+    static Ui.Round round(Color bg, Color border, int radius) {
         return new Ui.Round(null, bg, border, radius * 2);
     }
 
@@ -842,14 +842,14 @@ final class Onboarding extends JPanel implements DictationListener {
     }
 
     /** Círculo com "!" (avisos e erros). */
-    private static Ui.Round bang(Color bg, int size) {
+    static Ui.Round bang(Color bg, int size) {
         Ui.Round r = round(bg, null, 99);
         r.setLayout(new java.awt.BorderLayout());
         r.add(center(Ui.label("!", Theme.extrabold(size), Theme.TEXT_DARK)));
         return r;
     }
 
-    private static JButton pill(String text, Ui.Kind kind, int size) {
+    static JButton pill(String text, Ui.Kind kind, int size) {
         JButton b = Ui.button(text, null, kind);
         b.setFont(Theme.extrabold(size));
         b.setMargin(new Insets(0, 8, 0, 8));
@@ -873,12 +873,12 @@ final class Onboarding extends JPanel implements DictationListener {
     }
 
     /** Sprite em escala inteira, sem suavizar. */
-    private static void px(Graphics2D g, BufferedImage img, int k, int x, int y) {
+    static void px(Graphics2D g, BufferedImage img, int k, int x, int y) {
         g.drawImage(img, x, y, img.getWidth() * k, img.getHeight() * k, null);
     }
 
     /** Brilho pixel em cruz (3x3 quadrados de lado s). */
-    private static void sparkle(Graphics2D g, int x, int y, int s, Color c) {
+    static void sparkle(Graphics2D g, int x, int y, int s, Color c) {
         g.setColor(c);
         g.fillRect(x, y + s, 3 * s, s);
         g.fillRect(x + s, y, s, 3 * s);
@@ -897,7 +897,7 @@ final class Onboarding extends JPanel implements DictationListener {
         g2.dispose();
     }
 
-    private static void centered(Graphics2D g, String s, Font f, Color c, int cx, int top) {
+    static void centered(Graphics2D g, String s, Font f, Color c, int cx, int top) {
         g.setFont(f);
         g.setColor(c);
         FontMetrics fm = g.getFontMetrics();
@@ -910,7 +910,7 @@ final class Onboarding extends JPanel implements DictationListener {
         g.drawString(s, x, top + g.getFontMetrics().getAscent());
     }
 
-    private static Graphics2D pixels(Graphics g) {
+    static Graphics2D pixels(Graphics g) {
         Graphics2D g2 = Ui.smooth(g);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
@@ -1027,8 +1027,10 @@ final class Onboarding extends JPanel implements DictationListener {
     }
 
     /** Céu da landing com cantos arredondados; a cena desenha sprites em escala inteira por cima do degradê. */
-    private final class Sky extends JPanel {
+    static final class Sky extends JPanel {
         Color[] stops;
+        /** Diâmetro dos cantos (48 = raio de 24 px). */
+        int arc = 48;
         private final Consumer<Graphics2D> scene;
 
         Sky(Color[] stops, Consumer<Graphics2D> scene) {
@@ -1052,7 +1054,7 @@ final class Onboarding extends JPanel implements DictationListener {
             s.dispose();
             // Cantos de 24 px: pinta o fundo da janela por fora da curva, com antialias (clip seria serrilhado).
             Area outside = new Area(new Rectangle2D.Float(0, 0, w, h));
-            outside.subtract(new Area(new RoundRectangle2D.Float(0, 0, w, h, 48, 48)));
+            outside.subtract(new Area(new RoundRectangle2D.Float(0, 0, w, h, arc, arc)));
             g2.setColor(Theme.BG);
             g2.fill(outside);
             g2.dispose();

@@ -34,7 +34,7 @@ class ScreenshotTest {
             String[] names = {"1-inicio", "2-historico", "3-dicionario", "4-configuracoes"};
             for (int i = 0; i < names.length; i++) {
                 view.show(i);
-                save(view, 1100, i == 3 ? 1280 : 720, names[i]);
+                save(view, 1100, i == 3 ? 1443 : 720, names[i]);
             }
             RecordingPopup popup = new RecordingPopup(core.settings());
             popup.onResult(new HistoryEntry(LocalDateTime.now(), "Oi, pessoal! Só passando para avisar que a reunião"));
@@ -221,6 +221,96 @@ class ScreenshotTest {
         });
     }
 
+    /** Diálogo de atualização (design 13): 1a, 1d, 2, 3, 4a-4c, Configurações (5) e os estados do "Procurar agora" (5b). */
+    @Test
+    void desenhaAtualizacao() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        String dir = "atualizacao/";
+        new File(DIR, dir).mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            UpdateDialog.Actions none = new UpdateDialog.Actions() {
+                public void install() {}
+                public void later() {}
+                public void skip() {}
+                public void cancel() {}
+                public void site() {}
+            };
+            UpdateDialog d = new UpdateDialog(Main.DEMO_UPDATE, "0.2.0", none);
+            BufferedImage offer = dialog(d);
+            write(offer, dir + "1d-aviso");
+            d.show(UpdateDialog.State.DOWNLOADING);
+            d.progress(41_280_000L, 86_000_000L, 3_200_000);
+            write(dialog(d), dir + "2-baixando");
+            d.show(UpdateDialog.State.INSTALLING);
+            write(dialog(d), dir + "3-instalando");
+            d.show(UpdateDialog.State.OFFLINE);
+            write(dialog(d), dir + "4a-erro-sem-internet");
+            d.show(UpdateDialog.State.CORRUPTED);
+            write(dialog(d), dir + "4b-erro-arquivo-nao-confere");
+            d.corruptedTwice = true;
+            d.show(UpdateDialog.State.CORRUPTED);
+            write(dialog(d), dir + "4b2-erro-segunda-vez-so-site");
+            d.show(UpdateDialog.State.PERMISSION);
+            write(dialog(d), dir + "4c-erro-sem-permissao-mac");
+
+            // 1a: a tela Início com o véu do modal e o aviso por cima, como a janela aberta e em foco.
+            DemoCore core = new DemoCore();
+            MainView view = new MainView(core.engine(), core.history(), core.dictionary(), core.settings());
+            BufferedImage main = render(view, 1100, 720);
+            Graphics2D g = main.createGraphics();
+            g.setColor(new java.awt.Color(0, 0, 0, 140));
+            g.fillRect(0, 0, 1100, 720);
+            g.drawImage(offer, 290, 128, null);
+            g.dispose();
+            write(main, dir + "1a-aviso-sobre-a-janela");
+
+            UpdateUi ui = new UpdateUi(new JFrame(), Main.demoUpdates(), null, () -> {});
+            SettingsPage settings = view.settingsPage();
+            settings.updates(ui);
+            view.show(3);
+            save(view, 1100, 1443, dir + "5-configuracoes");
+            // 5b: só o cartão, um por estado, empilhados.
+            String[][] states = {{"Procurar agora", "g"}, {"Procurando…", "s"}, {"Você tem a versão mais nova", "c"},
+                    {"Nova versão 0.3.0 · Ver", "y"}, {"Sem internet · Tentar de novo", "e"}};
+            JPanel card = settings.updatesCard;
+            card.getParent().remove(card);
+            int w = 788, h = card.getPreferredSize().height - 20; // sem a margem de baixo do cartão
+            BufferedImage all = new BufferedImage(w, h * states.length, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D ga = all.createGraphics();
+            for (int i = 0; i < states.length; i++) {
+                java.awt.Color c = switch (states[i][1]) {
+                    case "s" -> Theme.TEXT_SOFT;
+                    case "y" -> Theme.YELLOW;
+                    case "e" -> Theme.ERROR;
+                    default -> Theme.GREEN;
+                };
+                settings.searchState(states[i][0], c, states[i][1].equals("c"));
+                ga.drawImage(render(card, w, h), 0, i * h, null);
+            }
+            ga.dispose();
+            write(all, dir + "5b-estados-do-procurar-agora");
+        });
+    }
+
+    /** O diálogo com a barra de título do design (a do FlatLaf no Windows: 36 px, fundo da superfície, sem ícone). */
+    private static BufferedImage dialog(UpdateDialog d) {
+        BufferedImage body = render(d, UpdateDialog.WIDTH, d.getPreferredSize().height);
+        BufferedImage img = new BufferedImage(UpdateDialog.WIDTH, body.getHeight() + 36, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = Ui.smooth(img.getGraphics());
+        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setColor(Theme.SURFACE);
+        g.fillRect(0, 0, UpdateDialog.WIDTH, 36);
+        g.setFont(Theme.semibold(13));
+        g.setColor(Theme.TEXT_SOFT);
+        g.drawString("Atualização do Arara", 16, 23);
+        g.drawLine(UpdateDialog.WIDTH - 27, 14, UpdateDialog.WIDTH - 19, 22);
+        g.drawLine(UpdateDialog.WIDTH - 27, 22, UpdateDialog.WIDTH - 19, 14);
+        g.drawImage(body, 0, 36, null);
+        g.dispose();
+        return img;
+    }
+
     private static void downloading(ModelDownload d, long done) {
         d.phase = ModelDownload.Phase.DOWNLOADING;
         d.done = done;
@@ -230,6 +320,10 @@ class ScreenshotTest {
 
     /** Põe o componente num JFrame que nunca aparece, só para ter layout de verdade, e desenha num PNG. */
     private static void save(JComponent c, int w, int h, String name) {
+        write(render(c, w, h), name);
+    }
+
+    private static BufferedImage render(JComponent c, int w, int h) {
         JFrame f = new JFrame();
         f.setUndecorated(true);
         f.setContentPane(c);
@@ -242,6 +336,10 @@ class ScreenshotTest {
         g.dispose();
         f.setContentPane(new JPanel());
         f.dispose();
+        return img;
+    }
+
+    private static void write(BufferedImage img, String name) {
         try {
             ImageIO.write(img, "png", new File(DIR, name + ".png"));
         } catch (Exception e) {

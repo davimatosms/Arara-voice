@@ -128,6 +128,19 @@ final class Ui {
         return b;
     }
 
+    /** Botão com cara de link: só o texto colorido, sem fundo nem borda; o foco de teclado continua visível. */
+    static JButton link(String text, Font font, Color color) {
+        JButton b = new JButton(text);
+        b.setFont(font);
+        b.setForeground(color);
+        b.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        b.setIconTextGap(5);
+        b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_BORDERLESS);
+        b.putClientProperty(FlatClientProperties.STYLE, "margin:0,0,0,0; arc:8; focusWidth:0; innerFocusWidth:1;"
+                + " toolbar.hoverBackground:#00000000; toolbar.pressedBackground:#00000000");
+        return b;
+    }
+
     static JTextField field(String placeholder) {
         JTextField f = new JTextField();
         f.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, placeholder);

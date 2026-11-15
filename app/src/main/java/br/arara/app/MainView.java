@@ -107,6 +107,10 @@ final class MainView extends JPanel implements DictationListener {
         modelInfo.setText((s.accel() == Settings.Accel.CPU ? "CPU" : "Vulkan") + " · 100% local");
     }
 
+    SettingsPage settingsPage() {
+        return (SettingsPage) pages[3];
+    }
+
     /** Estado do modelo de voz no cartão da barra lateral ("Baixando 42%", "Pronto"...). */
     void modelStatus(String text, java.awt.Color color) {
         modelBadge.set(text, color, false);

@@ -4,16 +4,20 @@ import br.arara.core.AraraCore;
 import br.arara.core.HistoryStore;
 import br.arara.core.Settings;
 import br.arara.core.SettingsStore;
+import br.arara.core.UpdateChecker;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JOptionPane;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.Timer;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.event.FocusAdapter;
@@ -27,7 +31,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-/** Configurações: Geral, Atalho, Voz e captura, Histórico e privacidade. */
+/** Configurações: Geral, Atualizações, Atalho, Voz e captura, Histórico e privacidade. */
 final class SettingsPage extends MainView.Page {
     private static final String DEFAULT_MIC = "Microfone padrão do sistema";
     private static final String RECORDING = "Aperte as teclas…";
@@ -37,6 +41,13 @@ final class SettingsPage extends MainView.Page {
     private final Runnable onChange;
     private final JPanel content = Ui.column();
     private final JPanel keys = Ui.row(0);
+    private final JLabel version = Ui.label("Versão", Theme.regular(13), Theme.TEXT_SOFT);
+    final JButton search = Ui.link("Procurar agora", Theme.bold(13), Theme.GREEN);
+    private final Timer searchBack = new Timer(4000, e -> searchState("Procurar agora", Theme.GREEN, false));
+    /** Cartão "Atualizações" (o ScreenshotTest desenha só ele nos estados do "Procurar agora"). */
+    JPanel updatesCard;
+    private UpdateUi updates;
+    private UpdateChecker.Update found;
 
     SettingsPage(SettingsStore settings, HistoryStore history, Runnable onChange) {
         this.settings = settings;
@@ -68,6 +79,14 @@ final class SettingsPage extends MainView.Page {
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
                         Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> new Settings(
                                 x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), on, x.escCancels(), x.checkUpdates(), x.skippedVersion()))))));
+
+        search.addActionListener(e -> search());
+        searchBack.setRepeats(false);
+        updatesCard = section("Atualizações", Ui.row(6, version, search),
+                row("Verificar atualizações", "Avisa quando sair uma versão nova. Nunca instala sozinho.",
+                        Ui.toggle(s.checkUpdates(), "Verificar atualizações", on -> update(x -> new Settings(
+                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), x.escCancels(), on, x.skippedVersion())))));
+        content.add(updatesCard);
 
         JButton record = Ui.button("Gravar", null, Ui.Kind.OUTLINE);
         record.getAccessibleContext().setAccessibleName("Gravar novo atalho");
@@ -109,6 +128,40 @@ final class SettingsPage extends MainView.Page {
                 row("Pasta do histórico",
                         Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
+    }
+
+    /** Liga o cartão "Atualizações" ao fluxo de atualização (versão atual e "Procurar agora"). */
+    void updates(UpdateUi ui) {
+        updates = ui;
+        String v = ui.current();
+        version.setText((v != null ? "Versão " + v : "Versão de desenvolvimento") + "  ·");
+    }
+
+    /** Procurar agora → Procurando… → "Você tem a versão mais nova" (some em 4 s), "Nova versão X · Ver" ou "Sem internet". */
+    private void search() {
+        if (updates == null || searchBack.isRunning() && found == null) return;
+        if (found != null) {
+            updates.open(found);
+            return;
+        }
+        if (search.getText().startsWith("Procurando")) return;
+        searchState("Procurando…", Theme.TEXT_SOFT, false);
+        updates.search(u -> {
+            found = u.orElse(null);
+            if (found != null) {
+                searchState("Nova versão " + found.version() + " · Ver", Theme.YELLOW, false);
+            } else {
+                searchState("Você tem a versão mais nova", Theme.GREEN, true);
+                searchBack.restart();
+            }
+        }, e -> searchState("Sem internet · Tentar de novo", Theme.ERROR, false));
+    }
+
+    void searchState(String text, Color color, boolean check) {
+        search.setText(text);
+        search.setForeground(color);
+        search.setIcon(check ? Ui.icon("check", 13, color) : null);
+        search.getAccessibleContext().setAccessibleName(text);
     }
 
     /** Lista de microfones; onChange recebe o nome escolhido, ou null para o padrão do sistema. */
@@ -238,10 +291,13 @@ final class SettingsPage extends MainView.Page {
     }
 
     private static JPanel section(String title, String subtitle, JComponent... rows) {
+        return section(title, Ui.label(subtitle, Theme.regular(13), Theme.TEXT_SOFT), rows);
+    }
+
+    private static JPanel section(String title, JComponent subtitle, JComponent... rows) {
         Ui.Round card = Ui.card(new BorderLayout());
         card.setBorder(new EmptyBorder(20, 24, 8, 24));
-        JPanel col = Ui.column(Ui.label(title, Theme.bold(18), Theme.TEXT), Ui.gap(2),
-                Ui.label(subtitle, Theme.regular(13), Theme.TEXT_SOFT), Ui.gap(12));
+        JPanel col = Ui.column(Ui.label(title, Theme.bold(18), Theme.TEXT), Ui.gap(2), subtitle, Ui.gap(12));
         for (JComponent r : rows) {
             r.setAlignmentX(0f);
             col.add(r);
