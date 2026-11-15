@@ -15,6 +15,9 @@
     // liga as animações só se o usuário não pediu movimento reduzido (sem JS, tudo fica estático)
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("anim");
   </script>
+  <!-- Vercel Web Analytics: conta visitas sem cookies; só funciona com o Analytics ligado no projeto. -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
