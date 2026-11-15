@@ -31,19 +31,39 @@ class LogicTest {
     @Test
     void gravaAtalho() {
         int ctrlShift = KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK;
-        assertEquals("Ctrl+Shift+Space", SettingsPage.hotkey(ctrlShift, KeyEvent.VK_SPACE));
-        assertEquals("Alt+F9", SettingsPage.hotkey(KeyEvent.ALT_DOWN_MASK, KeyEvent.VK_F9));
-        assertEquals("Ctrl+D", SettingsPage.hotkey(KeyEvent.CTRL_DOWN_MASK, KeyEvent.VK_D));
-        assertNull(SettingsPage.hotkey(ctrlShift, KeyEvent.VK_SHIFT));
+        assertEquals("Ctrl+Shift+Space", SettingsPage.hotkey(ctrlShift, KeyEvent.VK_SPACE, false));
+        assertEquals("Alt+F9", SettingsPage.hotkey(KeyEvent.ALT_DOWN_MASK, KeyEvent.VK_F9, false));
+        assertEquals("Ctrl+D", SettingsPage.hotkey(KeyEvent.CTRL_DOWN_MASK, KeyEvent.VK_D, false));
+        assertEquals("Ctrl+D", SettingsPage.hotkey(KeyEvent.CTRL_DOWN_MASK | KeyEvent.META_DOWN_MASK, KeyEvent.VK_D, false));
+        assertNull(SettingsPage.hotkey(ctrlShift, KeyEvent.VK_SHIFT, false));
+    }
+
+    @Test
+    void gravaAtalhoNoMac() {
+        assertEquals("Ctrl+Shift+Space",
+                SettingsPage.hotkey(KeyEvent.CTRL_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK, KeyEvent.VK_SPACE, true));
+        assertEquals("Cmd+Option+K", SettingsPage.hotkey(KeyEvent.META_DOWN_MASK | KeyEvent.ALT_DOWN_MASK, KeyEvent.VK_K, true));
+        assertNull(SettingsPage.hotkey(KeyEvent.META_DOWN_MASK, KeyEvent.VK_META, true));
+        assertEquals("Cmd", Onboarding.keyName(KeyEvent.VK_META, true));
+        assertEquals("Option", Onboarding.keyName(KeyEvent.VK_ALT, true));
+        assertEquals("Alt", Onboarding.keyName(KeyEvent.VK_ALT, false));
     }
 
     @Test
     void recusaAtalhoRuim() {
-        assertNotNull(SettingsPage.problem("Ctrl+Alt+D"), "Ctrl+Alt vira AltGr");
-        assertNotNull(SettingsPage.problem("D"), "letra sozinha");
-        assertNull(SettingsPage.problem("Ctrl+Alt+Shift+D"));
-        assertNull(SettingsPage.problem("F9"));
-        assertNull(SettingsPage.problem("Ctrl+Shift+Space"));
+        assertNotNull(SettingsPage.problem("Ctrl+Alt+D", false), "Ctrl+Alt vira AltGr");
+        assertNotNull(SettingsPage.problem("D", false), "letra sozinha");
+        assertNull(SettingsPage.problem("Ctrl+Alt+Shift+D", false));
+        assertNull(SettingsPage.problem("F9", false));
+        assertNull(SettingsPage.problem("Ctrl+Shift+Space", false));
+    }
+
+    @Test
+    void recusaAtalhoRuimNoMac() {
+        for (String bad : new String[] {"Cmd+Space", "Ctrl+Space", "Ctrl+Option+Space", "Cmd+Shift+Space", "Option+D", "D"})
+            assertNotNull(SettingsPage.problem(bad, true), bad);
+        for (String ok : new String[] {"Ctrl+Shift+Space", "Cmd+Option+K", "Ctrl+Option+D", "F9"})
+            assertNull(SettingsPage.problem(ok, true), ok);
     }
 
     @Test

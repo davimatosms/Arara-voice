@@ -7,10 +7,18 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.KeyEvent;
 
-/** Cola pelo clipboard + Ctrl+V e depois devolve o que o usuário tinha copiado. */
+/**
+ * Cola pelo clipboard + Ctrl+V (Cmd+V no macOS) e depois devolve o que o usuário tinha copiado.
+ * No macOS, o Robot só consegue apertar teclas com o Arara liberado em Acessibilidade.
+ */
 final class ClipboardPaster implements DefaultDictationEngine.Paster {
     // shortcut: espera fixa para o app ler o clipboard antes de restaurar; aumentar se algum app colar o texto antigo.
     private static final int RESTORE_DELAY_MS = 300;
+
+    /** Modificador do colar: Cmd no macOS, Ctrl no resto. */
+    static int pasteModifier(boolean mac) {
+        return mac ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
+    }
 
     @Override
     public void paste(String text) throws Exception {
@@ -19,10 +27,13 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         clipboard.setContents(new StringSelection(text), null);
 
         Robot robot = new Robot();
-        robot.keyPress(KeyEvent.VK_CONTROL);
+        // shortcut: 10 ms entre eventos no macOS, que às vezes perde teclas seguidas; medir num Mac de verdade.
+        if (AraraCore.MAC) robot.setAutoDelay(10);
+        int modifier = pasteModifier(AraraCore.MAC);
+        robot.keyPress(modifier);
         robot.keyPress(KeyEvent.VK_V);
         robot.keyRelease(KeyEvent.VK_V);
-        robot.keyRelease(KeyEvent.VK_CONTROL);
+        robot.keyRelease(modifier);
 
         if (previous != null) {
             Thread.sleep(RESTORE_DELAY_MS);

@@ -9,7 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Atalho lido de textos como "Ctrl+Shift+Space", "Alt+F9" ou "Mouse4".
+ * Atalho lido de textos como "Ctrl+Shift+Space", "Alt+F9", "Cmd+Shift+Space" ou "Mouse4".
+ * No macOS, Cmd é o META e Option é o ALT do JNativeHook.
  *
  * @param keyCode     código VC_* do JNativeHook, ou VC_UNDEFINED se for botão do mouse
  * @param mouseButton 3 a 5, ou 0 se for tecla
@@ -45,8 +46,8 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers) {
             switch (p) {
                 case "CTRL", "CONTROL" -> mods |= NativeInputEvent.CTRL_MASK;
                 case "SHIFT" -> mods |= NativeInputEvent.SHIFT_MASK;
-                case "ALT" -> mods |= NativeInputEvent.ALT_MASK;
-                case "WIN", "META" -> mods |= NativeInputEvent.META_MASK;
+                case "ALT", "OPTION" -> mods |= NativeInputEvent.ALT_MASK;
+                case "WIN", "META", "CMD" -> mods |= NativeInputEvent.META_MASK;
                 default -> {
                     if (key != NativeKeyEvent.VC_UNDEFINED || button != 0) {
                         throw new IllegalArgumentException("Atalho com mais de uma tecla principal: " + text);
@@ -59,7 +60,7 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers) {
             }
         }
         if (key == NativeKeyEvent.VC_UNDEFINED && button == 0) {
-            throw new IllegalArgumentException("O atalho precisa de uma tecla além de Ctrl, Shift, Alt ou Win.");
+            throw new IllegalArgumentException("O atalho precisa de uma tecla além de Ctrl, Shift, Alt, Win, Cmd ou Option.");
         }
         return new Hotkey(key, button, mods);
     }

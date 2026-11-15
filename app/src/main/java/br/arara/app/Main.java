@@ -14,10 +14,12 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import java.awt.AWTException;
+import java.awt.Desktop;
 import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
+import java.awt.desktop.AppReopenedListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -83,7 +85,8 @@ public final class Main {
             frame.setMinimumSize(new java.awt.Dimension(960, 640));
             if (firstRun) {
                 DictationListener[] listener = new DictationListener[1];
-                Onboarding onboarding = new Onboarding(engine, settings, download, AraraCore::listen, () -> {
+                Onboarding onboarding = new Onboarding(engine, settings, download, AraraCore::listen,
+                        core != null ? core::retryHotkey : () -> true, () -> {
                     engine.removeListener(listener[0]);
                     frame.setContentPane(view);
                     frame.setResizable(true);
@@ -108,6 +111,24 @@ public final class Main {
             boolean tray = tray(frame);
             frame.setDefaultCloseOperation(tray ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
             frame.setVisible(true);
+            if (core != null && !firstRun && !core.retryHotkey()) askAccessibility(frame, core);
+        });
+    }
+
+    /** macOS sem Acessibilidade (a primeira execução tem um passo próprio para isso): explica e tenta de novo na volta. */
+    private static void askAccessibility(JFrame frame, AraraCore core) {
+        Object[] options = {"Abrir Ajustes", "Agora não"};
+        int choice = JOptionPane.showOptionDialog(frame,
+                "Para o atalho e o colar funcionarem, ligue o Arara em\n"
+                        + "Ajustes do Sistema › Privacidade e Segurança › Acessibilidade.",
+                "Arara", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+        if (choice != 0) return;
+        Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+        frame.addWindowFocusListener(new WindowAdapter() {
+            @Override
+            public void windowGainedFocus(WindowEvent e) {
+                if (core.retryHotkey()) frame.removeWindowFocusListener(this);
+            }
         });
     }
 
@@ -149,7 +170,7 @@ public final class Main {
         };
     }
 
-    /** Ícone na bandeja com Abrir / Sair. Devolve false se o sistema não tem bandeja. */
+    /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve false se o sistema não tem bandeja. */
     private static boolean tray(JFrame frame) {
         if (!SystemTray.isSupported()) return false;
         Runnable open = () -> {
@@ -168,6 +189,9 @@ public final class Main {
         TrayIcon icon = new TrayIcon(Arara.IMAGE, "Arara", menu);
         icon.setImageAutoSize(true);
         icon.addActionListener(e -> SwingUtilities.invokeLater(open)); // duplo clique
+        // macOS: clicar no ícone do Dock com a janela escondida também abre
+        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_EVENT_REOPENED))
+            Desktop.getDesktop().addAppEventListener((AppReopenedListener) e -> SwingUtilities.invokeLater(open));
         try {
             SystemTray.getSystemTray().add(icon);
             return true;

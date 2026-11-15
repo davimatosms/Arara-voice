@@ -21,6 +21,13 @@ class HotkeyTest {
     }
 
     @Test
+    void macModifiersAreMetaAndAlt() {
+        assertEquals(Hotkey.parse("Win+Shift+K"), Hotkey.parse("Cmd+Shift+K"));
+        assertEquals(Hotkey.parse("Ctrl+Alt+Shift+K"), Hotkey.parse("Ctrl+Option+Shift+K"));
+        assertTrue(Hotkey.parse("Cmd+Shift+K").modifiersMatch(NativeInputEvent.META_L_MASK | NativeInputEvent.SHIFT_L_MASK));
+    }
+
+    @Test
     void rejectsInvalid() {
         for (String bad : new String[] {"Ctrl+Shift", "Ctrl+Alt", "Ctrl+Banana", "Mouse1", "A+B", ""}) {
             assertThrows(IllegalArgumentException.class, () -> Hotkey.parse(bad), bad);

@@ -62,8 +62,8 @@ final class SettingsPage extends MainView.Page {
         keys.add(Ui.keycaps(s.hotkey()));
 
         content.add(section("Geral", "Como o Arara se comporta no dia a dia.",
-                row("Iniciar com o Windows", "Fica na bandeja do sistema, pronto para ouvir.",
-                        Ui.toggle(s.startWithWindows(), "Iniciar com o Windows", on -> update(x -> new Settings(
+                row(Ui.STARTUP, Ui.MAC ? "Fica na barra de menus, pronto para ouvir." : "Fica na bandeja do sistema, pronto para ouvir.",
+                        Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> new Settings(
                                 x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels())))),
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
                         Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> new Settings(
@@ -73,7 +73,9 @@ final class SettingsPage extends MainView.Page {
         record.getAccessibleContext().setAccessibleName("Gravar novo atalho");
         record.addActionListener(e -> recordHotkey(record));
         content.add(section("Atalho", "Modo liga e desliga: aperte para começar e de novo para terminar.",
-                row("Atalho para ditar", "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
+                row("Atalho para ditar", Ui.MAC
+                        ? "Teclas ou um botão do mouse. Evite Option sem Cmd ou Ctrl (digita símbolos)."
+                        : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> new Settings(
@@ -84,12 +86,14 @@ final class SettingsPage extends MainView.Page {
         mic.setPreferredSize(new Dimension(280, 40));
         Settings.Model[] models = Settings.Model.values();
         Settings.Accel[] accels = Settings.Accel.values();
-        content.add(section("Voz e captura", "Microfone, modelo e velocidade.",
-                row("Microfone", "16 kHz, mono.", mic),
-                row("Modelo", "Mais preciso usa mais memória e demora um pouco mais.",
-                        Ui.segmented(new String[] {"Leve", "Equilibrado", "Preciso"}, s.model().ordinal(), "Modelo",
-                                i -> update(x -> new Settings(x.hotkey(), models[i], x.accel(), x.microphone(),
-                                        x.startWithWindows(), x.showPopup(), x.escCancels())))),
+        JComponent micRow = row("Microfone", "16 kHz, mono.", mic);
+        JComponent modelRow = row("Modelo", "Mais preciso usa mais memória e demora um pouco mais.",
+                Ui.segmented(new String[] {"Leve", "Equilibrado", "Preciso"}, s.model().ordinal(), "Modelo",
+                        i -> update(x -> new Settings(x.hotkey(), models[i], x.accel(), x.microphone(),
+                                x.startWithWindows(), x.showPopup(), x.escCancels()))));
+        // Sem Aceleração no macOS: lá não há Vulkan, e o whisper.cpp já usa o Metal sozinho no Apple Silicon.
+        content.add(Ui.MAC ? section("Voz e captura", "Microfone e modelo.", micRow, modelRow)
+                : section("Voz e captura", "Microfone, modelo e velocidade.", micRow, modelRow,
                 row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
                                 i -> update(x -> new Settings(x.hotkey(), x.model(), accels[i], x.microphone(),
@@ -102,7 +106,8 @@ final class SettingsPage extends MainView.Page {
             if (HistoryPage.confirmClear(this, history)) onChange.run();
         });
         content.add(section("Histórico e privacidade", "Seus ditados ficam só aqui, sem criptografia.",
-                row("Pasta do histórico", "%APPDATA%\\Arara\\historico.jsonl", open),
+                row("Pasta do histórico",
+                        Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
     }
 
@@ -172,14 +177,20 @@ final class SettingsPage extends MainView.Page {
 
     /** "Ctrl+Shift+Space" a partir da tecla apertada; null se só um modificador foi apertado. */
     static String hotkey(int modifiersEx, int keyCode) {
+        return hotkey(modifiersEx, keyCode, Ui.MAC);
+    }
+
+    /** No macOS, Cmd (META) entra no atalho e Alt se chama Option; no Windows, a tecla Win fica de fora. */
+    static String hotkey(int modifiersEx, int keyCode, boolean mac) {
         switch (keyCode) {
             case KeyEvent.VK_CONTROL, KeyEvent.VK_SHIFT, KeyEvent.VK_ALT, KeyEvent.VK_ALT_GRAPH, KeyEvent.VK_META,
                  KeyEvent.VK_WINDOWS -> { return null; }
             default -> { }
         }
         StringBuilder sb = new StringBuilder();
+        if (mac && (modifiersEx & KeyEvent.META_DOWN_MASK) != 0) sb.append("Cmd+");
         if ((modifiersEx & KeyEvent.CTRL_DOWN_MASK) != 0) sb.append("Ctrl+");
-        if ((modifiersEx & KeyEvent.ALT_DOWN_MASK) != 0) sb.append("Alt+");
+        if ((modifiersEx & KeyEvent.ALT_DOWN_MASK) != 0) sb.append(mac ? "Option+" : "Alt+");
         if ((modifiersEx & KeyEvent.SHIFT_DOWN_MASK) != 0) sb.append("Shift+");
         if (keyCode == KeyEvent.VK_SPACE) sb.append("Space");
         else if ((keyCode >= KeyEvent.VK_A && keyCode <= KeyEvent.VK_Z) || (keyCode >= KeyEvent.VK_0 && keyCode <= KeyEvent.VK_9))
@@ -191,6 +202,24 @@ final class SettingsPage extends MainView.Page {
 
     /** Motivo para recusar o atalho, ou null se está bom. */
     static String problem(String hotkey) {
+        return problem(hotkey, Ui.MAC);
+    }
+
+    static String problem(String hotkey, boolean mac) {
+        if (mac) {
+            boolean cmd = hotkey.contains("Cmd+"), ctrl = hotkey.contains("Ctrl+"), opt = hotkey.contains("Option+");
+            boolean shift = hotkey.contains("Shift+"), fKey = hotkey.matches(".*\\bF\\d+$");
+            switch (hotkey) {
+                case "Cmd+Space", "Cmd+Option+Space" -> { return "Esse atalho é do Spotlight e do Finder. Escolha outro."; }
+                case "Ctrl+Space", "Ctrl+Option+Space" -> { return "Esse atalho troca a fonte de entrada do teclado. Escolha outro."; }
+                case "Cmd+Shift+Space" -> { return "Esse atalho é da Inteligência Visual do macOS. Escolha outro."; }
+                case "Cmd+Ctrl+Space" -> { return "Esse atalho abre os emojis e símbolos. Escolha outro."; }
+                default -> { }
+            }
+            if (opt && !cmd && !ctrl && !fKey) return "Evite Option sem Cmd ou Ctrl: no Mac isso digita símbolos.";
+            if (!cmd && !ctrl && !opt && !shift && !fKey) return "Use pelo menos um modificador (Cmd, Ctrl, Option ou Shift).";
+            return null;
+        }
         boolean ctrl = hotkey.contains("Ctrl+"), alt = hotkey.contains("Alt+"), shift = hotkey.contains("Shift+");
         boolean fKey = hotkey.matches(".*\\bF\\d+$");
         if (ctrl && alt && !shift) return "Evite só Ctrl+Alt: no teclado ABNT2 isso vira AltGr. Junte o Shift.";

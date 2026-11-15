@@ -12,12 +12,15 @@ import javax.sound.sampled.LineUnavailableException;
 
 /** Ponto de entrada do backend para o app: liga armazenamento, microfone, motor e atalho global. */
 public final class AraraCore implements AutoCloseable {
+    /** Rodando no macOS (o resto do código assume Windows). */
+    public static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
+
     private final HistoryStore history;
     private final DictionaryStore dictionary;
     private final SettingsStore settings;
     private final Transcriber transcriber;
     private final DefaultDictationEngine engine;
-    private final GlobalHotkey hotkey;
+    private GlobalHotkey hotkey; // null no macOS enquanto o Arara não tem permissão de Acessibilidade
 
     private AraraCore(HistoryStore history, DictionaryStore dictionary, SettingsStore settings,
             Transcriber transcriber, DefaultDictationEngine engine, GlobalHotkey hotkey) {
@@ -29,9 +32,13 @@ public final class AraraCore implements AutoCloseable {
         this.hotkey = hotkey;
     }
 
-    /** %APPDATA%\Arara */
+    /** %APPDATA%\Arara no Windows; ~/Library/Application Support/Arara no macOS. */
     public static Path defaultDataDir() {
-        return Path.of(System.getenv("APPDATA"), "Arara");
+        return dataDir(MAC, System.getenv("APPDATA"), System.getProperty("user.home"));
+    }
+
+    static Path dataDir(boolean mac, String appData, String home) {
+        return mac ? Path.of(home, "Library", "Application Support", "Arara") : Path.of(appData, "Arara");
     }
 
     /** Nomes dos microfones para a tela de configurações (o valor vai em Settings.microphone). */
@@ -60,7 +67,8 @@ public final class AraraCore implements AutoCloseable {
      * Com o Whisper real, modelo em dataDir\models. Chame {@link #prepareModel} logo depois para baixar o
      * modelo com barra de progresso; senão o primeiro ditado espera o download.
      *
-     * @throws IllegalStateException se não der para registrar o atalho global
+     * @throws IllegalStateException se não der para registrar o atalho global (no macOS, sem Acessibilidade,
+     *         abre sem atalho: veja {@link #retryHotkey})
      */
     public static AraraCore start(Path dataDir) {
         return create(dataDir, s -> new WhisperTranscriber(dataDir.resolve("models"), () -> s.load().model()));
@@ -79,16 +87,31 @@ public final class AraraCore implements AutoCloseable {
         }
         HistoryStore history = new JsonlHistoryStore(dataDir.resolve("historico.jsonl"));
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
-        SettingsStore settings = WindowsStartup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        SettingsStore settings = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
         Transcriber transcriber = makeTranscriber.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster());
         try {
             return new AraraCore(history, dictionary, settings, transcriber, engine, GlobalHotkey.register(engine, settings));
         } catch (NativeHookException e) {
+            if (MAC) return new AraraCore(history, dictionary, settings, transcriber, engine, null); // falta Acessibilidade
             engine.close();
             throw new IllegalStateException("Não consegui registrar o atalho global.", e);
         }
+    }
+
+    /**
+     * Atalho global funcionando? Se não, tenta registrar de novo (no macOS, depois de o usuário ligar o Arara em
+     * Acessibilidade). Enquanto falta a permissão, o próprio macOS pode mostrar o pedido a cada tentativa.
+     */
+    public synchronized boolean retryHotkey() {
+        if (hotkey != null) return true;
+        try {
+            hotkey = GlobalHotkey.register(engine, settings);
+        } catch (NativeHookException e) {
+            return false;
+        }
+        return true;
     }
 
     /** Bytes baixados até agora e o total (-1 se o servidor não disser). Chamado na thread do download. */
@@ -122,8 +145,8 @@ public final class AraraCore implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        hotkey.close();
+    public synchronized void close() {
+        if (hotkey != null) hotkey.close();
         engine.close();
         if (transcriber instanceof WhisperTranscriber w) w.close(); // espera a transcrição em andamento
     }

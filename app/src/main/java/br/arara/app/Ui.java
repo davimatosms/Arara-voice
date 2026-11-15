@@ -1,5 +1,6 @@
 package br.arara.app;
 
+import br.arara.core.AraraCore;
 import br.arara.core.DictationListener;
 import br.arara.core.DictationState;
 import br.arara.core.HistoryEntry;
@@ -45,6 +46,21 @@ final class Ui {
     enum Kind { PRIMARY, SECONDARY, OUTLINE }
 
     private Ui() {}
+
+    /** Textos que mudam entre Windows e macOS. */
+    static final boolean MAC = AraraCore.MAC;
+    static final String STARTUP = MAC ? "Abrir ao iniciar sessão" : "Iniciar com o Windows";
+    static final String TRAY = MAC ? "barra de menus" : "bandeja";
+    static final String SYSTEM = MAC ? "macOS" : "Windows";
+
+    /** Abre um painel dos ajustes do sistema (ms-settings: no Windows, x-apple.systempreferences: no macOS). */
+    static void openSystemSettings(String uri) {
+        try {
+            new ProcessBuilder(MAC ? "open" : "explorer.exe", uri).start();
+        } catch (Exception ignored) {
+            // sem o app de ajustes: o texto da tela diz onde ir
+        }
+    }
 
     static JLabel label(String text, Font font, Color color) {
         JLabel l = new JLabel(text);

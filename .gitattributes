@@ -5,3 +5,4 @@ gradlew text eol=lf
 *.png binary
 *.jar binary
 *.figcraft binary
+*.icns binary

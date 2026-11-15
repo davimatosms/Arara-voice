@@ -1,0 +1,126 @@
+name: macos
+# Gera o Arara.app e o Arara-<versão>-macos-<arq>.dmg em runners do GitHub e roda testes de fumaça.
+# Sem Developer ID da Apple: assinatura ad-hoc (veja docs/macos.md para abrir o app).
+# Com os secrets APPLE_* (ainda não existem), o passo desligado abaixo assina com Developer ID e notariza.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  # Enquanto este arquivo não está na main, o workflow_dispatch não aparece: o PR prova que o .dmg sai.
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'app/**'
+      - 'instalador/**'
+      - '*.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/macos.yml'
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '21.0.13+9.0.LTS'
+
+jobs:
+  dmg:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-latest, arq: arm64 }      # Apple Silicon
+          - { runner: macos-15-intel, arq: x64 }      # Intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Arara.app e .dmg
+        run: ./gradlew :app:dmg --no-daemon
+
+      # ---------- Desligado: Developer ID + notarização (só com os secrets) ----------
+      - name: Assinar com Developer ID e notarizar
+        if: env.APPLE_CERTIFICATE_P12 != ''
+        env:
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }} # "Developer ID Application: Nome (TEAMID)"
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }} # senha de app do appleid.apple.com
+        run: |
+          set -eu
+          kc="$RUNNER_TEMP/assinatura.keychain-db"; senha="$(uuidgen)"
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$senha" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$senha" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$senha" "$kc"
+          security list-keychain -d user -s "$kc"
+          app=app/build/jpackage-mac/Arara.app
+          # shortcut: as .dylib de dentro dos jars (whisper-jni, JNativeHook) não são assinadas; a Apple pode
+          # recusar a notarização por isso. Se recusar, extrair, assinar e reempacotar os jars antes deste passo.
+          codesign --force --deep --timestamp --options runtime \
+            --entitlements instalador/macos/entitlements.plist --sign "$APPLE_SIGNING_IDENTITY" "$app"
+          dmg=$(ls build/macos/*.dmg)
+          rm "$dmg"
+          ./gradlew :app:dmg -x :app:macApp -x :app:macAppImage --no-daemon
+          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$dmg"
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --wait
+          xcrun stapler staple "$dmg"
+
+      - name: Tamanho
+        run: |
+          ls -l build/macos/*.dmg
+          echo "### ${{ matrix.arq }}: $(ls build/macos/*.dmg | xargs basename), $(du -h build/macos/*.dmg | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+          codesign -dv app/build/jpackage-mac/Arara.app 2>&1 | grep -E 'Identifier|Signature|Format' >> "$GITHUB_STEP_SUMMARY" || true
+          plutil -p app/build/jpackage-mac/Arara.app/Contents/Info.plist | grep -E 'Version|Microphone|Identifier' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fumaça sem interface (Whisper + JNativeHook)
+        run: |
+          say -v Luciana -o "$RUNNER_TEMP/fala.wav" --file-format=WAVE --data-format=LEI16@16000 \
+            "Olá! Eu estou testando o Arara, um aplicativo de ditado por voz em português do Brasil." || true
+          ./gradlew :core:smoke --no-daemon --args="$RUNNER_TEMP/smoke $RUNNER_TEMP/fala.wav" | tee "$RUNNER_TEMP/smoke.txt"
+          grep -q 'SMOKE OK' "$RUNNER_TEMP/smoke.txt"
+          { echo '```'; grep -E '^(os=|whisper|atalho|SMOKE)' "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fumaça do app de dentro do .dmg (abre e fica de pé por 30 s)
+        run: |
+          set -u
+          hdiutil attach "$(ls build/macos/*.dmg)" -nobrowse -mountpoint /Volumes/Arara
+          /Volumes/Arara/Arara.app/Contents/MacOS/Arara > "$RUNNER_TEMP/app.log" 2>&1 &
+          pid=$!
+          sleep 30
+          screencapture -x "$RUNNER_TEMP/tela-${{ matrix.arq }}.png" || true
+          if kill -0 "$pid"; then vivo=sim; else vivo=nao; fi
+          kill "$pid" 2>/dev/null || true
+          sleep 2
+          hdiutil detach /Volumes/Arara || true
+          cat "$RUNNER_TEMP/app.log"
+          ls -la "$HOME/Library/Application Support/Arara" || true
+          echo "app de pé depois de 30 s: $vivo" >> "$GITHUB_STEP_SUMMARY"
+          test "$vivo" = sim
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arara-macos-${{ matrix.arq }}
+          path: build/macos/*.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fumaca-macos-${{ matrix.arq }}
+          path: |
+            ${{ runner.temp }}/tela-*.png
+            ${{ runner.temp }}/app.log
+            ${{ runner.temp }}/smoke.txt
+          if-no-files-found: ignore

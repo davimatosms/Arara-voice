@@ -2,7 +2,7 @@
 
 Ditado por voz local e open source, feito para o português brasileiro. Aperte o atalho, fale, aperte de novo: o texto aparece onde está o cursor.
 
-Só Windows na primeira versão. Decisões do projeto em [DECISOES.md](DECISOES.md); design em `design/arara-v1.figcraft` (FigCraft).
+Windows e macOS (Apple Silicon e Intel). Decisões do projeto em [DECISOES.md](DECISOES.md); design em `design/arara-v1.figcraft` (FigCraft).
 
 ## Módulos
 
@@ -16,6 +16,14 @@ Só Windows na primeira versão. Decisões do projeto em [DECISOES.md](DECISOES.
 ```
 
 Requer JDK 21.
+
+## macOS
+
+```
+./gradlew :app:dmg
+```
+
+Num Mac, gera `build/macos/Arara-0.1.0-macos-<arm64|x64>.dmg` (sem Developer ID, assinatura ad-hoc). O CI faz o mesmo no workflow `macos`. Como abrir o app sem assinatura, permissões e atalho: [docs/macos.md](docs/macos.md).
 
 ## Instalador (Windows)
 

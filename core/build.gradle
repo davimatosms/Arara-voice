@@ -19,3 +19,11 @@ tasks.register('e2e', JavaExec) {
     mainClass = 'br.arara.core.E2E'
     jvmArgs '-Dstdout.encoding=UTF-8'
 }
+
+tasks.register('smoke', JavaExec) {
+    description = 'Fumaça sem interface (CI do macOS): Whisper com o modelo leve e AraraCore com o JNativeHook. Ex.: --args="build/smoke"'
+    group = 'verification'
+    classpath = sourceSets.e2e.runtimeClasspath
+    mainClass = 'br.arara.core.Smoke'
+    jvmArgs '-Dstdout.encoding=UTF-8'
+}

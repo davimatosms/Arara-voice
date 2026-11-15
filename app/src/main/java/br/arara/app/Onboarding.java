@@ -47,6 +47,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -92,6 +93,7 @@ final class Onboarding extends JPanel implements DictationListener {
     private final SettingsStore settings;
     final ModelDownload download;
     private final MicSource micSource;
+    private final BooleanSupplier hotkeyAccess;
     private final Runnable onDone;
     private final JPanel[] pages = new JPanel[STEPS.length];
     private final Sky[] skies = new Sky[STEPS.length];
@@ -140,6 +142,9 @@ final class Onboarding extends JPanel implements DictationListener {
     final Set<String> held = new HashSet<>();
     boolean hotkeyWorked;
     private Ui.Round spaceWarning;
+    /** macOS sem Acessibilidade: o atalho global não registra e o colar não funciona. */
+    private ErrorBox accessError;
+    boolean noAccess;
     private final KeyEventDispatcher keyWatch = e -> {
         if (step == HOTKEY) {
             String k = keyName(e.getKeyCode());
@@ -165,12 +170,15 @@ final class Onboarding extends JPanel implements DictationListener {
     // passo 6
     private final JLabel readyHint = Ui.label("", Theme.bold(17), Color.WHITE);
 
-    Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource, Runnable onDone) {
+    /** @param hotkeyAccess atalho global funcionando ({@code AraraCore::retryHotkey}: tenta de novo se não estava) */
+    Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource,
+            BooleanSupplier hotkeyAccess, Runnable onDone) {
         super(null);
         this.engine = engine;
         this.settings = settings;
         this.download = download;
         this.micSource = micSource;
+        this.hotkeyAccess = hotkeyAccess;
         this.onDone = onDone;
         setBackground(Theme.BG);
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -257,7 +265,10 @@ final class Onboarding extends JPanel implements DictationListener {
         next.setIconTextGap(w - in.left - in.right - 36 - next.getFontMetrics(next.getFont()).stringWidth(cta));
         if (getRootPane() != null) getRootPane().setDefaultButton(next); // Enter = Começar / Continuar
         if (index == MIC) startMic();
-        if (index == HOTKEY) held.clear();
+        if (index == HOTKEY) {
+            held.clear();
+            noAccess = !hotkeyAccess.getAsBoolean();
+        }
         refresh();
         if (isShowing()) anim.start();
         if (index == DICTATION) SwingUtilities.invokeLater(practice::requestFocusInWindow);
@@ -272,10 +283,14 @@ final class Onboarding extends JPanel implements DictationListener {
         onDone.run();
     }
 
-    /** A janela ganhou ou perdeu o foco. Voltando das configurações do Windows, o teste do microfone roda de novo. */
+    /** A janela ganhou ou perdeu o foco. Voltando dos ajustes do sistema, o teste do microfone ou do atalho roda de novo. */
     void windowFocus(boolean gained) {
         held.clear();
         if (gained && step == MIC && blocked) startMic();
+        if (gained && step == HOTKEY && noAccess) {
+            noAccess = !hotkeyAccess.getAsBoolean();
+            refresh();
+        }
         repaint();
     }
 
@@ -355,7 +370,8 @@ final class Onboarding extends JPanel implements DictationListener {
         refreshMic();
 
         // passo 4
-        spaceWarning.setVisible(s.hotkey().endsWith("+Space"));
+        spaceWarning.setVisible(!noAccess && s.hotkey().endsWith("+Space"));
+        accessError.setVisible(noAccess);
         tryChip.setText(hotkeyWorked ? "Funcionou! Seu atalho está pronto" : "Experimente agora: aperte as teclas");
         tryChip.check = hotkeyWorked;
         tryChip.setSize(tryChip.getPreferredSize());
@@ -416,7 +432,7 @@ final class Onboarding extends JPanel implements DictationListener {
         try {
             mic = micSource.open(settings.load().microphone(), s -> SwingUtilities.invokeLater(() -> chunk(s)));
         } catch (Exception e) {
-            blocked = true; // o Windows negou a linha ou não há microfone
+            blocked = true; // o sistema negou a linha ou não há microfone
         }
         refreshMic();
     }
@@ -444,7 +460,7 @@ final class Onboarding extends JPanel implements DictationListener {
         }
         if (!zero) anySound = true;
         else zeros++;
-        // Com a privacidade do Windows bloqueando, a linha abre mas só entrega zeros absolutos.
+        // Com a privacidade do sistema bloqueando, a linha abre mas só entrega zeros absolutos (Windows e macOS).
         if (!anySound && zeros >= BLOCKED_CHUNKS) {
             blocked = true;
             stopMic();
@@ -624,16 +640,12 @@ final class Onboarding extends JPanel implements DictationListener {
         JButton again = pill("Testar de novo", Ui.Kind.OUTLINE, 14);
         again.addActionListener(e -> startMic());
         JButton open = pill("Abrir configurações", Ui.Kind.PRIMARY, 14);
-        open.addActionListener(e -> {
-            try {
-                new ProcessBuilder("explorer.exe", "ms-settings:privacy-microphone").start();
-            } catch (Exception ignored) {
-                // sem o app Configurações: o texto da caixa diz onde ir
-            }
-        });
+        open.addActionListener(e -> Ui.openSystemSettings(Ui.MAC
+                ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone" : "ms-settings:privacy-microphone"));
         micError = put(p, new ErrorBox(again, 140, open, 180), MX, 456, MW, 112);
-        micError.set("O Windows está bloqueando o microfone",
-                "Em Privacidade e segurança › Microfone, ligue “Permitir que aplicativos da área de trabalho acessem o microfone”.");
+        micError.set("O " + Ui.SYSTEM + " está bloqueando o microfone", Ui.MAC
+                ? "Em Ajustes do Sistema › Privacidade e Segurança › Microfone, ligue o Arara."
+                : "Em Privacidade e segurança › Microfone, ligue “Permitir que aplicativos da área de trabalho acessem o microfone”.");
     }
 
     private void hotkey(JPanel p) {
@@ -652,6 +664,15 @@ final class Onboarding extends JPanel implements DictationListener {
         put(spaceWarning, bang(Theme.YELLOW, 18), 16, 14, 32, 32);
         label(spaceWarning, "Se este atalho digitar um espaço em algum app, troque por outro.", Theme.bold(15),
                 Theme.AMBER_TEXT, 62, 19);
+
+        JButton again = pill("Testar de novo", Ui.Kind.OUTLINE, 14);
+        again.addActionListener(e -> windowFocus(true));
+        JButton open = pill("Abrir Ajustes", Ui.Kind.PRIMARY, 14);
+        open.addActionListener(e -> Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"));
+        accessError = put(p, new ErrorBox(again, 140, open, 150), MX, 446, MW, 112);
+        accessError.set("O macOS ainda não deixa o Arara usar o atalho",
+                "Em Ajustes do Sistema › Privacidade e Segurança › Acessibilidade, ligue o Arara. Serve também para colar o texto.");
+        accessError.setVisible(false);
     }
 
     private void dictation(JPanel p) {
@@ -705,17 +726,19 @@ final class Onboarding extends JPanel implements DictationListener {
 
         Ui.Round tray = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX, 352, 386, 196);
         put(tray, new TrayMock(), 20, 20, 346, 48);
-        label(tray, "O Arara fica aqui na bandeja", Theme.extrabold(16), Theme.TEXT, 20, 86);
-        para(tray, "Fechar a janela não fecha o app. Clique no ícone para abrir; botão direito para sair.", Theme.regular(13),
+        label(tray, "O Arara fica aqui na " + Ui.TRAY, Theme.extrabold(16), Theme.TEXT, 20, 86);
+        para(tray, Ui.MAC ? "Fechar a janela não fecha o app. Clique no ícone da barra de menus para abrir ou sair."
+                : "Fechar a janela não fecha o app. Clique no ícone para abrir; botão direito para sair.", Theme.regular(13),
                 Theme.TEXT_SOFT, 20, 114, 346, 19);
 
         Ui.Round boot = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX + 402, 352, 386, 196);
-        label(boot, "Iniciar com o Windows", Theme.extrabold(16), Theme.TEXT, 20, 24);
-        para(boot, "Abre sozinho na bandeja quando você liga o PC, sem janela na frente.", Theme.regular(13), Theme.TEXT_SOFT,
+        label(boot, Ui.STARTUP, Theme.extrabold(16), Theme.TEXT, 20, 24);
+        para(boot, Ui.MAC ? "Abre sozinho na barra de menus quando você entra no Mac."
+                : "Abre sozinho na bandeja quando você liga o PC, sem janela na frente.", Theme.regular(13), Theme.TEXT_SOFT,
                 20, 52, 260, 19);
         Chip on = new Chip("Ligado por padrão", Theme.SELECTED, Theme.GREEN, 26, 12, Theme.GREEN, null);
         put(boot, on, 20, 140, on.getPreferredSize().width, 26);
-        put(boot, Ui.toggle(settings.load().startWithWindows(), "Iniciar com o Windows", value -> {
+        put(boot, Ui.toggle(settings.load().startWithWindows(), Ui.STARTUP, value -> {
             Settings x = settings.load();
             settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), value, x.showPopup(), x.escCancels()));
             on.setVisible(value);
@@ -738,10 +761,15 @@ final class Onboarding extends JPanel implements DictationListener {
 
     /** Nome da tecla no formato do atalho ("Ctrl", "Shift", "Space", "D"...). */
     static String keyName(int keyCode) {
+        return keyName(keyCode, Ui.MAC);
+    }
+
+    static String keyName(int keyCode, boolean mac) {
         return switch (keyCode) {
             case KeyEvent.VK_CONTROL -> "Ctrl";
             case KeyEvent.VK_SHIFT -> "Shift";
-            case KeyEvent.VK_ALT -> "Alt";
+            case KeyEvent.VK_ALT -> mac ? "Option" : "Alt";
+            case KeyEvent.VK_META -> mac ? "Cmd" : null;
             default -> SettingsPage.hotkey(0, keyCode);
         };
     }
@@ -1120,7 +1148,7 @@ final class Onboarding extends JPanel implements DictationListener {
         }
     }
 
-    /** Bandeja do Windows desenhada, com o ícone do Arara em destaque. */
+    /** Bandeja do Windows desenhada, com o ícone do Arara em destaque (no macOS também: só o texto ao lado muda). */
     private static final class TrayMock extends JComponent {
         @Override
         protected void paintComponent(Graphics g) {

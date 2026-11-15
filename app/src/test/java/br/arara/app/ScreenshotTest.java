@@ -88,7 +88,7 @@ class ScreenshotTest {
             Theme.install();
             DemoCore core = new DemoCore();
             ModelDownload download = new ModelDownload(p -> {});
-            Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> {});
+            Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {});
             String dir = "primeira-execucao/";
             new File(DIR, dir).mkdirs();
             downloading(download, 356_000_000L);

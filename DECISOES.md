@@ -33,8 +33,9 @@ O FluidVoice erra muito no reconhecimento de PT-BR. A ideia é criar uma alterna
 
 ## Plataforma
 
-- **Só Windows** na primeira versão.
-- Linux e macOS ficam para depois.
+- **Windows** desde a v0.1.0. **macOS** (Apple Silicon e Intel) a partir de 2026-11-14: `.dmg` pelo GitHub Actions, sem Developer ID (assinatura ad-hoc). Detalhes em `docs/macos.md`.
+- No macOS: dados em `~/Library/Application Support/Arara`, colar com Cmd+V, "Abrir ao iniciar sessão" por LaunchAgent, barra de menus no lugar da bandeja. O atalho e o colar precisam da permissão de Acessibilidade; sem ela o app abre mesmo assim e orienta o usuário.
+- Linux fica para depois.
 
 ## Linguagem e stack
 
@@ -120,6 +121,7 @@ Implementação:
 
 - Modo **toggle**: aperta uma vez para começar e de novo para terminar. Não é preciso segurar.
 - **Padrão: Ctrl+Shift+Space** (decidido em 2026-11-13). O JNativeHook não engole teclas, então o atalho também chega ao app em foco, e alguns apps digitam um espaço com ele (o Bloco de Notas do Windows 11 digita U+00A0). Medidos e descartados: Ctrl+Shift+F12 (difícil de lembrar e de apertar), Ctrl+Alt+Space e Ctrl+Alt+Shift+Space (chegam ao terminal como Esc), Ctrl+Alt+D (manda Ctrl+D ao terminal), Ctrl+Shift+D (duplica a aba do Windows Terminal). Shift+Space digita espaço em todo lugar.
+- **macOS: o mesmo Ctrl+Shift+Space** (decidido em 2026-11-14). Lá ele não é atalho do sistema e Ctrl não digita caractere. Descartados: Cmd+Space (Spotlight), Ctrl+Space e Ctrl+Option+Space (fonte de entrada), Cmd+Option+Space (busca do Finder), Ctrl+Cmd+Space (emojis), Option+Space (digita espaço não separável) e Cmd+Shift+Space (Inteligência Visual no macOS 27 e Acesso Rápido do 1Password). No Mac, Option sem Cmd ou Ctrl digita símbolos, como o AltGr.
 - A tela Início mostra um aviso quando o atalho usa Espaço, orientando a trocar se aparecer espaço extra.
 - **O usuário pode trocar** por qualquer combinação de teclas ou por um **botão do mouse** nas configurações.
 - Atenção: no Windows, Ctrl+Alt sozinho equivale ao **AltGr**, que no ABNT2 digita `/ ? ° ª º`. O padrão final não pode ser só Ctrl+Alt.

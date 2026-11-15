@@ -12,6 +12,10 @@ def versao = version.toString() // gradle.properties
 def instaladorDir = rootProject.file('instalador')
 def appImageDir = layout.buildDirectory.dir('jpackage')
 def jdk = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+// jdeps nos jars: base, desktop, logging, net.http, prefs. Mais: EC para o HTTPS do download do
+// modelo, localedata (meses em PT-BR no histórico) e accessibility (leitores de tela).
+def modulos = 'java.base,java.desktop,java.logging,java.net.http,java.prefs,jdk.crypto.ec,jdk.localedata,jdk.accessibility'
+def jlinkOpcoes = '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6 --include-locales=en,pt'
 
 tasks.register('jpackageImage', Exec) {
     group = 'distribution'
@@ -30,11 +34,65 @@ tasks.register('jpackageImage', Exec) {
                 '--icon', new File(instaladorDir, 'assets/arara.ico'),
                 '--input', lib.get().asFile, '--main-jar', tasks.jar.archiveFileName.get(),
                 '--main-class', application.mainClass.get(),
-                // jdeps nos jars: base, desktop, logging, net.http, prefs. Mais: EC para o HTTPS do download do
-                // modelo, localedata (meses em PT-BR no histórico) e accessibility (leitores de tela).
-                '--add-modules', 'java.base,java.desktop,java.logging,java.net.http,java.prefs,jdk.crypto.ec,jdk.localedata,jdk.accessibility',
-                '--jlink-options', '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6 --include-locales=en,pt'
+                '--add-modules', modulos, '--jlink-options', jlinkOpcoes
     }
+}
+
+// ---- Empacotamento para macOS (rode num Mac): Arara.app com runtime enxuto e Arara-<versão>-macos-<arq>.dmg ----
+// Sem Developer ID: assinatura ad-hoc (codesign -s -), que o Apple Silicon exige para abrir. Veja docs/macos.md.
+def macDir = layout.buildDirectory.dir('jpackage-mac')
+
+tasks.register('macAppImage', Exec) {
+    description = 'Só o jpackage do Arara.app; use macApp.'
+    dependsOn tasks.named('installDist')
+    def lib = layout.buildDirectory.dir('install/app/lib')
+    inputs.dir(lib)
+    inputs.file(new File(instaladorDir, 'assets/arara.icns'))
+    outputs.dir(macDir)
+    doFirst {
+        delete macDir
+        executable jdk.get().metadata.installationPath.file('bin/jpackage').asFile
+        args '--type', 'app-image', '--dest', macDir.get().asFile,
+                // o jpackage recusa versão começando com 0 no macOS; a versão de verdade entra no Info.plist em macApp
+                '--name', 'Arara', '--app-version', '1.0.0', '--vendor', 'Arara',
+                '--mac-package-identifier', 'br.arara.Arara', '--mac-package-name', 'Arara',
+                '--icon', new File(instaladorDir, 'assets/arara.icns'),
+                '--input', lib.get().asFile, '--main-jar', tasks.jar.archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                '--add-modules', modulos, '--jlink-options', jlinkOpcoes
+    }
+}
+
+tasks.register('macApp', Exec) {
+    group = 'distribution'
+    description = 'Gera app/build/jpackage-mac/Arara.app: versão e pedido do microfone no Info.plist, assinatura ad-hoc.'
+    dependsOn 'macAppImage'
+    def app = macDir.get().file('Arara.app').asFile
+    commandLine 'sh', '-eu', '-c', '''
+        p="$1/Contents/Info.plist"
+        plutil -replace CFBundleShortVersionString -string "$2" "$p"
+        plutil -replace CFBundleVersion -string "$2" "$p"
+        plutil -replace NSMicrophoneUsageDescription -string "$3" "$p"
+        codesign --force --deep --sign - "$1"
+        codesign --verify --deep --strict "$1"
+    ''', 'sh', app, versao,
+            'O Arara ouve o microfone só enquanto você dita, para transcrever no seu Mac. Nada sai do computador.'
+}
+
+tasks.register('dmg', Exec) {
+    group = 'distribution'
+    description = 'Gera build/macos/Arara-<versão>-macos-<arm64|x64>.dmg (Arara.app + atalho para Aplicativos).'
+    dependsOn 'macApp'
+    def arq = System.getProperty('os.arch') == 'aarch64' ? 'arm64' : 'x64'
+    def saida = rootProject.layout.buildDirectory.file("macos/Arara-$versao-macos-${arq}.dmg").get().asFile
+    def pasta = layout.buildDirectory.dir('dmg').get().asFile
+    outputs.file(saida)
+    commandLine 'sh', '-eu', '-c', '''
+        rm -rf "$2" "$3"; mkdir -p "$2" "$(dirname "$3")"
+        cp -R "$1" "$2/"
+        ln -s /Applications "$2/Aplicativos"
+        hdiutil create -volname Arara -srcfolder "$2" -fs HFS+ -format UDZO -ov "$3"
+    ''', 'sh', macDir.get().file('Arara.app').asFile, pasta, saida
 }
 
 tasks.register('instalador', Exec) {
