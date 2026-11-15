@@ -35,6 +35,8 @@ import javax.sound.sampled.AudioSystem;
  * ./gradlew e2e --args="fluxo"      # 4 e 5: AraraCore + atalho + Notepad, Esc, gravação sem fala
  * ./gradlew e2e --args="colar"      # só o ClipboardPaster no Notepad, 5 vezes (diagnóstico)
  * ./gradlew e2e --args="longo"      # ditado de ~30 s: tudo no fim (antes) contra incremental (depois), LEVE e PRECISO
+ * ./gradlew e2e --args="latencia [MODELO|-] [respira|corrido|-] [s]"  # ditado de ~90 s em WAV sintético, parada s
+ *                                   # segundos depois da última palavra (padrão 0,5): tempos por trecho
  * </pre>
  *
  * Precisa de alto-falante ligado (não mudo) perto do microfone padrão e da voz pt-BR do Windows (Maria).
@@ -52,7 +54,7 @@ public final class E2E {
         Files.createDirectories(OUT);
         Thread watchdog = new Thread(() -> { // nunca pendura: Notepad sem foco, Whisper travado etc.
             try {
-                Thread.sleep(TimeUnit.MINUTES.toMillis(10));
+                Thread.sleep(TimeUnit.MINUTES.toMillis(what.equals("latencia") ? 60 : 10));
             } catch (InterruptedException e) {
                 return;
             }
@@ -68,6 +70,9 @@ public final class E2E {
             if (what.equals("fluxo") || what.equals("tudo")) fluxo();
             if (what.equals("colar")) colar();
             if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
+            if (what.equals("bench")) bench(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
+            if (what.equals("latencia")) latencia(args.length > 1 && !args[1].equals("-") ? Settings.Model.valueOf(args[1]) : null,
+                    args.length > 2 && !args[2].equals("-") ? args[2] : null, args.length > 3 ? Double.parseDouble(args[3]) : 0.5);
         } finally {
             System.out.println("\n===== RELATÓRIO =====");
             report.forEach(System.out::println);
@@ -276,6 +281,173 @@ public final class E2E {
                     "fala %.1f s; antes %.2f s (WER %.0f%%); depois %.2f s (WER %.0f%%); %d trechos",
                     speech, beforeS, werB * 100, afterS, werA * 100, parts.size());
         }
+    }
+
+    // ---------- latência de ditado longo, por trecho ----------
+
+    static final String LONGA = "Bom dia, pessoal. Eu queria aproveitar esses minutos para contar como foi a semana, porque "
+            + "aconteceu bastante coisa e nem todo mundo conseguiu acompanhar as reuniões. Na segunda-feira, a gente "
+            + "fechou o planejamento do trimestre com a diretoria, e ficou decidido que a prioridade número um é a "
+            + "estabilidade do aplicativo, antes de qualquer funcionalidade nova. Isso quer dizer que os erros mais "
+            + "graves que os clientes relataram nas últimas semanas vão ser corrigidos primeiro, principalmente o "
+            + "problema de sincronização que apaga os dados de quem fica sem internet. Na terça, o time de design "
+            + "apresentou as telas novas do cadastro, e o retorno foi muito bom, mas ainda falta ajustar o contraste "
+            + "das cores e o tamanho dos botões para quem usa o celular com uma mão só. Na quarta e na quinta, eu "
+            + "passei a maior parte do tempo conversando com o pessoal do suporte, para entender quais são as "
+            + "reclamações mais comuns, e montei uma lista com os vinte casos que mais se repetem. Essa lista vai "
+            + "estar na pasta compartilhada até amanhã de manhã. Para a próxima semana, eu peço que cada equipe "
+            + "escolha três itens dessa lista e traga uma estimativa de prazo na reunião de quarta-feira. Se alguém "
+            + "tiver dúvida, pode me chamar a qualquer hora. Obrigado a todos e um ótimo fim de semana.";
+
+    /**
+     * Ditado de ~60-80 s gerado pela voz pt-BR direto em WAV (sem alto-falante nem microfone, para não atrapalhar o
+     * Arara aberto), com ruído de fundo, tocado no engine em tempo real. Mede, por trecho, quando foi cortado, quanto
+     * esperou na fila e quanto o Whisper levou, e a latência da parada até o texto final.
+     * "respira": com pontuação, a voz pausa nas vírgulas e pontos. "corrido": sem pontuação e mais rápido, quase
+     * sem pausa, como fala real de quem não para.
+     */
+    static void latencia(Settings.Model only, String onlyKind, double tail) throws Exception {
+        log("== Latência de ditado longo ==");
+        Settings.Model[] models = only != null ? new Settings.Model[] {only}
+                : new Settings.Model[] {Settings.Model.LEVE, Settings.Model.EQUILIBRADO, Settings.Model.PRECISO};
+        for (String kind : new String[] {"respira", "corrido"}) {
+            if (onlyKind != null && !kind.equals(onlyKind)) continue;
+            Path wav = OUT.resolve("latencia-" + kind + ".wav");
+            if (!Files.exists(wav)) synth(kind.equals("respira") ? LONGA : LONGA.replaceAll("[,.]", ""),
+                    kind.equals("respira") ? 0 : 1, wav);
+            short[] full = withNoise(readWav(wav), tail);
+            Vad v = new Vad();
+            List<Double> pauses = new ArrayList<>();
+            long quiet = 0;
+            for (int i = 0; i + 512 <= full.length; i += 512) {
+                long before = v.speechEnd();
+                v.feed(Arrays.copyOfRange(full, i, i + 512));
+                if (v.speechEnd() != before && before > 0 && quiet > 0) pauses.add((v.speechEnd() - before - 512.0 * Vad.SPEECH_CHUNKS) / Vad.RATE);
+                quiet = v.speechEnd() == before ? quiet + 1 : 0;
+            }
+            double speech = (v.speechEnd() - v.speechStart()) / (double) Vad.RATE;
+            long over6 = pauses.stream().filter(p -> p >= 0.6).count(), over3 = pauses.stream().filter(p -> p >= 0.3).count();
+            log("%s: áudio %.1f s, fala %.1f s; pausas >= 0,3 s: %d, >= 0,6 s: %d, maior %.2f s", kind,
+                    full.length / (double) Vad.RATE, speech, over3, over6, pauses.stream().mapToDouble(d -> d).max().orElse(0));
+            for (Settings.Model m : models) latenciaRun(m, kind, full, speech);
+        }
+    }
+
+    static void latenciaRun(Settings.Model m, String kind, short[] full, double speech) throws Exception {
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
+        w.prepare((done, total) -> {});
+        w.transcribe(Arrays.copyOf(full, Vad.RATE * 2)); // aquece
+        long t0 = System.nanoTime();
+        List<String> rows = new ArrayList<>();
+        List<String> texts = new ArrayList<>();
+        List<double[]> cuts = new ArrayList<>(); // [áudio no corte, relógio no corte]
+        double[] busy = {0};
+        Transcriber logged = new Transcriber() {
+            @Override public String transcribe(short[] pcm) { return transcribe(pcm, ""); }
+            @Override public String transcribe(short[] pcm, String previous) {
+                long s = System.nanoTime();
+                String r = w.transcribe(pcm, previous);
+                double start = (s - t0) / 1e9, took = (System.nanoTime() - s) / 1e9, len = pcm.length / (double) Vad.RATE;
+                busy[0] += took;
+                synchronized (cuts) {
+                    double[] c = cuts.get(rows.size());
+                    texts.add(r);
+                    rows.add(String.format("| %d | %s | %.1f | %.1f | %.1f | %.1f | %.2f | %.2f |", rows.size() + 1, (int) c[2] == 0 ? "pausa"
+                            : (int) c[2] == 1 ? "máx" : (int) c[2] == 2 ? "fim" : "respiro", c[0], len, c[1], start - c[1], took, took / len));
+                }
+                return r;
+            }
+        };
+        Path data = Files.createTempDirectory("arara-e2e-latencia-");
+        BlockingQueue<String> results = new LinkedBlockingQueue<>();
+        DefaultDictationEngine engine = new DefaultDictationEngine(new JsonlHistoryStore(data.resolve("h.jsonl")),
+                new JsonDictionaryStore(data.resolve("d.json")), logged, new Replay(full), results::add);
+        engine.trace = s -> {
+            String[] p = s.split(" ");
+            if (!p[0].equals("corte")) return;
+            synchronized (cuts) {
+                cuts.add(new double[] {Integer.parseInt(p[2]) / (double) Vad.RATE, (System.nanoTime() - t0) / 1e9,
+                        p[1].equals("pausa") ? 0 : p[1].equals("max") ? 1 : p[1].equals("fim") ? 2 : 3});
+            }
+        };
+        List<String> partials = new ArrayList<>();
+        engine.addListener(new DictationListener() {
+            @Override public void onError(String msg) { results.add("ERRO: " + msg); }
+            @Override public void onPartialText(String text) {
+                synchronized (partials) { partials.add(String.format("%.1f s: %d palavras", (System.nanoTime() - t0) / 1e9, words(text).length)); }
+            }
+        });
+        engine.toggle();
+        Replay.done.await();
+        long stop = System.nanoTime();
+        engine.toggle();
+        String text = String.valueOf(results.poll(10, TimeUnit.MINUTES));
+        double lat = (System.nanoTime() - stop) / 1e9;
+        engine.close();
+        w.close();
+        double wer = wer(LONGA, text);
+        log("%s %s: fala %.1f s, parada em %.1f s", m, kind, speech, (stop - t0) / 1e9);
+        log("| # | corte | áudio no corte (s) | trecho (s) | cortado em (s) | fila (s) | Whisper (s) | RTF |");
+        rows.forEach(E2E::log);
+        for (int i = 0; i < texts.size(); i++) log("trecho %d: %s", i + 1, texts.get(i));
+        if (!partials.isEmpty()) log("texto parcial: %s", String.join("; ", partials));
+        log("texto: %s", text);
+        result("Latência " + m + " " + kind, true, "latência %.2f s, WER %.1f%%, %d trechos, Whisper total %.1f s (RTF %.2f)",
+                lat, wer * 100, rows.size(), busy[0], busy[0] / speech);
+    }
+
+    /** Tempo do Whisper por tamanho de trecho, sem e com o texto anterior no prompt: separa custo fixo e por segundo. */
+    static void bench(Settings.Model only) throws Exception {
+        log("== Whisper por tamanho de trecho (%d threads) ==", WhisperTranscriber.THREADS);
+        short[] full = readWav(OUT.resolve("latencia-respira.wav"));
+        String previous = LONGA.substring(0, 300);
+        for (Settings.Model m : Settings.Model.values()) {
+            if (only != null && m != only) continue;
+            WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> m);
+            w.prepare((done, total) -> {});
+            w.transcribe(Arrays.copyOf(full, Vad.RATE * 2));
+            for (int len : new int[] {3, 5, 8, 10, 15, 20}) {
+                short[] pcm = Arrays.copyOfRange(full, Vad.RATE * 10, Vad.RATE * (10 + len));
+                double[] t = new double[2];
+                for (int rep = 0; rep < 2; rep++) {
+                    for (int p = 0; p < 2; p++) {
+                        long s = System.nanoTime();
+                        w.transcribe(pcm, p == 0 ? "" : previous);
+                        t[p] += (System.nanoTime() - s) / 2e9;
+                    }
+                }
+                log("| %s | %d s | %.2f s | %.2f s |", m, len, t[0], t[1]);
+            }
+            w.close();
+        }
+    }
+
+    /** Fala o texto com a voz pt-BR direto num WAV de 16 kHz mono. */
+    static void synth(String text, int rate, Path wav) throws Exception {
+        String ps = "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                + "$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'pt-BR' } | Select-Object -First 1; "
+                + "if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; $s.Rate = " + rate + "; "
+                + "$f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, 'Sixteen', 'Mono'); "
+                + "$s.SetOutputToWaveFile('" + wav.toAbsolutePath() + "', $f); $s.Speak('" + text.replace("'", "''") + "'); $s.Dispose()";
+        new ProcessBuilder("powershell", "-NoProfile", "-Command", ps).inheritIO().start().waitFor();
+    }
+
+    /**
+     * 1,5 s antes e {@code tail} s depois da última palavra (o silêncio do fim do WAV sai: é quando a pessoa aperta o
+     * atalho), com ruído de fundo de ~-55 dBFS.
+     */
+    static short[] withNoise(short[] voice, double tail) {
+        int last = voice.length;
+        while (last > 0 && Math.abs(voice[last - 1]) < 300) last--;
+        voice = Arrays.copyOf(voice, last);
+        short[] out = new short[voice.length + (int) (Vad.RATE * (1.5 + tail))];
+        java.util.Random rnd = new java.util.Random(42);
+        for (int i = 0; i < out.length; i++) {
+            int j = i - Vad.RATE * 3 / 2;
+            double s = (j >= 0 && j < voice.length ? voice[j] * 0.5 : 0) + rnd.nextGaussian() * 60;
+            out[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, s));
+        }
+        return out;
     }
 
     /** Toca a gravação no engine em blocos de 512 amostras, no ritmo do microfone de verdade. */
