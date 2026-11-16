@@ -4,9 +4,11 @@
 //   1. nunca há mais de 1 arara animada visível (a #atriz e qualquer outro elemento de arara fora
 //      dos prints do app, com opacity > 0 e dentro da viewport);
 //   2. a arara nunca salta mais de SALTO_MAX px (em coordenadas da página) entre dois quadros
-//      seguidos em que está na tela, ou seja, nunca teleporta.
+//      seguidos em que está na tela, ou seja, nunca teleporta. Em puxando-para-cima (o botão de voltar
+//      ao topo) a página rola por baixo dela, então ali a medida é em coordenadas da tela.
 // Padrões: passo a passo até o fim, rápido até o fim, de volta ao topo (rápido e passo a passo),
-// pulos pelas âncoras do menu e resize 1440 -> 390 -> 1440, em 1440 e em 390 de largura.
+// pulos pelas âncoras do menu, resize 1440 -> 390 -> 1440 e o botão de voltar ao topo (de vários pontos,
+// levando um agente e cancelado no meio com a roda do mouse), em 1440 e em 390 de largura.
 //
 // Dependência fora do repo: playwright-core e um Chromium/Edge instalado.
 //   npm i --prefix "%TEMP%\arara-pw" playwright-core
@@ -65,7 +67,7 @@ function instalarAmostrador() {
     const a = document.getElementById("atriz");
     const r = a.getBoundingClientRect();
     const vis = r.right > 0 && r.bottom > 0 && r.left < vw && r.top < vh && parseFloat(getComputedStyle(a).opacity) > 0;
-    __amostras.push({ n, x: r.left + r.width / 2 + scrollX, y: r.top + r.height / 2 + scrollY, vis, e: a.dataset.estado || "", vw, sy: Math.round(scrollY) });
+    __amostras.push({ n, x: r.left + r.width / 2 + scrollX, y: r.top + r.height / 2 + scrollY, vis, e: a.dataset.estado || "", vw, sy: Math.round(scrollY), tx: r.left + r.width / 2, ty: r.top + r.height / 2 });
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
@@ -84,6 +86,22 @@ async function abrir(nav, url, w, h) {
 
 const rolar = (p, y) => p.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), y);
 const alturaMax = (p) => p.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+const estadoArara = (p) => p.evaluate(() => document.querySelector("#atriz").dataset.estado);
+
+// clica no botão de voltar ao topo e confere: topo, pousada-no-hero e foco na marca em até 1,6 s
+async function voltarAoTopo(p, onde) {
+  await p.waitForSelector(".topo-btn.ver", { timeout: 3000 });
+  await espera(250); // fim do fade
+  const t = Date.now();
+  await p.click(".topo-btn");
+  const ok = await p.waitForFunction(() => scrollY === 0 && document.querySelector("#atriz").dataset.estado === "pousada-no-hero", null, { timeout: 1600, polling: "raf" }).then(() => true, () => false);
+  const ms = Date.now() - t;
+  const foco = await p.evaluate(() => document.activeElement === document.querySelector(".marca"));
+  await espera(1200);
+  const oculto = await p.evaluate(() => document.querySelector(".topo-btn").hidden);
+  if (!ok || !foco || !oculto) return `voltar ao topo de ${onde}: ${ok ? "" : "não chegou em 1,6 s; "}${foco ? "" : "foco fora da marca; "}${oculto ? "" : "botão visível no topo; "}(${ms} ms)`;
+  return "";
+}
 
 const PADROES = {
   async "passo a passo até o fim"(p) { const m = await alturaMax(p); for (let y = 0; y <= m + 120; y += 120) { await rolar(p, y); await espera(70); } await espera(1500); },
@@ -96,6 +114,39 @@ const PADROES = {
       await espera(1800);
     }
     await rolar(p, 0); await espera(1500);
+  },
+  async "voltar ao topo de vários pontos"(p) {
+    const erros = [];
+    for (const s of ["#como-funciona", "#agentes", "#app", "#baixar"]) {
+      const y = await p.evaluate((s) => document.querySelector(s).getBoundingClientRect().top + scrollY, s);
+      await rolar(p, y); await espera(1800);
+      if (!(await p.evaluate(() => document.querySelector(".topo-btn.ver")))) { if (s === "#baixar") continue; erros.push(`botão escondido em ${s}`); continue; }
+      erros.push(await voltarAoTopo(p, s));
+    }
+    return erros.filter(Boolean).join("; ");
+  },
+  async "voltar ao topo levando um agente"(p) {
+    const y = await p.evaluate(() => document.querySelector("#agentes").getBoundingClientRect().top + scrollY);
+    await rolar(p, y - 1); await espera(60);
+    for (let i = 0; i < 60 && (await estadoArara(p)) !== "pegando-agente"; i++) { await rolar(p, y + i * 6); await espera(30); }
+    await p.waitForFunction(() => document.querySelector("#atriz").dataset.estado === "saindo-com-agente", null, { timeout: 8000 });
+    await espera(120);
+    const erro = await voltarAoTopo(p, "saindo-com-agente");
+    const preso = await p.evaluate(() => document.querySelectorAll(".agente.pego").length);
+    return erro + (preso ? "; cartão continuou preso" : "");
+  },
+  async "voltar ao topo cancelado rolando"(p) {
+    const y = await p.evaluate(() => document.querySelector("#app").getBoundingClientRect().top + scrollY);
+    await rolar(p, y); await espera(1800);
+    await p.waitForSelector(".topo-btn.ver"); await espera(250);
+    await p.click(".topo-btn");
+    await p.waitForFunction(() => scrollY < innerHeight * 3 && scrollY < document.querySelector("#app").offsetTop - 200, null, { timeout: 1500, polling: "raf" }).catch(() => {});
+    await espera(250); // no meio da puxada
+    await p.mouse.wheel(0, 240);
+    await espera(2000);
+    const r = await p.evaluate(() => ({ e: document.querySelector("#atriz").dataset.estado, y: scrollY, seta: document.querySelector(".topo-btn .seta").style.transform }));
+    if (r.e === "puxando-para-cima" || r.y === 0 || r.seta) return `não cancelou: ${JSON.stringify(r)}`;
+    return "";
   },
   async "resize 1440 → 390 → 1440"(p) {
     for (const f of [0, 0.25, 0.45, 0.7, 1]) {
@@ -116,7 +167,8 @@ async function teste(nav, url) {
       if (process.env.ARARA_PADRAO && !nome.includes(process.env.ARARA_PADRAO)) continue; // roda só um padrão
       const { p, erros } = await abrir(nav, url, w, h);
       await p.evaluate(instalarAmostrador);
-      await fn(p);
+      const falha = await fn(p);
+      if (falha) erros.push(falha);
       const am = await p.evaluate(() => window.__amostras);
       let maxN = 0, maxSalto = 0, saltos = 0;
       const estados = new Set();
@@ -124,7 +176,8 @@ async function teste(nav, url) {
         maxN = Math.max(maxN, am[i].n);
         if (am[i].e) estados.add(am[i].e);
         if (i && am[i].vis && am[i - 1].vis) {
-          const d = Math.hypot(am[i].x - am[i - 1].x, am[i].y - am[i - 1].y);
+          const tela = am[i].e === "puxando-para-cima" || am[i - 1].e === "puxando-para-cima";
+          const d = tela ? Math.hypot(am[i].tx - am[i - 1].tx, am[i].ty - am[i - 1].ty) : Math.hypot(am[i].x - am[i - 1].x, am[i].y - am[i - 1].y);
           maxSalto = Math.max(maxSalto, d);
           if (d > SALTO_MAX && ++saltos <= 3) console.log("  salto", JSON.stringify(am[i - 1]), "->", JSON.stringify(am[i]));
         }
