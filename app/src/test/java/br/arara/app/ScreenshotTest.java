@@ -361,6 +361,7 @@ class ScreenshotTest {
                 save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "primeira-execucao-6-escolha");
                 // Sem par no design: conferem que nada ficou na cor fixa da canindé num tema claro.
                 Theme.apply(Settings.Macaw.LEAR, true);
+                core.settings().save(core.settings().load().withMacaw(Settings.Macaw.LEAR).withLightMode(true));
                 Onboarding light = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {});
                 light.show(3);
                 save(light, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "extra-primeira-execucao-4-atalho-lear-claro");

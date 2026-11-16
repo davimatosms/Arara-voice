@@ -715,6 +715,11 @@ final class Onboarding extends JPanel implements DictationListener {
         put(p, Appearance.modes(settings, false, 130), MX, 460, 2 * 130 + 8, 44);
         para(p, "Escuro é o padrão. Ao tocar numa arara ou no modo, a janela muda de cor na hora.", Theme.regular(14),
                 Theme.TEXT_SOFT, MX + 284, 462, 500, 20);
+        // Aviso de que o app grava a entrada de inicialização do sistema (ligada por padrão).
+        put(p, Ui.toggle(settings.load().startWithWindows(), Ui.STARTUP, value -> settings.save(settings.load().withStartWithWindows(value))),
+                MX - 3, 528, 50, 30);
+        label(p, Ui.STARTUP, Theme.semibold(15), Theme.TEXT, MX + 58, 524);
+        label(p, "O Arara fica na " + Ui.TRAY + ", pronto para ouvir.", Theme.regular(13), Theme.TEXT_SOFT, MX + 58, 546);
     }
 
     // ------------------------------------------------------------------ peças
