@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://arara-voice.vercel.app/sitemap.xml
