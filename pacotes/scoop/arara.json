@@ -1,0 +1,37 @@
+{
+    "version": "0.4.0",
+    "description": "Ditado por voz em português, grátis e open source, que roda 100% no seu PC.",
+    "homepage": "https://arara-voice.vercel.app",
+    "license": "MIT",
+    "notes": [
+        "Na primeira vez o Arara baixa o modelo de voz (~574 MB).",
+        "Dados e modelos ficam em %APPDATA%\\Arara e não saem com 'scoop uninstall'.",
+        "Atualize com 'scoop update arara' e recuse o aviso de versão nova do próprio app: ele instalaria uma segunda cópia fora do Scoop."
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.0/Arara-Setup-0.4.0.exe",
+            "hash": "62c063ffd54e8089506e9fd0aaaf0282ea8b382b7013ab9d26bcb25655d9e18f"
+        }
+    },
+    "innosetup": true,
+    "uninstaller": {
+        "script": "Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'Arara' -ErrorAction SilentlyContinue"
+    },
+    "shortcuts": [
+        [
+            "Arara.exe",
+            "Arara"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/davimatosms/Arara-voice"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/davimatosms/Arara-voice/releases/download/v$version/Arara-Setup-$version.exe"
+            }
+        }
+    }
+}
