@@ -179,8 +179,7 @@ public final class UpdateChecker implements AutoCloseable {
     /** "Pular esta versão": não avisa mais desta; a próxima versão avisa normalmente. */
     public void skip(Update u) {
         Settings x = settings.load();
-        settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(),
-                x.showPopup(), x.escCancels(), x.checkUpdates(), u.version()));
+        settings.save(x.withSkippedVersion(u.version()));
     }
 
     /**

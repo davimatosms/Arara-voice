@@ -1,6 +1,7 @@
 package br.arara.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,7 +88,7 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false, false, "0.3.0");
+                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -99,5 +100,30 @@ class StoresTest {
 
         Files.writeString(file, "lixo");
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
+    }
+
+    @Test
+    void oldConfigWithoutThemeFieldsKeepsCanindeDarkAndFixedIcon() throws Exception {
+        Path file = dir.resolve("config.json");
+        // config.json da 0.3.0, de antes dos temas
+        Files.writeString(file, "{\"hotkey\":\"Ctrl+Shift+Space\",\"model\":\"LEVE\",\"accel\":\"CPU\",\"microphone\":null,"
+                + "\"startWithWindows\":false,\"showPopup\":true,\"escCancels\":true,\"checkUpdates\":true,\"skippedVersion\":null}");
+        Settings old = new JsonSettingsStore(file).load();
+        assertEquals(Settings.Model.LEVE, old.model());
+        assertEquals(Settings.Macaw.CANINDE, old.macaw());
+        assertFalse(old.lightMode());
+        assertFalse(old.macawIcon());
+
+        Files.writeString(file, "{\"macaw\":\"PAPAGAIO\",\"lightMode\":\"sim\",\"macawIcon\":1}");
+        Settings bad = new JsonSettingsStore(file).load();
+        assertEquals(Settings.Macaw.CANINDE, bad.macaw());
+        assertFalse(bad.lightMode());
+        assertFalse(bad.macawIcon());
+
+        new JsonSettingsStore(file).save(old.withMacaw(Settings.Macaw.MARACANA).withLightMode(true));
+        Settings back = new JsonSettingsStore(file).load();
+        assertEquals(Settings.Macaw.MARACANA, back.macaw());
+        assertTrue(back.lightMode());
+        assertFalse(back.startWithWindows(), "os campos antigos continuam");
     }
 }

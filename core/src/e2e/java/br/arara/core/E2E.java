@@ -606,8 +606,7 @@ public final class E2E {
         robot.setAutoDelay(30);
         try {
             Settings s = core.settings().load();
-            core.settings().save(new Settings(s.hotkey(), Settings.Model.LEVE, s.accel(), null,
-                    s.startWithWindows(), s.showPopup(), true, s.checkUpdates(), s.skippedVersion()));
+            core.settings().save(s.withModel(Settings.Model.LEVE).withMicrophone(null).withEscCancels(true));
             core.prepareModel((done, total) -> {});
             core.dictionary().add(new Term("aplicativo", "app"));
             log("dataDir %s, atalho %s, termo aplicativo -> app", data, s.hotkey());

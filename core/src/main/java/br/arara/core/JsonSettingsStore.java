@@ -39,7 +39,11 @@ final class JsonSettingsStore implements SettingsStore {
                 m.get("showPopup") instanceof Boolean b ? b : d.showPopup(),
                 m.get("escCancels") instanceof Boolean b ? b : d.escCancels(),
                 m.get("checkUpdates") instanceof Boolean b ? b : d.checkUpdates(), // ausente (config antigo) = ligado
-                m.get("skippedVersion") instanceof String s ? s : d.skippedVersion());
+                m.get("skippedVersion") instanceof String s ? s : d.skippedVersion(),
+                // ausentes (config de antes dos temas) = canindé, escuro, ícone fixo
+                enumOr(Settings.Macaw.class, m.get("macaw"), d.macaw()),
+                m.get("lightMode") instanceof Boolean b ? b : d.lightMode(),
+                m.get("macawIcon") instanceof Boolean b ? b : d.macawIcon());
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -61,7 +65,10 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"showPopup\": " + s.showPopup() + ",\n"
                 + "  \"escCancels\": " + s.escCancels() + ",\n"
                 + "  \"checkUpdates\": " + s.checkUpdates() + ",\n"
-                + "  \"skippedVersion\": " + Json.quote(s.skippedVersion()) + "\n"
+                + "  \"skippedVersion\": " + Json.quote(s.skippedVersion()) + ",\n"
+                + "  \"macaw\": " + Json.quote(s.macaw().name()) + ",\n"
+                + "  \"lightMode\": " + s.lightMode() + ",\n"
+                + "  \"macawIcon\": " + s.macawIcon() + "\n"
                 + "}\n");
         cached = s;
     }

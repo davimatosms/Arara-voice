@@ -43,6 +43,11 @@ public final class AraraCore implements AutoCloseable {
         return mac ? Path.of(home, "Library", "Application Support", "Arara") : Path.of(appData, "Arara");
     }
 
+    /** Só lê o config.json (padrões se não existe), sem criar nada: o aviso da segunda cópia usa o tema escolhido. */
+    public static Settings readSettings(Path dataDir) {
+        return new JsonSettingsStore(dataDir.resolve("config.json")).load();
+    }
+
     /** Nomes dos microfones para a tela de configurações (o valor vai em Settings.microphone). */
     public static List<String> microphones() {
         return Microphone.names();

@@ -134,8 +134,7 @@ class UpdateCheckerTest {
     @Test
     void settingOffMakesNoRequest() {
         Settings x = Settings.defaults();
-        settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(),
-                x.showPopup(), x.escCancels(), false, null));
+        settings.save(x.withCheckUpdates(false).withSkippedVersion(null));
         assertTrue(windows().check().isEmpty());
         assertEquals(List.of(), requests);
     }
@@ -145,8 +144,7 @@ class UpdateCheckerTest {
         UpdateChecker c = windows();
         c.skip(c.check().orElseThrow());
         Settings x = settings.load();
-        settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(),
-                x.showPopup(), x.escCancels(), false, x.skippedVersion()));
+        settings.save(x.withCheckUpdates(false));
         assertEquals("0.3.0", c.latest().orElseThrow().version());
         assertEquals("0.2.0", c.current());
         manifest.set(manifest("0.2.0", base + FILE, "a".repeat(64)));
