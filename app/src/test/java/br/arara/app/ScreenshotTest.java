@@ -3,6 +3,7 @@ package br.arara.app;
 import br.arara.app.demo.DemoCore;
 import br.arara.core.DictationState;
 import br.arara.core.HistoryEntry;
+import br.arara.core.Settings;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -34,7 +35,7 @@ class ScreenshotTest {
             String[] names = {"1-inicio", "2-historico", "3-dicionario", "4-configuracoes"};
             for (int i = 0; i < names.length; i++) {
                 view.show(i);
-                save(view, 1100, i == 3 ? 1443 : 720, names[i]);
+                save(view, 1100, i == 3 ? 1860 : 720, names[i]);
             }
             RecordingPopup popup = new RecordingPopup(core.settings());
             popup.onResult(new HistoryEntry(LocalDateTime.now(), "Oi, pessoal! Só passando para avisar que a reunião"));
@@ -288,7 +289,7 @@ class ScreenshotTest {
             SettingsPage settings = view.settingsPage();
             settings.updates(ui);
             view.show(3);
-            save(view, 1100, 1443, dir + "5-configuracoes");
+            save(view, 1100, 1860, dir + "5-configuracoes");
             // 5b: só o cartão, um por estado, empilhados.
             String[][] states = {{"Procurar agora", "g"}, {"Procurando…", "s"}, {"Você tem a versão mais nova", "c"},
                     {"Nova versão 0.3.0 · Ver", "y"}, {"Sem internet · Tentar de novo", "e"}};
@@ -300,9 +301,9 @@ class ScreenshotTest {
             for (int i = 0; i < states.length; i++) {
                 java.awt.Color c = switch (states[i][1]) {
                     case "s" -> Theme.TEXT_SOFT;
-                    case "y" -> Theme.YELLOW;
+                    case "y" -> Theme.SUPPORT;
                     case "e" -> Theme.ERROR;
-                    default -> Theme.GREEN;
+                    default -> Theme.ACTIVE;
                 };
                 settings.searchState(states[i][0], c, states[i][1].equals("c"));
                 ga.drawImage(render(card, w, h), 0, i * h, null);
@@ -310,6 +311,110 @@ class ScreenshotTest {
             ga.dispose();
             write(all, dir + "5b-estados-do-procurar-agora");
         });
+    }
+
+    /**
+     * Temas das araras (design 14): Início e pop-up "Ouvindo" com texto ao vivo nos 10 temas, trocando o tema com as
+     * telas já abertas (o caminho de verdade); mais Configurações › Aparência e o passo 6 da primeira execução.
+     */
+    @Test
+    void desenhaTemas() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        String dir = "temas/";
+        new File(DIR, dir).mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            DemoCore core = new DemoCore();
+            MainView view = new MainView(core.engine(), core.history(), core.dictionary(), core.settings());
+            view.onState(DictationState.PASTED);
+            JFrame main = offscreen(view, 1100, 720);
+            long[] t = {0};
+            RecordingPopup p = new RecordingPopup(core.settings());
+            p.clock = () -> t[0];
+            JFrame pop = offscreen(p.view, p.view.getWidth(), p.view.getHeight());
+            p.show(DictationState.LISTENING);
+            p.onLiveText("avisar que a reunião de", "amanhã mudou");
+            run(p, t, 3000, 0.8f);
+            while (p.arara.notes.size() < 2 || p.arara.sprite != Arara.FALA[2]) run(p, t, 33, 0.8f);
+            caretOn(p, t);
+            try {
+                for (Settings.Macaw m : Settings.Macaw.values()) {
+                    for (boolean light : new boolean[] {false, true}) {
+                        Theme.apply(m, light);
+                        String id = Theme.id(m) + (light ? "-claro" : "");
+                        write(paint(main, view), dir + "inicio-" + id);
+                        p.tick();
+                        write(paint(pop, p.view), dir + "popup-ouvindo-" + id);
+                    }
+                }
+                Theme.apply(Settings.Macaw.CANINDE, false);
+                configuracoes(core, dir + "configuracoes-caninde");
+                core.settings().save(core.settings().load().withMacaw(Settings.Macaw.AZUL).withLightMode(true).withMacawIcon(true));
+                Theme.apply(Settings.Macaw.AZUL, true);
+                configuracoes(core, dir + "configuracoes-azul-claro-icone-ligado");
+                Theme.apply(Settings.Macaw.CANINDE, false);
+                core.settings().save(core.settings().load().withMacaw(Settings.Macaw.CANINDE).withLightMode(false).withMacawIcon(false));
+                ModelDownload download = new ModelDownload(x -> {});
+                download.phase = ModelDownload.Phase.READY;
+                Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {});
+                o.show(5);
+                save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "primeira-execucao-6-escolha");
+                // Sem par no design: conferem que nada ficou na cor fixa da canindé num tema claro.
+                Theme.apply(Settings.Macaw.LEAR, true);
+                Onboarding light = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {});
+                light.show(3);
+                save(light, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "extra-primeira-execucao-4-atalho-lear-claro");
+                light.show(5);
+                save(light, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "extra-primeira-execucao-6-lear-claro");
+                UpdateDialog.Actions none = new UpdateDialog.Actions() {
+                    public void install() {}
+                    public void later() {}
+                    public void skip() {}
+                    public void cancel() {}
+                    public void site() {}
+                };
+                UpdateDialog d = new UpdateDialog(Main.DEMO_UPDATE, "0.2.0", none);
+                write(dialog(d), dir + "extra-atualizacao-aviso-lear-claro");
+                d.show(UpdateDialog.State.OFFLINE);
+                write(dialog(d), dir + "extra-atualizacao-erro-lear-claro");
+                Theme.apply(Settings.Macaw.VERMELHA, true);
+                view.show(1);
+                write(paint(main, view), dir + "extra-historico-vermelha-claro");
+                view.show(2);
+                write(paint(main, view), dir + "extra-dicionario-vermelha-claro");
+            } finally {
+                Theme.apply(Settings.Macaw.CANINDE, false);
+                main.dispose();
+                pop.dispose();
+            }
+        });
+    }
+
+    private static void configuracoes(DemoCore core, String name) {
+        MainView v = new MainView(core.engine(), core.history(), core.dictionary(), core.settings());
+        v.onState(DictationState.PASTED);
+        v.show(3);
+        save(v, 1100, 776, name);
+    }
+
+    /** Janela que nunca aparece, mas existe (Window.getWindows), para a troca de tema alcançar o componente. */
+    private static JFrame offscreen(JComponent c, int w, int h) {
+        JFrame f = new JFrame();
+        f.setUndecorated(true);
+        f.setContentPane(c);
+        f.addNotify();
+        f.setSize(w, h);
+        f.validate();
+        return f;
+    }
+
+    private static BufferedImage paint(JFrame f, JComponent c) {
+        f.validate();
+        BufferedImage img = new BufferedImage(c.getWidth(), c.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        c.paint(g);
+        g.dispose();
+        return img;
     }
 
     /** O diálogo com a barra de título do design (a do FlatLaf no Windows: 36 px, fundo da superfície, sem ícone). */

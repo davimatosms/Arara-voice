@@ -20,7 +20,7 @@ final class HomePage extends MainView.Page {
     private final JPanel keys = Ui.row(0);
     // O atalho também chega ao app em foco (o JNativeHook não engole teclas): com Espaço, alguns apps digitam um espaço.
     private final JLabel spaceHint = Ui.label("Se este atalho digitar um espaço em algum app, troque por outro.",
-            Theme.regular(13), Theme.YELLOW);
+            Theme.regular(13), Theme.SUPPORT);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
 
     HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings) {
@@ -75,12 +75,12 @@ final class HomePage extends MainView.Page {
         spaceHint.setVisible(s.hotkey().endsWith("+Space"));
         boolean cpu = s.accel() == Settings.Accel.CPU;
         grid.removeAll();
-        grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local", "Pronto", Theme.GREEN));
+        grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local", "Pronto", Theme.READY));
         grid.add(status("mic", "Microfone",
-                s.microphone() == null ? "Microfone padrão do sistema" : s.microphone(), "Pronto", Theme.GREEN));
+                s.microphone() == null ? "Microfone padrão do sistema" : s.microphone(), "Pronto", Theme.READY));
         grid.add(status("settings-2", "Aceleração", cpu ? "CPU agora · Vulkan é opcional" : "Vulkan · placa de vídeo",
-                cpu ? "Opcional" : "Ligado", cpu ? Theme.YELLOW : Theme.GREEN));
-        grid.add(status("history", "Histórico", "Salvo só neste computador", "Ligado", Theme.GREEN));
+                cpu ? "Opcional" : "Ligado", cpu ? Theme.SUPPORT : Theme.READY));
+        grid.add(status("history", "Histórico", "Salvo só neste computador", "Ligado", Theme.READY));
         revalidate();
         repaint();
     }

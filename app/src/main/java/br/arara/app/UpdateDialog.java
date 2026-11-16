@@ -163,10 +163,10 @@ final class UpdateDialog extends JPanel {
         int y = 264;
         String[] notes = notes(update.notes());
         if (notes.length > 0) {
-            label(this, "NOVIDADES", tracked(Theme.extrabold(11), 1.5f), Theme.GREEN, PX, 264);
+            label(this, "NOVIDADES", tracked(Theme.extrabold(11), 1.5f), Theme.ACTIVE, PX, 264);
             y = 288;
             for (String n : notes) {
-                put(this, round(Theme.GREEN, null, 3), PX + 2, y + 7, 6, 6);
+                put(this, round(Theme.PRIMARY, null, 3), PX + 2, y + 7, 6, 6);
                 y += para(this, n, Theme.semibold(14), Theme.TEXT, PX + 18, y, CW - 18, 20).getHeight() + 6;
             }
         }
@@ -226,12 +226,12 @@ final class UpdateDialog extends JPanel {
                 Graphics2D g2 = Ui.smooth(g);
                 g2.setColor(Theme.SURFACE);
                 g2.fillRoundRect(0, 0, getWidth(), 12, 12, 12);
-                g2.setColor(Theme.LIME);
+                g2.setColor(Theme.HIGHLIGHT);
                 g2.fillRoundRect((int) ((getWidth() - 150) * (0.5 + 0.5 * Math.sin(tick * 0.08))), 0, 150, 12, 12, 12);
                 g2.dispose();
             }
         }, PX, 318, CW, 12);
-        closing = chip(this, "", Theme.SELECTED, Theme.GREEN, 30, 13, Theme.GREEN, PX, 350);
+        closing = chip(this, "", Theme.SELECTED, Theme.READY, 30, 13, Theme.READY, PX, 350);
         countdown(2);
         return 404;
     }
@@ -264,7 +264,7 @@ final class UpdateDialog extends JPanel {
             px(g, NUVEM, 2, 150, 92);
             px(g, Arara.IMAGE, 2, 196, 30);
         });
-        chip(sky, reason, Theme.alpha(Theme.TEXT_DARK, 0xCC), Color.WHITE, 28, 12, Theme.YELLOW, 270, 34);
+        chip(sky, reason, Theme.alpha(Theme.TEXT_DARK, 0xCC), Color.WHITE, 28, 12, Theme.SKY_YELLOW, 270, 34);
         Ui.Round box = put(this, round(Theme.ERROR_BG, Theme.ERROR_BORDER, 20), PX, 190, CW, 112);
         put(box, bang(Theme.ERROR, 19), 18, 18, 34, 34);
         line(label(box, title, Theme.extrabold(17), Theme.TEXT, 66, 18), 23);
@@ -327,7 +327,7 @@ final class UpdateDialog extends JPanel {
         FontMetrics big = g.getFontMetrics(Theme.display(22)), small = g.getFontMetrics(Theme.extrabold(10));
         int top = 38 + (72 - big.getHeight() - small.getHeight()) / 2;
         Onboarding.centered(g, Ui.MAC ? "MAC" : "PC", Theme.display(22), Theme.LIME, x + 36, top);
-        Onboarding.centered(g, Ui.MAC ? "Aplicativos" : "seu PC", Theme.extrabold(10), Theme.TEXT_SOFT, x + 36,
+        Onboarding.centered(g, Ui.MAC ? "Aplicativos" : "seu PC", Theme.extrabold(10), Theme.SKY_SOFT, x + 36,
                 top + big.getHeight());
     }
 

@@ -36,7 +36,7 @@ final class RecordingPopup implements DictationListener {
     private final JLabel title = Ui.label(" ", Theme.extrabold(22), Theme.TEXT);
     private final JLabel quote = Ui.label(" ", Theme.regular(13), Theme.TEXT_SOFT);
     private final JLabel esc = Ui.label("Esc cancela", Theme.regular(12), Theme.TEXT_SOFT);
-    private final JLabel pasted = Ui.label("colado no app em foco", Theme.bold(12), Theme.GREEN);
+    private final JLabel pasted = Ui.label("colado no app em foco", Theme.bold(12), Theme.READY);
     private final CardLayout textCards = new CardLayout();
     private final JPanel text = new JPanel(textCards);
     private final JProgressBar progress = new JProgressBar(0, 1000);
@@ -65,7 +65,7 @@ final class RecordingPopup implements DictationListener {
         box.add(arara);
         box.add(mini, BorderLayout.SOUTH);
 
-        progress.setForeground(Theme.YELLOW);
+        progress.setForeground(Theme.SUPPORT);
         progress.setBackground(Theme.BG);
         progress.setPreferredSize(new Dimension(270, 8));
         progress.setBorderPainted(false);
@@ -74,7 +74,7 @@ final class RecordingPopup implements DictationListener {
         middle.add(waves, "waves");
         middle.add(Ui.centerY(progress), "progress");
         middle.add(Ui.centerY(quote), "quote");
-        pasted.setIcon(Ui.icon("check", 12, Theme.GREEN));
+        pasted.setIcon(Ui.icon("check", 12, Theme.READY));
         pasted.setIconTextGap(4);
         middle.add(Ui.centerY(pasted), "pasted");
         middle.setPreferredSize(new Dimension(270, 24));
@@ -158,19 +158,19 @@ final class RecordingPopup implements DictationListener {
         boolean has = live.hasText();
         live.caret = s == DictationState.LISTENING;
         switch (s) {
-            case LISTENING -> set("Ouvindo", Theme.BLUE, true, null, "waves");
+            case LISTENING -> set("Ouvindo", Theme.ACCENT, true, null, "waves");
             case SILENCE -> set(has ? "Pausa" : "Silêncio", Theme.TEXT_SOFT, false, has ? null : "Não ouvi nada", "waves");
             case TRANSCRIBING -> {
                 if (changed) progress.setValue(0);
-                set("Transcrevendo", Theme.YELLOW, false, has ? null : "Transcrevendo", "progress");
+                set("Transcrevendo", Theme.SUPPORT, false, has ? null : "Transcrevendo", "progress");
             }
             case PASTED -> {
-                if (has) set("Colado!", Theme.GREEN, false, null, "pasted");
-                else set("Pronto", Theme.GREEN, false, "Colado!", "quote");
+                if (has) set("Colado!", Theme.READY, false, null, "pasted");
+                else set("Pronto", Theme.READY, false, "Colado!", "quote");
             }
             case ERROR -> {
                 quote.setText(lastError);
-                set("Erro", Theme.YELLOW, false, "Não deu certo", "quote");
+                set("Erro", Theme.SUPPORT, false, "Não deu certo", "quote");
             }
             case IDLE -> { }
         }

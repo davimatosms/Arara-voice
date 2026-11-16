@@ -89,14 +89,18 @@ final class Ui {
 
     static JButton button(String text, String iconName, Kind kind) {
         Color bg = switch (kind) {
-            case PRIMARY -> Theme.GREEN;
-            case SECONDARY -> Theme.BLUE;
+            case PRIMARY -> Theme.PRIMARY;
+            case SECONDARY -> Theme.ACCENT;
             case OUTLINE -> Theme.BG;
         };
-        Color fg = kind == Kind.PRIMARY ? Theme.TEXT_DARK : Theme.TEXT;
+        Color fg = switch (kind) {
+            case PRIMARY -> Theme.ON_PRIMARY;
+            case SECONDARY -> Theme.ON_ACCENT;
+            case OUTLINE -> Theme.TEXT;
+        };
         Color hover = switch (kind) {
-            case PRIMARY -> Theme.GREEN_LIGHT;
-            case SECONDARY -> Theme.BLUE.brighter();
+            case PRIMARY -> Theme.PRIMARY_HOVER;
+            case SECONDARY -> Theme.alpha(Theme.ACCENT, 220);
             case OUTLINE -> Theme.SURFACE;
         };
         Color border = kind == Kind.OUTLINE ? Theme.BORDER : bg;
@@ -105,7 +109,7 @@ final class Ui {
         b.setForeground(fg);
         b.setFont(Theme.bold(14));
         b.setMargin(new Insets(9, 20, 9, 22));
-        b.putClientProperty(FlatClientProperties.STYLE, String.format(
+        Theme.style(b, () -> String.format(
                 "arc:999; borderWidth:1; focusWidth:0; innerFocusWidth:2; hoverBackground:%s; pressedBackground:%s;"
                         + " focusedBackground:%s; borderColor:%s; hoverBorderColor:%s; focusedBorderColor:%s",
                 Theme.hex(hover), Theme.hex(hover), Theme.hex(bg), Theme.hex(border), Theme.hex(border),
@@ -191,7 +195,7 @@ final class Ui {
             public boolean getScrollableTracksViewportHeight() { return false; }
         }
         JScrollPane s = new JScrollPane(new Track());
-        s.setBorder(null);
+        s.setBorder(javax.swing.BorderFactory.createEmptyBorder()); // não null: o updateUI da troca de tema poria a borda de volta
         s.setOpaque(false);
         s.getViewport().setOpaque(false);
         return s;
@@ -242,9 +246,9 @@ final class Ui {
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = smooth(g);
                 boolean sel = cb.isSelected();
-                g2.setColor(sel ? Theme.GREEN : Theme.BORDER);
+                g2.setColor(sel ? Theme.PRIMARY : Theme.BORDER);
                 g2.fillRoundRect(x + 3, y + 3, 42, 24, 24, 24);
-                g2.setColor(sel ? Theme.TEXT_DARK : Theme.TEXT_SOFT);
+                g2.setColor(sel ? Theme.ON_PRIMARY : Theme.TEXT_SOFT);
                 g2.fillOval(x + (sel ? 24 : 6), y + 6, 18, 18);
                 if (cb.isFocusOwner()) {
                     g2.setColor(Theme.TEXT);
@@ -271,10 +275,10 @@ final class Ui {
             t.setFont(Theme.semibold(14));
             t.setMargin(new Insets(5, 18, 5, 18));
             t.setBackground(Theme.BG); // sem setForeground: senão o FlatLaf ignora o selectedForeground
-            t.putClientProperty(FlatClientProperties.STYLE, String.format(
+            Theme.style(t, () -> String.format(
                     "arc:999; borderWidth:1; focusWidth:0; innerFocusWidth:2; selectedBackground:%s;"
                             + " selectedForeground:%s; hoverBackground:%s; borderColor:#00000000; focusedBorderColor:%s",
-                    Theme.hex(Theme.GREEN), Theme.hex(Theme.TEXT_DARK), Theme.hex(Theme.SURFACE),
+                    Theme.hex(Theme.PRIMARY), Theme.hex(Theme.ON_PRIMARY), Theme.hex(Theme.SURFACE),
                     Theme.hex(Theme.TEXT)));
             int index = i;
             t.addActionListener(e -> onChange.accept(index));
@@ -364,7 +368,7 @@ final class Ui {
 
     /** Selo de estado: pílula com bolinha ("Pronto", "Ouvindo", "Transcrevendo"). */
     static final class Badge extends JLabel {
-        private Color color = Theme.GREEN;
+        private Color color = Theme.READY;
         private boolean solid;
 
         Badge() {
@@ -379,13 +383,13 @@ final class Ui {
             set(text, color, false);
         }
 
-        /** solid: fundo cheio com texto branco (só no azul, que tem contraste para isso). */
+        /** solid: fundo cheio com o texto de contraste (só no "Ouvindo", na cor de contraste do tema). */
         Badge set(String text, Color color, boolean solid) {
             this.color = color;
             this.solid = solid;
             setText(text);
             setIcon(null);
-            setForeground(solid ? Theme.TEXT : color);
+            setForeground(solid ? Theme.ON_ACCENT : color);
             repaint();
             return this;
         }

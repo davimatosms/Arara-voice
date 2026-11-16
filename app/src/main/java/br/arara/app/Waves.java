@@ -35,7 +35,7 @@ final class Waves extends JComponent {
             g2.setColor(Theme.alpha(Theme.TEXT_SOFT, 153));
             for (int i = 0; i < levels.length; i++) g2.fillRoundRect(x0 + i * step, mid - 1, bar, 2, 2, 2);
         } else {
-            g2.setColor(Theme.GREEN);
+            g2.setColor(Theme.PRIMARY);
             for (int i = 0; i < levels.length; i++) {
                 int h = Math.max(bar, Math.round(levels[i] * getHeight()));
                 g2.fillRoundRect(x0 + i * step, mid - h / 2, bar, h, bar, bar);

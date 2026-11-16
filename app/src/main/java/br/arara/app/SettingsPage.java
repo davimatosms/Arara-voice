@@ -42,8 +42,8 @@ final class SettingsPage extends MainView.Page {
     private final JPanel content = Ui.column();
     private final JPanel keys = Ui.row(0);
     private final JLabel version = Ui.label("Versão", Theme.regular(13), Theme.TEXT_SOFT);
-    final JButton search = Ui.link("Procurar agora", Theme.bold(13), Theme.GREEN);
-    private final Timer searchBack = new Timer(4000, e -> searchState("Procurar agora", Theme.GREEN, false));
+    final JButton search = Ui.link("Procurar agora", Theme.bold(13), Theme.ACTIVE);
+    private final Timer searchBack = new Timer(4000, e -> searchState("Procurar agora", Theme.ACTIVE, false));
     /** Cartão "Atualizações" (o ScreenshotTest desenha só ele nos estados do "Procurar agora"). */
     JPanel updatesCard;
     private UpdateUi updates;
@@ -72,20 +72,19 @@ final class SettingsPage extends MainView.Page {
         Settings s = settings.load();
         keys.add(Ui.keycaps(s.hotkey()));
 
+        content.add(appearance(s));
+
         content.add(section("Geral", "Como o Arara se comporta no dia a dia.",
                 row(Ui.STARTUP, Ui.MAC ? "Fica na barra de menus, pronto para ouvir." : "Fica na bandeja do sistema, pronto para ouvir.",
-                        Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), on, x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion())))),
+                        Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> x.withStartWithWindows(on)))),
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
-                        Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), on, x.escCancels(), x.checkUpdates(), x.skippedVersion()))))));
+                        Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> x.withShowPopup(on))))));
 
         search.addActionListener(e -> search());
         searchBack.setRepeats(false);
         updatesCard = section("Atualizações", Ui.row(6, version, search),
                 row("Verificar atualizações", "Avisa quando sair uma versão nova. Nunca instala sozinho.",
-                        Ui.toggle(s.checkUpdates(), "Verificar atualizações", on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), x.escCancels(), on, x.skippedVersion())))));
+                        Ui.toggle(s.checkUpdates(), "Verificar atualizações", on -> update(x -> x.withCheckUpdates(on)))));
         content.add(updatesCard);
 
         JButton record = Ui.button("Gravar", null, Ui.Kind.OUTLINE);
@@ -97,26 +96,22 @@ final class SettingsPage extends MainView.Page {
                         : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
-                        Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> new Settings(
-                                x.hotkey(), x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), on, x.checkUpdates(), x.skippedVersion()))))));
+                        Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> x.withEscCancels(on))))));
 
-        JComboBox<String> mic = micChoice(s, m -> update(x -> new Settings(x.hotkey(), x.model(), x.accel(), m,
-                x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion())));
+        JComboBox<String> mic = micChoice(s, m -> update(x -> x.withMicrophone(m)));
         mic.setPreferredSize(new Dimension(280, 40));
         Settings.Model[] models = Settings.Model.values();
         Settings.Accel[] accels = Settings.Accel.values();
         JComponent micRow = row("Microfone", "16 kHz, mono.", mic);
         JComponent modelRow = row("Modelo", "Mais preciso usa mais memória e demora um pouco mais.",
                 Ui.segmented(new String[] {"Leve", "Equilibrado", "Preciso"}, s.model().ordinal(), "Modelo",
-                        i -> update(x -> new Settings(x.hotkey(), models[i], x.accel(), x.microphone(),
-                                x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()))));
+                        i -> update(x -> x.withModel(models[i]))));
         // Sem Aceleração no macOS: lá não há Vulkan, e o whisper.cpp já usa o Metal sozinho no Apple Silicon.
         content.add(Ui.MAC ? section("Voz e captura", "Microfone e modelo.", micRow, modelRow)
                 : section("Voz e captura", "Microfone, modelo e velocidade.", micRow, modelRow,
                 row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
-                                i -> update(x -> new Settings(x.hotkey(), x.model(), accels[i], x.microphone(),
-                                        x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()))))));
+                                i -> update(x -> x.withAccel(accels[i]))))));
 
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
@@ -128,6 +123,31 @@ final class SettingsPage extends MainView.Page {
                 row("Pasta do histórico",
                         Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
+    }
+
+    /** Aparência: as 5 araras e o modo; embaixo, a chave do ícone (desligada por padrão). Tudo aplica na hora. */
+    private JPanel appearance(Settings s) {
+        JPanel macaws = Ui.column(Ui.caption("ARARA"), Ui.gap(8), Appearance.tiles(settings, 102, 160, 2, false, 10));
+        JPanel mode = Ui.column(Ui.caption("MODO"), Ui.gap(8), Appearance.modes(settings, true, 152), Ui.gap(10),
+                Ui.label("Padrão: Escuro", Theme.regular(12), Theme.TEXT_SOFT));
+        JPanel pick = new JPanel(new BorderLayout(16, 0));
+        pick.setOpaque(false);
+        pick.setBorder(new CompoundBorder(new MatteBorder(1, 0, 0, 0, Theme.BORDER), new EmptyBorder(14, 0, 18, 0)));
+        pick.add(macaws, BorderLayout.WEST);
+        pick.add(mode, BorderLayout.EAST);
+        JComponent preview = Appearance.iconPreview(settings);
+        JLabel title = Ui.label("Aparência", Theme.bold(18), Theme.TEXT);
+        title.setIcon(Ui.icon("palette", 22, Theme.TEXT));
+        title.setIconTextGap(10);
+        return section(title, Ui.label("Escolha a sua arara e o modo. O app muda na hora, sem reiniciar.", Theme.regular(13),
+                        Theme.TEXT_SOFT), pick,
+                row("Usar o ícone da arara escolhida", "<html>Só com o app aberto: " + (Ui.MAC ? "Dock e barra de menus."
+                                : "bandeja, janela e barra de tarefas (no Mac, Dock e barra de menus).")
+                                + "<br>O ícone do programa, do atalho e do instalador é sempre a canindé.</html>",
+                        Ui.row(24, preview, Ui.toggle(s.macawIcon(), "Usar o ícone da arara escolhida", on -> {
+                            update(x -> x.withMacawIcon(on));
+                            preview.repaint();
+                        }))));
     }
 
     /** Liga o cartão "Atualizações" ao fluxo de atualização (versão atual e "Procurar agora"). */
@@ -149,9 +169,9 @@ final class SettingsPage extends MainView.Page {
         updates.search(u -> {
             found = u.orElse(null);
             if (found != null) {
-                searchState("Nova versão " + found.version() + " · Ver", Theme.YELLOW, false);
+                searchState("Nova versão " + found.version() + " · Ver", Theme.SUPPORT, false);
             } else {
-                searchState("Você tem a versão mais nova", Theme.GREEN, true);
+                searchState("Você tem a versão mais nova", Theme.READY, true);
                 searchBack.restart();
             }
         }, e -> searchState("Sem internet · Tentar de novo", Theme.ERROR, false));
@@ -186,8 +206,7 @@ final class SettingsPage extends MainView.Page {
             keys.removeAll();
             keys.add(Ui.keycaps(hotkey));
             keys.revalidate();
-            update(x -> new Settings(hotkey, x.model(), x.accel(), x.microphone(),
-                    x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
+            update(x -> x.withHotkey(hotkey));
         });
     }
 
@@ -295,9 +314,13 @@ final class SettingsPage extends MainView.Page {
     }
 
     private static JPanel section(String title, JComponent subtitle, JComponent... rows) {
+        return section(Ui.label(title, Theme.bold(18), Theme.TEXT), subtitle, rows);
+    }
+
+    private static JPanel section(JLabel title, JComponent subtitle, JComponent... rows) {
         Ui.Round card = Ui.card(new BorderLayout());
         card.setBorder(new EmptyBorder(20, 24, 8, 24));
-        JPanel col = Ui.column(Ui.label(title, Theme.bold(18), Theme.TEXT), Ui.gap(2), subtitle, Ui.gap(12));
+        JPanel col = Ui.column(title, Ui.gap(2), subtitle, Ui.gap(12));
         for (JComponent r : rows) {
             r.setAlignmentX(0f);
             col.add(r);

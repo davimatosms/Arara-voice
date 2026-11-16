@@ -211,7 +211,7 @@ final class LiveText extends JComponent {
 
     private void drawCaret(Graphics2D g2, int x, int y) {
         if (!caret || (!reduceMotion && Math.floorMod(now, 2L * BLINK_MS) >= BLINK_MS)) return;
-        g2.setColor(Theme.BLUE);
+        g2.setColor(Theme.ACCENT);
         g2.fillRoundRect(x + 4, y + (LINE - 17) / 2, 2, 17, 2, 2);
     }
 

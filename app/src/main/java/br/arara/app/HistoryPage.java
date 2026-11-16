@@ -78,7 +78,7 @@ final class HistoryPage extends MainView.Page {
         list.getAccessibleContext().setAccessibleName("Ditados");
         list.addListSelectionListener(e -> showDetail(list.getSelectedValue()));
         JScrollPane listScroll = new JScrollPane(list);
-        listScroll.setBorder(null);
+        listScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder()); // não null: o updateUI da troca de tema poria a borda de volta
         Ui.Round listCard = Ui.card(new BorderLayout());
         listCard.setBorder(new EmptyBorder(8, 8, 8, 8));
         listCard.setPreferredSize(new Dimension(340, 0));
@@ -93,7 +93,7 @@ final class HistoryPage extends MainView.Page {
         text.setForeground(Theme.TEXT);
         text.getAccessibleContext().setAccessibleName("Texto do ditado");
         JScrollPane textScroll = new JScrollPane(text);
-        textScroll.setBorder(null);
+        textScroll.setBorder(javax.swing.BorderFactory.createEmptyBorder()); // não null: o updateUI da troca de tema poria a borda de volta
         textScroll.setOpaque(false);
         textScroll.getViewport().setOpaque(false);
 
@@ -110,7 +110,7 @@ final class HistoryPage extends MainView.Page {
 
         Ui.Round note = new Ui.Round(new BorderLayout(), Theme.BG, null, 18);
         JLabel noteLabel = Ui.label("Salvo no histórico antes de colar. Nada se perde.", Theme.regular(13), Theme.TEXT_SOFT);
-        noteLabel.setIcon(Ui.icon("check", 20, Theme.GREEN));
+        noteLabel.setIcon(Ui.icon("check", 20, Theme.READY));
         noteLabel.setIconTextGap(14);
         noteLabel.setBorder(new EmptyBorder(16, 16, 16, 16));
         note.add(noteLabel);
@@ -199,7 +199,7 @@ final class HistoryPage extends MainView.Page {
     private static final class Cell extends Ui.Round implements ListCellRenderer<HistoryEntry> {
         private final JLabel when = Ui.label("", Theme.semibold(12), Theme.TEXT_SOFT);
         private final JLabel preview = Ui.label("", Theme.regular(14), Theme.TEXT);
-        private final Ui.Badge empty = new Ui.Badge("Nenhuma fala detectada", Theme.YELLOW);
+        private final Ui.Badge empty = new Ui.Badge("Nenhuma fala detectada", Theme.SUPPORT);
 
         Cell() {
             super(new BorderLayout(), Theme.SURFACE, null, 22);
@@ -210,9 +210,9 @@ final class HistoryPage extends MainView.Page {
         @Override
         public Component getListCellRendererComponent(JList<? extends HistoryEntry> l, HistoryEntry e, int index,
                                                       boolean selected, boolean focused) {
-            setBackground(selected ? Theme.alpha(Theme.GREEN, 40) : Theme.SURFACE);
+            setBackground(selected ? Theme.alpha(Theme.PRIMARY, 40) : Theme.SURFACE);
             when.setText(when(e.data(), LocalDateTime.now()));
-            when.setForeground(selected ? Theme.GREEN : Theme.TEXT_SOFT);
+            when.setForeground(selected ? Theme.ACTIVE : Theme.TEXT_SOFT);
             boolean blank = e.texto().isBlank();
             String t = e.texto().strip();
             if (t.length() > 72) t = t.substring(0, 70).strip() + "…";

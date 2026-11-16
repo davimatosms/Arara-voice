@@ -25,6 +25,7 @@ import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.Rectangle;
 import java.awt.SystemTray;
+import java.awt.Taskbar;
 import java.awt.TrayIcon;
 import java.awt.desktop.AppReopenedListener;
 import java.awt.event.WindowAdapter;
@@ -97,8 +98,12 @@ public final class Main {
             }));
 
             AraraCore core = real;
+            Settings look = settings.load();
+            Theme.use(look.macaw(), look.lightMode());
+            Theme.install();
             ModelDownload download = new ModelDownload(core != null ? core::prepareModel : firstRun ? Main::fakeDownload : p -> {});
-            settings = reloadModelOnChange(settings, download::start);
+            Runnable[] onIcon = {() -> {}};
+            settings = watch(settings, download::start, onIcon);
             MainView view = new MainView(engine, history, dictionary, settings);
             download.addListener(() -> modelStatus(view, download.phase, download.fraction()));
             RecordingPopup popup = new RecordingPopup(settings);
@@ -110,7 +115,7 @@ public final class Main {
             download.start(); // já na tela de boas-vindas, em segundo plano
 
             JFrame frame = new JFrame("Arara");
-            frame.setIconImage(Arara.IMAGE);
+            frame.setIconImages(Arara.windowIcons(look.macaw(), look.macawIcon()));
             frame.setMinimumSize(new java.awt.Dimension(960, 640));
             if (firstRun) {
                 DictationListener[] listener = new DictationListener[1];
@@ -138,13 +143,16 @@ public final class Main {
             }
             frame.setLocationRelativeTo(null);
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
-            TrayIcon tray = tray(frame);
+            TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
             // Atualização: só o app de verdade consulta o site; o --demo usa uma versão de mentira para ver as telas.
             UpdateChecker checker = core != null ? UpdateChecker.system(core.settings()) : null;
             UpdateUi updates = new UpdateUi(frame, checker != null ? UpdateUi.of(checker) : demoUpdates(), tray,
                     checker != null ? () -> System.exit(0) : () -> {});
             view.settingsPage().updates(updates);
+            SettingsStore store = settings;
+            onIcon[0] = () -> icons(frame, updates, store.load());
+            if (look.macawIcon()) onIcon[0].run();
             engine.addListener(Ui.onEdt(updates));
             if (tray != null) tray.addActionListener(e -> SwingUtilities.invokeLater(() -> {
                 if (!updates.notificationClicked()) show(frame); // duplo clique
@@ -171,6 +179,8 @@ public final class Main {
         String where = AraraCore.MAC ? "na barra de menus" : "na bandeja, perto do relógio";
         String text = notified ? "O Arara já está aberto" : "O Arara já está aberto. Procure o ícone " + where + ".";
         SwingUtilities.invokeLater(() -> {
+            Settings s = AraraCore.readSettings(AraraCore.defaultDataDir()); // só lê: o aviso sai no tema escolhido
+            Theme.use(s.macaw(), s.lightMode());
             Theme.install();
             JLabel label = new JLabel(text);
             label.setFont(Theme.semibold(14f));
@@ -218,11 +228,11 @@ public final class Main {
     /** Estado do modelo no cartão da barra lateral da tela principal. */
     private static void modelStatus(MainView view, ModelDownload.Phase phase, double fraction) {
         switch (phase) {
-            case LOADING -> view.modelStatus("Carregando", Theme.YELLOW);
-            case DOWNLOADING -> view.modelStatus("Baixando " + Math.round(fraction * 100) + "%", Theme.YELLOW);
-            case PAUSED -> view.modelStatus("Sem internet", Theme.YELLOW);
-            case READY -> view.modelStatus("Pronto", Theme.GREEN);
-            case FAILED -> view.modelStatus("Erro no modelo", Theme.YELLOW);
+            case LOADING -> view.modelStatus("Carregando", Theme.SUPPORT);
+            case DOWNLOADING -> view.modelStatus("Baixando " + Math.round(fraction * 100) + "%", Theme.SUPPORT);
+            case PAUSED -> view.modelStatus("Sem internet", Theme.SUPPORT);
+            case READY -> view.modelStatus("Pronto", Theme.READY);
+            case FAILED -> view.modelStatus("Erro no modelo", Theme.SUPPORT);
         }
     }
 
@@ -279,21 +289,39 @@ public final class Main {
         };
     }
 
-    /** Quando o usuário troca o modelo nas configurações, o backend precisa preparar o novo. */
-    private static SettingsStore reloadModelOnChange(SettingsStore store, Runnable onModelChange) {
+    /**
+     * Reage às mudanças salvas nas configurações: modelo novo (o backend prepara), arara ou modo (o tema troca na hora)
+     * e arara ou chave do ícone (bandeja, janela e Dock).
+     */
+    private static SettingsStore watch(SettingsStore store, Runnable onModelChange, Runnable[] onIconChange) {
         return new SettingsStore() {
             public Settings load() { return store.load(); }
 
             public void save(Settings s) {
-                Settings.Model before = store.load().model();
+                Settings before = store.load();
                 store.save(s);
-                if (s.model() != before) onModelChange.run();
+                if (s.model() != before.model()) onModelChange.run();
+                if (s.macaw() != before.macaw() || s.lightMode() != before.lightMode()) Theme.apply(s.macaw(), s.lightMode());
+                if (s.macawIcon() != before.macawIcon() || s.macawIcon() && s.macaw() != before.macaw()) onIconChange[0].run();
             }
         };
     }
 
+    /** Dock já trocado nesta execução: ao desligar a chave, volta para a canindé. */
+    private static boolean dockChanged;
+
+    /** Ícone da arara escolhida (chave ligada) ou a canindé, só enquanto o app está aberto. */
+    private static void icons(JFrame frame, UpdateUi updates, Settings s) {
+        frame.setIconImages(Arara.windowIcons(s.macaw(), s.macawIcon()));
+        updates.trayIcon(Arara.trayIcon(s.macaw(), s.macawIcon()));
+        if (!Taskbar.isTaskbarSupported() || !Taskbar.getTaskbar().isSupported(Taskbar.Feature.ICON_IMAGE)) return;
+        if (!s.macawIcon() && !dockChanged) return; // nunca mexeu: o Dock segue com o ícone do .app
+        Taskbar.getTaskbar().setIconImage(Arara.dockIcon(s.macawIcon() ? s.macaw() : Settings.Macaw.CANINDE));
+        dockChanged = true;
+    }
+
     /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve null se o sistema não tem bandeja. */
-    private static TrayIcon tray(JFrame frame) {
+    private static TrayIcon tray(JFrame frame, java.awt.Image image) {
         if (!SystemTray.isSupported()) return null;
         Runnable open = () -> show(frame);
         PopupMenu menu = new PopupMenu();
@@ -304,7 +332,7 @@ public final class Main {
         menu.add(openItem);
         menu.addSeparator();
         menu.add(quit);
-        TrayIcon icon = new TrayIcon(Arara.IMAGE, "Arara", menu);
+        TrayIcon icon = new TrayIcon(image, "Arara", menu);
         icon.setImageAutoSize(true);
         // macOS: clicar no ícone do Dock com a janela escondida também abre
         if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_EVENT_REOPENED))

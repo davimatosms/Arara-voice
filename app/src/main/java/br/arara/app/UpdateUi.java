@@ -123,7 +123,7 @@ final class UpdateUi implements DictationListener {
     private final TrayIcon tray;
     private final Runnable quit;
     private final Policy policy = new Policy();
-    private final java.awt.Image icon;
+    private java.awt.Image icon;
     private Update pending;
     private MenuItem item;
     private long notifiedAt;
@@ -147,6 +147,12 @@ final class UpdateUi implements DictationListener {
 
     String current() {
         return updates.current();
+    }
+
+    /** Troca o ícone da bandeja (chave do ícone da arara), mantendo o ponto de "atualização pendente". */
+    void trayIcon(java.awt.Image image) {
+        icon = image;
+        if (tray != null) tray.setImage(pending != null && item != null ? dotted(icon) : icon);
     }
 
     /** Resultado da verificação automática (EDT). */
@@ -233,13 +239,13 @@ final class UpdateUi implements DictationListener {
         tray.setImage(icon);
     }
 
-    /** Ícone da bandeja com o ponto verde no canto de cima. */
+    /** Ícone da bandeja com o ponto na cor da arara no canto de cima. */
     static BufferedImage dotted(java.awt.Image icon) {
         int w = icon.getWidth(null), h = icon.getHeight(null), d = Math.max(4, Math.min(w, h) * 2 / 5);
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = Ui.smooth(img.getGraphics());
         g.drawImage(icon, 0, 0, null);
-        g.setColor(Theme.GREEN);
+        g.setColor(Theme.PRIMARY);
         g.fillOval(w - d, 0, d, d);
         g.dispose();
         return img;
@@ -255,7 +261,7 @@ final class UpdateUi implements DictationListener {
         dialog = new UpdateDialog(u, updates.current(), actions(u));
         window = new JDialog(over ? frame : null, "Atualização do Arara",
                 over ? Dialog.ModalityType.DOCUMENT_MODAL : Dialog.ModalityType.MODELESS);
-        window.setIconImage(Arara.IMAGE);
+        window.setIconImages(frame.getIconImages());
         decorate(window.getRootPane());
         window.setContentPane(dialog);
         window.setResizable(false);

@@ -63,7 +63,6 @@ final class Onboarding extends JPanel implements DictationListener {
     static final BufferedImage NUVEM = Arara.read("sprites/nuvem.png");
     static final BufferedImage NUVEM_PEQ = Arara.read("sprites/nuvem_peq.png");
     static final BufferedImage MORROS = Arara.read("sprites/morros.png");
-    private static final BufferedImage HEAD = Arara.IMAGE.getSubimage(5, 1, 21, 18);
     static final Color[] SKY = colors(0x1557B8, 0x1C72CF, 0x3E9BE6, 0x8FD3EC, 0xC2EF8A, 0xD8F6A0);
     static final Color[] CLOUDY = colors(0x3A5068, 0x56708A, 0x8EA3A8, 0xB6C4A0);
     private static final String[] PHRASES = {
@@ -101,7 +100,7 @@ final class Onboarding extends JPanel implements DictationListener {
     int step = -1, tick;
 
     // cabeçalho e rodapé (iguais em todos os passos)
-    private final JLabel stepLabel = Ui.label("", tracked(Theme.extrabold(12), 1.5f), Theme.GREEN);
+    private final JLabel stepLabel = Ui.label("", tracked(Theme.extrabold(12), 1.5f), Theme.ACTIVE);
     private final JLabel title = Ui.label("", Theme.extrabold(32), Theme.TEXT);
     private final JLabel subtitle = Ui.label("", Theme.regular(15), Theme.TEXT_SOFT);
     private final JButton skip = new JButton("Pular por agora");
@@ -112,11 +111,11 @@ final class Onboarding extends JPanel implements DictationListener {
     // passo 2
     private final Chip packageChip = new Chip("", Theme.TEXT_DARK, Color.WHITE, 30, 12, Theme.LIME, null);
     private final Chip waitingChip = new Chip("esperando a internet…", new Color(0xCC0B140D, true), Color.WHITE, 28, 12,
-            Theme.YELLOW, null);
+            Theme.SKY_YELLOW, null);
     private final JLabel percent = Ui.label("", Theme.display(64), Theme.TEXT);
     private final JLabel megabytes = Ui.label("", Theme.extrabold(18), Theme.TEXT);
     private final JLabel speed = Ui.label("", Theme.semibold(15), Theme.TEXT_SOFT);
-    private final Chip goOn = new Chip("Pode seguir: o download continua", Theme.SELECTED, Theme.GREEN, 30, 12, Theme.GREEN, null);
+    private final Chip goOn = new Chip("Pode seguir: o download continua", Theme.SELECTED, Theme.READY, 30, 12, Theme.READY, null);
     private final Bar bar = new Bar();
     private Ui.Round lightCard;
     private ErrorBox netError;
@@ -125,7 +124,7 @@ final class Onboarding extends JPanel implements DictationListener {
     final Arara arara = new Arara(5);
     private final Waves araraWaves = new Waves(24, 4, 3, 26);
     private final Waves liveWaves = new Waves(54, 4, 4, 64);
-    private final Chip heardChip = new Chip("Ouvi você!", Theme.SELECTED, Theme.GREEN, 30, 13, Theme.GREEN, null);
+    private final Chip heardChip = new Chip("Ouvi você!", Theme.SELECTED, Theme.READY, 30, 13, Theme.READY, null);
     private final JLabel heardNote = Ui.label("nível bom · fale normal, sem gritar", Theme.semibold(13), Theme.TEXT_SOFT);
     private final JLabel talkNote = Ui.label("Fale alguma coisa para testar…", Theme.semibold(13), Theme.TEXT_SOFT);
     private final JLabel noSignal = Ui.label("Sem sinal do microfone", Theme.bold(14), Theme.ERROR);
@@ -137,7 +136,7 @@ final class Onboarding extends JPanel implements DictationListener {
     boolean heard, blocked, anySound;
 
     // passo 4
-    private final Chip tryChip = new Chip("Experimente agora: aperte as teclas", Theme.BG, Theme.TEXT_SOFT, 30, 12, Theme.LIME,
+    private final Chip tryChip = new Chip("Experimente agora: aperte as teclas", Theme.BG, Theme.TEXT_SOFT, 30, 12, Theme.HIGHLIGHT,
             Theme.BORDER);
     final Set<String> held = new HashSet<>();
     boolean hotkeyWorked;
@@ -157,7 +156,7 @@ final class Onboarding extends JPanel implements DictationListener {
 
     // passo 5
     final JTextPane practice = new JTextPane();
-    private final Chip pasted = new Chip("Colado", Theme.SELECTED, Theme.GREEN, 26, 12, Theme.GREEN, null);
+    private final Chip pasted = new Chip("Colado", Theme.SELECTED, Theme.READY, 26, 12, Theme.READY, null);
     private final JLabel pastedTime = Ui.label("", Theme.bold(12), Theme.TEXT_SOFT);
     private final JPanel waitModel = new JPanel(null);
     private final JLabel waitDetail = Ui.label("", Theme.semibold(14), Theme.TEXT_SOFT);
@@ -166,9 +165,6 @@ final class Onboarding extends JPanel implements DictationListener {
     private JButton waitLight;
     private long transcribeStart;
     private int phrase;
-
-    // passo 6
-    private final JLabel readyHint = Ui.label("", Theme.bold(17), Color.WHITE);
 
     /** @param hotkeyAccess atalho global funcionando ({@code AraraCore::retryHotkey}: tenta de novo se não estava) */
     Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource,
@@ -250,15 +246,15 @@ final class Onboarding extends JPanel implements DictationListener {
         if (step == MIC && index != MIC) stopMic();
         step = index;
         for (int i = 0; i < pages.length; i++) pages[i].setVisible(i == index);
-        boolean header = index != WELCOME && index != READY;
-        stepLabel.setVisible(header);
+        boolean header = index != WELCOME;
+        stepLabel.setVisible(header && index != READY);
         title.setVisible(header);
         subtitle.setVisible(header);
         stepLabel.setText("PASSO " + (index + 1) + " DE " + STEPS.length);
-        skip.setVisible(index != READY);
+
         back.setVisible(index != WELCOME);
         int w = index == WELCOME ? 170 : 200;
-        String cta = index == WELCOME ? "Começar" : index == READY ? "Começar a usar" : "Continuar";
+        String cta = index == WELCOME ? "Começar" : index == READY ? "Começar a ditar" : "Continuar";
         next.setText(cta);
         next.setBounds(MX + MW - w, 607, w, 48);
         Insets in = next.getInsets();
@@ -317,6 +313,10 @@ final class Onboarding extends JPanel implements DictationListener {
             case HOTKEY -> {
                 title.setText("Seu atalho");
                 subtitle.setText("Aperte em qualquer janela para começar a ouvir. Aperte de novo para colar o texto.");
+            }
+            case READY -> {
+                title.setText("Tudo pronto! Escolha a sua arara.");
+                subtitle.setText("É só o visual: o ditado é igual com todas. Dá para trocar depois em Configurações › Aparência.");
             }
             case DICTATION -> {
                 title.setText("Seu primeiro ditado");
@@ -393,8 +393,6 @@ final class Onboarding extends JPanel implements DictationListener {
             if (i > 0) suggestions[i].setLocation(suggestions[i - 1].getX() + suggestions[i - 1].getWidth() + 12, suggestions[i].getY());
         }
 
-        // passo 6
-        fit(readyHint, "Aperte " + keys + " em qualquer janela e fale.");
         repaint();
     }
 
@@ -415,8 +413,7 @@ final class Onboarding extends JPanel implements DictationListener {
 
     private void useLight() {
         Settings x = settings.load();
-        settings.save(new Settings(x.hotkey(), Settings.Model.LEVE, x.accel(), x.microphone(), x.startWithWindows(),
-                x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
+        settings.save(x.withModel(Settings.Model.LEVE));
         refresh();
     }
 
@@ -503,7 +500,7 @@ final class Onboarding extends JPanel implements DictationListener {
         pasted.setSize(pasted.getPreferredSize());
         fit(pastedTime, String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f s", seconds));
         pastedTime.setVisible(seconds > 0);
-        practice.setForeground(Theme.GREEN); // o texto pisca verde uma vez
+        practice.setForeground(Theme.READY); // o texto pisca na cor de "Pronto" uma vez
         Timer t = new Timer(450, e -> practice.setForeground(Theme.TEXT));
         t.setRepeats(false);
         t.start();
@@ -552,9 +549,9 @@ final class Onboarding extends JPanel implements DictationListener {
                 {"Aprender o atalho", "e fazer o 1º ditado"}};
         for (int i = 0; i < cards.length; i++) {
             Ui.Round c = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX + i * 270, 444, 248, 96);
-            Ui.Round n = put(c, round(Theme.LIME, null, 16), 18, 18, 32, 32);
+            Ui.Round n = put(c, round(Theme.HIGHLIGHT, null, 16), 18, 18, 32, 32);
             n.setLayout(new java.awt.BorderLayout());
-            n.add(center(Ui.label(String.valueOf(i + 1), Theme.extrabold(15), Theme.TEXT_DARK)));
+            n.add(center(Ui.label(String.valueOf(i + 1), Theme.extrabold(15), Theme.ON_HIGHLIGHT)));
             label(c, cards[i][0], Theme.extrabold(15), Theme.TEXT, 62, 18);
             label(c, cards[i][1], Theme.regular(13), Theme.TEXT_SOFT, 62, 42);
         }
@@ -568,7 +565,7 @@ final class Onboarding extends JPanel implements DictationListener {
             g.setColor(Theme.TEXT_DARK);
             g.fillRoundRect(676, 58, 88, 88, 40, 40);
             centered(g, "PC", Theme.display(26), Theme.LIME, 720, 72);
-            centered(g, "seu PC", Theme.extrabold(11), Theme.TEXT_SOFT, 720, 112);
+            centered(g, "seu PC", Theme.extrabold(11), Theme.SKY_SOFT, 720, 112);
             if (paused) {
                 px(g, NUVEM, 2, 290, 120);
                 px(g, Arara.IMAGE, 3, 336, 22); // pousada esperando a internet
@@ -599,7 +596,7 @@ final class Onboarding extends JPanel implements DictationListener {
         lightCard = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX, 474, MW, 76);
         Ui.Round icon = put(lightCard, round(Theme.BG, null, 22), 16, 16, 44, 44);
         icon.setLayout(new java.awt.BorderLayout());
-        icon.add(new JLabel(Ui.icon("zap", 22, Theme.YELLOW), SwingConstants.CENTER));
+        icon.add(new JLabel(Ui.icon("zap", 22, Theme.SUPPORT), SwingConstants.CENTER));
         label(lightCard, "Internet lenta?", Theme.extrabold(15), Theme.TEXT, 76, 16);
         label(lightCard, "Comece com o modelo leve (base · 148 MB) e troque depois, em Configurações.", Theme.regular(13),
                 Theme.TEXT_SOFT, 76, 40);
@@ -619,11 +616,11 @@ final class Onboarding extends JPanel implements DictationListener {
         label(card, "MICROFONE", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 292, 28);
         JComboBox<String> choice = SettingsPage.micChoice(settings.load(), m -> {
             Settings x = settings.load();
-            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), m, x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
+            settings.save(x.withMicrophone(m));
             startMic();
         });
         choice.setFont(Theme.semibold(14));
-        choice.putClientProperty(FlatClientProperties.STYLE, "arc:28; background:" + Theme.hex(Theme.BG)
+        Theme.style(choice, () -> "arc:28; background:" + Theme.hex(Theme.BG)
                 + "; buttonBackground:" + Theme.hex(Theme.BG) + "; padding:0,10,0,6");
         put(card, choice, 292, 50, 470, 46);
         label(card, "AO VIVO", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 292, 124);
@@ -656,12 +653,12 @@ final class Onboarding extends JPanel implements DictationListener {
         JButton change = put(card, pill("Trocar atalho", Ui.Kind.OUTLINE, 14), (MW - 170) / 2, 218, 170, 44);
         change.addActionListener(e -> SettingsPage.recordHotkey(change, hk -> {
             Settings x = settings.load();
-            settings.save(new Settings(hk, x.model(), x.accel(), x.microphone(), x.startWithWindows(), x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
+            settings.save(x.withHotkey(hk));
             hotkeyWorked = false;
             refresh();
         }));
         spaceWarning = put(p, round(Theme.AMBER_BG, Theme.AMBER_BORDER, 16), MX, 450, MW, 60);
-        put(spaceWarning, bang(Theme.YELLOW, 18), 16, 14, 32, 32);
+        put(spaceWarning, bang(Theme.SUPPORT, 18), 16, 14, 32, 32);
         label(spaceWarning, "Se este atalho digitar um espaço em algum app, troque por outro.", Theme.bold(15),
                 Theme.AMBER_TEXT, 62, 19);
 
@@ -685,10 +682,10 @@ final class Onboarding extends JPanel implements DictationListener {
         pastedTime.setVisible(false);
 
         practice.setOpaque(false);
-        practice.setBorder(null);
+        practice.setBorder(javax.swing.BorderFactory.createEmptyBorder()); // não null: o updateUI da troca de tema poria a borda de volta
         practice.setFont(Theme.semibold(22));
         practice.setForeground(Theme.TEXT);
-        practice.setCaretColor(Theme.GREEN);
+        practice.setCaretColor(Theme.ACTIVE);
         practice.getAccessibleContext().setAccessibleName("Caixa de treino");
         practice.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "O texto ditado aparece aqui.");
         SimpleAttributeSet spacing = new SimpleAttributeSet();
@@ -711,38 +708,13 @@ final class Onboarding extends JPanel implements DictationListener {
         }
     }
 
+    /** Passo 6: escolha da arara e do modo (opcional; canindé e escuro já vêm marcados). Aplica na hora. */
     private void ready(JPanel p) {
-        Sky sky = put(p, new Sky(SKY, g -> {
-            px(g, MORROS, 3, -40, 234);
-            px(g, NUVEM, 3, 500 + drift(3, 90), 200);
-            px(g, tick % 120 < 3 ? Arara.PISCAR : Arara.IMAGE, 4, 556, 40); // pousa e pisca
-            sparkle(g, 470, 70, 4, Theme.LIME);
-            sparkle(g, 720, 120, 3, Color.WHITE);
-        }), MX, 32, MW, 300);
-        skies[READY] = sky;
-        line(label(sky, "TUDO", Theme.display(72), Color.WHITE, 40, 36), 76);
-        line(label(sky, "PRONTO.", Theme.display(72), Theme.LIME, 40, 110), 76);
-        place(sky, readyHint, 42, 190);
-
-        Ui.Round tray = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX, 352, 386, 196);
-        put(tray, new TrayMock(), 20, 20, 346, 48);
-        label(tray, "O Arara fica aqui na " + Ui.TRAY, Theme.extrabold(16), Theme.TEXT, 20, 86);
-        para(tray, Ui.MAC ? "Fechar a janela não fecha o app. Clique no ícone da barra de menus para abrir ou sair."
-                : "Fechar a janela não fecha o app. Clique no ícone para abrir; botão direito para sair.", Theme.regular(13),
-                Theme.TEXT_SOFT, 20, 114, 346, 19);
-
-        Ui.Round boot = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX + 402, 352, 386, 196);
-        label(boot, Ui.STARTUP, Theme.extrabold(16), Theme.TEXT, 20, 24);
-        para(boot, Ui.MAC ? "Abre sozinho na barra de menus quando você entra no Mac."
-                : "Abre sozinho na bandeja quando você liga o PC, sem janela na frente.", Theme.regular(13), Theme.TEXT_SOFT,
-                20, 52, 260, 19);
-        Chip on = new Chip("Ligado por padrão", Theme.SELECTED, Theme.GREEN, 26, 12, Theme.GREEN, null);
-        put(boot, on, 20, 140, on.getPreferredSize().width, 26);
-        put(boot, Ui.toggle(settings.load().startWithWindows(), Ui.STARTUP, value -> {
-            Settings x = settings.load();
-            settings.save(new Settings(x.hotkey(), x.model(), x.accel(), x.microphone(), value, x.showPopup(), x.escCancels(), x.checkUpdates(), x.skippedVersion()));
-            on.setVisible(value);
-        }), 386 - 20 - 50, 23, 50, 30);
+        put(p, Appearance.tiles(settings, 148, 262, 3, true, 12), MX, 150, MW, 262);
+        label(p, "MODO", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, MX, 438);
+        put(p, Appearance.modes(settings, false, 130), MX, 460, 2 * 130 + 8, 44);
+        para(p, "Escuro é o padrão. Ao tocar numa arara ou no modo, a janela muda de cor na hora.", Theme.regular(14),
+                Theme.TEXT_SOFT, MX + 284, 462, 500, 20);
     }
 
     // ------------------------------------------------------------------ peças
@@ -817,7 +789,7 @@ final class Onboarding extends JPanel implements DictationListener {
         t.setEditable(false);
         t.setFocusable(false);
         t.setOpaque(false);
-        t.setBorder(null);
+        t.setBorder(javax.swing.BorderFactory.createEmptyBorder()); // não null: o updateUI da troca de tema poria a borda de volta
         t.setFont(f);
         t.setForeground(c);
         int fh = t.getFontMetrics(f).getHeight();
@@ -845,7 +817,7 @@ final class Onboarding extends JPanel implements DictationListener {
     static Ui.Round bang(Color bg, int size) {
         Ui.Round r = round(bg, null, 99);
         r.setLayout(new java.awt.BorderLayout());
-        r.add(center(Ui.label("!", Theme.extrabold(size), Theme.TEXT_DARK)));
+        r.add(center(Ui.label("!", Theme.extrabold(size), Theme.ON_ALERT)));
         return r;
     }
 
@@ -858,13 +830,13 @@ final class Onboarding extends JPanel implements DictationListener {
 
     /** Círculo escuro com a seta, à direita da pílula verde. */
     private static Icon arrowCircle() {
-        FlatSVGIcon arrow = Ui.icon("arrow-right", 20, Theme.GREEN);
+        FlatSVGIcon arrow = Ui.icon("arrow-right", 20, Theme.PRIMARY);
         return new Icon() {
             public int getIconWidth() { return 36; }
             public int getIconHeight() { return 36; }
             public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = Ui.smooth(g);
-                g2.setColor(Theme.TEXT_DARK);
+                g2.setColor(Theme.ON_PRIMARY);
                 g2.fillOval(x, y, 36, 36);
                 arrow.paintIcon(c, g2, x + 8, y + 8);
                 g2.dispose();
@@ -978,10 +950,10 @@ final class Onboarding extends JPanel implements DictationListener {
             g2.setColor(Theme.SURFACE);
             g2.fillRoundRect(0, 0, w, h, h, h);
             if (fw > 0) {
-                g2.setColor(paused ? Theme.alpha(Theme.YELLOW, 204) : Theme.GREEN);
+                g2.setColor(paused ? Theme.alpha(Theme.SUPPORT, 204) : Theme.PRIMARY);
                 g2.fillRoundRect(0, 0, Math.max(fw, h), h, h, h);
                 if (!paused) {
-                    g2.setColor(Theme.LIME);
+                    g2.setColor(Theme.HIGHLIGHT);
                     g2.fillOval(Math.max(fw, h) - h, 0, h, h);
                 }
             }
@@ -1006,9 +978,10 @@ final class Onboarding extends JPanel implements DictationListener {
                 int w = (Integer) buttons[i + 1];
                 x -= w;
                 used += w + 10;
-                if (!Theme.GREEN.equals(b.getBackground())) {
+                if (b.getBackground() != Theme.PRIMARY) {
                     b.setBackground(Theme.ERROR_BG);
-                    b.putClientProperty(FlatClientProperties.STYLE, b.getClientProperty(FlatClientProperties.STYLE)
+                    java.util.function.Supplier<?> base = (java.util.function.Supplier<?>) b.getClientProperty(Theme.class);
+                    Theme.style(b, () -> base.get()
                             + "; borderColor:" + Theme.hex(Theme.ERROR_BORDER) + "; hoverBorderColor:" + Theme.hex(Theme.ERROR)
                             + "; hoverBackground:" + Theme.hex(Theme.ERROR_BORDER) + "; pressedBackground:"
                             + Theme.hex(Theme.ERROR_BORDER) + "; focusedBackground:" + Theme.hex(Theme.ERROR_BG));
@@ -1075,12 +1048,12 @@ final class Onboarding extends JPanel implements DictationListener {
             Graphics2D g2 = Ui.smooth(g);
             int m = MARGIN, w = getWidth() - 2 * m, h = getHeight() - 2 * m;
             for (int i = 12; i > 0; i -= 2) {
-                g2.setColor(Theme.alpha(Theme.GREEN, 10));
+                g2.setColor(Theme.alpha(Theme.PRIMARY, 10));
                 g2.fillRoundRect(m - i, m - i, w + 2 * i, h + 2 * i, 40 + 2 * i, 40 + 2 * i);
             }
             g2.setColor(Theme.BG);
             g2.fillRoundRect(m, m, w, h, 40, 40);
-            g2.setColor(Theme.GREEN);
+            g2.setColor(Theme.PRIMARY);
             g2.setStroke(new BasicStroke(2));
             g2.drawRoundRect(m + 1, m + 1, w - 2, h - 2, 38, 38);
             g2.dispose();
@@ -1096,7 +1069,7 @@ final class Onboarding extends JPanel implements DictationListener {
             for (int i = 0; i < STEPS.length; i++) {
                 Mark m = mark(i, step);
                 int w = m == Mark.CURRENT ? 36 : 14;
-                g2.setColor(m == Mark.CURRENT ? Theme.LIME : m == Mark.DONE ? Theme.GREEN : Theme.BORDER);
+                g2.setColor(m == Mark.CURRENT ? Theme.HIGHLIGHT : m == Mark.DONE ? Theme.PRIMARY : Theme.BORDER);
                 g2.fillRoundRect(x, 0, w, 6, 6, 6);
                 x += w + 6;
             }
@@ -1126,14 +1099,14 @@ final class Onboarding extends JPanel implements DictationListener {
             for (int i = 0; i < parts.length; i++) {
                 boolean lit = hotkeyWorked || held.contains(parts[i]);
                 int dy = lit ? 4 : 0;
-                g2.setColor(Color.BLACK);
+                g2.setColor(Theme.active.light() ? Theme.BORDER : Color.BLACK); // sombra da tecla
                 g2.fillRoundRect(x, y + 6, w[i], 96, 36, 36);
                 g2.setColor(lit ? Theme.SELECTED : Theme.BG);
                 g2.fillRoundRect(x, y + dy, w[i], 96, 36, 36);
-                g2.setColor(lit ? Theme.GREEN : Theme.BORDER);
+                g2.setColor(lit ? Theme.PRIMARY : Theme.BORDER);
                 g2.setStroke(new BasicStroke(lit ? 2 : 1.5f));
                 g2.drawRoundRect(x + 1, y + dy + 1, w[i] - 2, 94, 34, 34);
-                centered(g2, label(parts[i]), f, lit ? Theme.GREEN : Theme.TEXT, x + w[i] / 2, y + dy + 48 - 21);
+                centered(g2, label(parts[i]), f, lit ? Theme.ACTIVE : Theme.TEXT, x + w[i] / 2, y + dy + 48 - 21);
                 x += w[i];
                 if (i < parts.length - 1) {
                     text(g2, "+", Theme.bold(30), Theme.TEXT_SOFT, x + 22, y + 24);
@@ -1147,26 +1120,6 @@ final class Onboarding extends JPanel implements DictationListener {
 
         private String label(String key) {
             return key.equals("Space") ? "Espaço" : key;
-        }
-    }
-
-    /** Bandeja do Windows desenhada, com o ícone do Arara em destaque (no macOS também: só o texto ao lado muda). */
-    private static final class TrayMock extends JComponent {
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = pixels(g);
-            g2.setColor(new Color(0x202020));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
-            g2.setColor(new Color(0xCCCCCC));
-            g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g2.drawPolyline(new int[] {20, 24, 28}, new int[] {26, 22, 26}, 3);
-            g2.setColor(new Color(0x5A5A5A));
-            for (int i = 0; i < 3; i++) g2.fillOval(50 + i * 30, 17, 14, 14);
-            g2.setColor(Theme.LIME);
-            g2.drawRoundRect(145, 7, 34, 34, 20, 20);
-            g2.drawImage(HEAD, 144 + (36 - HEAD.getWidth()) / 2, 6 + (36 - HEAD.getHeight()) / 2, null);
-            text(g2, "14:32", Theme.semibold(12), new Color(0xDDDDDD), 290, 15);
-            g2.dispose();
         }
     }
 
@@ -1195,13 +1148,13 @@ final class Onboarding extends JPanel implements DictationListener {
                     g2.setStroke(new BasicStroke(1.5f));
                     g2.drawOval(22, y + 8, 26, 26);
                 } else {
-                    g2.setColor(m == Mark.DONE ? Theme.GREEN : Theme.LIME);
+                    g2.setColor(m == Mark.DONE ? Theme.PRIMARY : Theme.HIGHLIGHT);
                     g2.fillOval(22, y + 8, 26, 26);
                 }
-                if (m == Mark.DONE) Ui.icon("check", 16, Theme.TEXT_DARK).paintIcon(this, g2, 27, y + 13);
-                else centered(g2, String.valueOf(i + 1), Theme.extrabold(13), m == Mark.CURRENT ? Theme.TEXT_DARK : Theme.TEXT_SOFT,
+                if (m == Mark.DONE) Ui.icon("check", 16, Theme.ON_PRIMARY).paintIcon(this, g2, 27, y + 13);
+                else centered(g2, String.valueOf(i + 1), Theme.extrabold(13), m == Mark.CURRENT ? Theme.ON_HIGHLIGHT : Theme.TEXT_SOFT,
                         35, y + 12);
-                text(g2, STEPS[i], Theme.bold(14), m == Mark.CURRENT ? Theme.GREEN : m == Mark.DONE ? Theme.TEXT : Theme.TEXT_SOFT,
+                text(g2, STEPS[i], Theme.bold(14), m == Mark.CURRENT ? Theme.ACTIVE : m == Mark.DONE ? Theme.TEXT : Theme.TEXT_SOFT,
                         60, y + 11);
             }
 
@@ -1222,18 +1175,18 @@ final class Onboarding extends JPanel implements DictationListener {
             if (ph == ModelDownload.Phase.READY) {
                 g2.setColor(Theme.SELECTED);
                 g2.fillRoundRect(cx + 16, cy + 40, 72, 22, 22, 22);
-                g2.setColor(Theme.GREEN);
+                g2.setColor(Theme.READY);
                 g2.fillOval(cx + 16 + 10, cy + 40 + 8, 6, 6);
-                text(g2, "Pronto", Theme.bold(11), Theme.GREEN, cx + 16 + 22, cy + 43);
+                text(g2, "Pronto", Theme.bold(11), Theme.READY, cx + 16 + 22, cy + 43);
             } else {
                 boolean paused = ph == ModelDownload.Phase.PAUSED || ph == ModelDownload.Phase.FAILED;
                 String status = ph == ModelDownload.Phase.PAUSED ? "pausado · sem internet"
                         : ph == ModelDownload.Phase.FAILED ? "erro ao carregar"
                         : download.done == 0 ? "preparando…" : "baixando · " + (int) Math.floor(download.fraction() * 100) + "%";
-                text(g2, status, Theme.semibold(12), paused ? Theme.YELLOW : Theme.TEXT_SOFT, cx + 16, cy + 36);
+                text(g2, status, Theme.semibold(12), paused ? Theme.SUPPORT : Theme.TEXT_SOFT, cx + 16, cy + 36);
                 g2.setColor(Theme.SURFACE);
                 g2.fillRoundRect(cx + 16, cy + 58, 176, 5, 5, 5);
-                g2.setColor(paused ? Theme.YELLOW : Theme.GREEN);
+                g2.setColor(paused ? Theme.SUPPORT : Theme.PRIMARY);
                 g2.fillRoundRect(cx + 16, cy + 58, (int) Math.round(176 * download.fraction()), 5, 5, 5);
             }
             g2.dispose();

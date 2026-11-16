@@ -1,6 +1,7 @@
 package br.arara.app;
 
 import br.arara.core.DictationState;
+import br.arara.core.Settings.Macaw;
 
 import javax.imageio.ImageIO;
 import javax.swing.JComponent;
@@ -8,7 +9,9 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.image.BaseMultiResolutionImage;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,17 +21,20 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /** A arara pixel art (31x42), ampliada só em escala inteira e sem suavizar. */
 final class Arara extends JComponent {
-    /** Pousada de bico fechado (é também o {@code fala_0} de arte/sprites). */
-    static final BufferedImage IMAGE = read("arara.png");
+    /** Pousada de bico fechado da canindé: ícone fixo do app (janela, bandeja) com a chave do ícone desligada. */
+    static final BufferedImage CANINDE = read("araras/caninde/pousada.png");
+    // Sprites da arara do tema (Theme.use troca); só a EDT mexe neles.
+    /** Pousada de bico fechado (é também o {@code fala_0}). */
+    static BufferedImage IMAGE;
     /** Bico fechado, entreaberto e aberto. */
-    static final BufferedImage[] FALA = {IMAGE, read("sprites/fala_1.png"), read("sprites/fala_2.png")};
-    static final BufferedImage PISCAR = read("sprites/piscar.png");
+    static BufferedImage[] FALA;
+    static BufferedImage PISCAR;
     /** Ciclo de bater de asas, 81x58, sem galho. */
-    static final BufferedImage[] VOO = new BufferedImage[6];
+    static BufferedImage[] VOO;
     static {
-        for (int i = 0; i < VOO.length; i++) VOO[i] = read("sprites/voo_" + i + ".png");
+        species(Macaw.CANINDE);
     }
-    private static final Color[] NOTE_COLORS = {Theme.GREEN, Theme.GREEN_LIGHT, Theme.YELLOW};
+    private static final Color[] NOTE_COLORS = {Theme.PRIMARY, Theme.PRIMARY_HOVER, Theme.SUPPORT};
     /** Vida de uma notinha em ticks de 33 ms (~0,6 s). */
     static final int NOTE_LIFE = 18;
     /** Ticks por quadro de voo (~100 ms) e ciclos no "Colado!". */
@@ -115,6 +121,46 @@ final class Arara extends JComponent {
         notes.clear();
     }
 
+    /** Carrega os sprites da espécie (pasta {@code araras/<id>}, gerada por arte/gerar_especies.py). */
+    static void species(Macaw m) {
+        String dir = "araras/" + Theme.id(m) + "/";
+        IMAGE = m == Macaw.CANINDE ? CANINDE : read(dir + "pousada.png");
+        FALA = new BufferedImage[] {IMAGE, read(dir + "fala_1.png"), read(dir + "fala_2.png")};
+        PISCAR = read(dir + "piscar.png");
+        VOO = new BufferedImage[6];
+        for (int i = 0; i < VOO.length; i++) VOO[i] = read(dir + "voo_" + i + ".png");
+    }
+
+    /**
+     * Ícones da janela e da barra de tarefas: a canindé de sempre, ou os da arara do tema (16, 32, 48 e 256) com a chave
+     * "Usar o ícone da arara escolhida" ligada.
+     */
+    static List<Image> windowIcons(Macaw m, boolean macawIcon) {
+        if (!macawIcon) return List.of(CANINDE);
+        String dir = "araras/" + Theme.id(m) + "/icone-";
+        return List.of(read(dir + "16.png"), read(dir + "32.png"), read(dir + "48.png"), read(dir + "256.png"));
+    }
+
+    /** Ícone da bandeja (e da barra de menus do Mac, colorido): a canindé de sempre, ou a cabeça da arara do tema. */
+    static Image trayIcon(Macaw m, boolean macawIcon) {
+        if (!macawIcon) return CANINDE;
+        String dir = "araras/" + Theme.id(m) + "/bandeja-";
+        return new BaseMultiResolutionImage(read(dir + "16.png"), read(dir + "32.png"));
+    }
+
+    /** Ícone do Dock no Mac (256 px). */
+    static BufferedImage dockIcon(Macaw m) {
+        return read("araras/" + Theme.id(m) + "/icone-256.png");
+    }
+
+    /** O quadro é da espécie atual? (Depois de trocar a arara, um quadro antigo vira a pousada nova.) */
+    private static boolean current(BufferedImage img) {
+        if (img == IMAGE || img == PISCAR) return true;
+        for (BufferedImage f : FALA) if (f == img) return true;
+        for (BufferedImage f : VOO) if (f == img) return true;
+        return false;
+    }
+
     private static int nextBlink() {
         return ThreadLocalRandom.current().nextInt(90, 151); // 3-5 s
     }
@@ -124,6 +170,7 @@ final class Arara extends JComponent {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(alpha));
+        if (!current(sprite)) sprite = IMAGE;
         int w = IMAGE.getWidth() * scale, h = IMAGE.getHeight() * scale;
         int x = (getWidth() - w) / 2, y = (getHeight() - h) / 2 + hop * scale;
         int sw = sprite.getWidth() * scale, sh = sprite.getHeight() * scale;
@@ -142,7 +189,7 @@ final class Arara extends JComponent {
                 g2.fillRect(nx, ny + 2 * p, p, p); // sumindo: vira um pixel só
             }
         }
-        g2.setColor(Theme.YELLOW);
+        g2.setColor(Theme.SUPPORT);
         if ("?".equals(mark)) {
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2.setFont(Theme.extrabold(11f * scale));
