@@ -1,0 +1,54 @@
+/* Páginas de conteúdo (usos e comparação): texto corrido sobre a base da landing (styles.css).
+   Mesma receita das regras locais de mac.html e politica.html. */
+.topo { background: var(--fundo-2); border-bottom: 1px solid var(--borda); }
+.topo .nav { padding: 22px 20px; }
+.topo .nav a.voltar { color: #fff; font-weight: 700; text-decoration: none; }
+.topo .nav a.voltar:hover { text-decoration: underline; }
+.doc { max-width: 820px; padding-top: 56px; padding-bottom: 80px; }
+.doc h1 { font-family: var(--display); text-transform: uppercase; font-size: clamp(40px, 7vw, 72px); line-height: 1.02; overflow-wrap: anywhere; }
+.doc h2 { font-size: clamp(30px, 4.4vw, 44px); margin-top: 64px; }
+.doc h3 { font-size: 20px; font-weight: 800; margin-top: 32px; }
+.doc p, .doc li { font-size: 17px; line-height: 28px; }
+.doc p { margin: 14px 0 0; }
+.doc ul, .doc ol { padding-left: 22px; margin: 14px 0 0; }
+.doc li + li { margin-top: 8px; }
+.doc a { color: var(--verde-claro); }
+.doc code, .doc kbd { font-family: var(--mono); font-size: .88em; background: var(--sup); border: 1px solid var(--borda); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+.doc .cartao { padding: 24px 26px; margin-top: 24px; }
+.doc .cartao p:first-child { margin-top: 0; }
+.doc .cartao .rotulo { display: block; color: var(--lima); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+
+/* chamada para baixar: os mesmos botões da landing, com contorno por estar sobre o fundo escuro */
+.cta-doc { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
+.doc .cta-doc .btn-escuro { color: #fff; text-decoration: none; border: 1px solid var(--borda); background: var(--sup); }
+.doc .cta-doc .btn-escuro:hover { border-color: var(--lima); }
+.nota-cta { color: var(--suave); font-size: 15px !important; }
+
+/* perguntas frequentes */
+.faq h3 { margin-top: 28px; }
+.faq h3 + p { margin-top: 8px; }
+
+/* outros usos */
+.usos { list-style: none; padding: 0 !important; display: flex; flex-wrap: wrap; gap: 10px; }
+.usos li + li { margin-top: 0; }
+.usos a { display: inline-block; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--borda); background: var(--sup); color: #fff; font-weight: 700; text-decoration: none; }
+.usos a:hover { border-color: var(--lima); }
+.usos a[aria-current="page"] { border-color: var(--lima); color: var(--lima); }
+
+/* tabela da comparação: rola dentro do próprio quadro no celular, nunca a página */
+.tabela-rola { overflow-x: auto; margin-top: 18px; border: 1px solid var(--borda); border-radius: 14px; }
+.tabela-rola:focus-visible { outline-offset: 2px; }
+.comparacao { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 15px; line-height: 22px; }
+.comparacao th, .comparacao td { text-align: left; padding: 12px 12px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+.comparacao thead th { color: var(--suave); font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; background: var(--fundo-2); }
+.comparacao tbody th { font-weight: 800; color: #fff; }
+.comparacao tr:last-child th, .comparacao tr:last-child td { border-bottom: 0; }
+.fontes li { font-size: 15px; line-height: 24px; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .doc { padding-top: 36px; padding-bottom: 56px; }
+  .doc h2 { margin-top: 48px; }
+  .doc p, .doc li { font-size: 16px; line-height: 26px; }
+  .doc .cartao { padding: 18px; }
+  .cta-doc .btn-escuro { width: 100%; justify-content: space-between; }
+}

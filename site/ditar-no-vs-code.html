@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ditado por voz no VS Code e no Copilot Chat, em português · Arara</title>
+  <meta name="description" content="Dite em português no chat do Copilot, no terminal integrado, em comentários e mensagens de commit do VS Code. O Arara transcreve no seu computador, grátis e sem nuvem.">
+  <link rel="canonical" href="https://arara-voice.vercel.app/ditar-no-vs-code.html">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Arara">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Ditado por voz no VS Code e no Copilot Chat, em português · Arara">
+  <meta property="og:description" content="Dite em português no chat do Copilot, no terminal integrado, em comentários e mensagens de commit do VS Code. O Arara transcreve no seu computador, grátis e sem nuvem.">
+  <meta property="og:url" content="https://arara-voice.vercel.app/ditar-no-vs-code.html">
+  <meta property="og:image" content="https://arara-voice.vercel.app/assets/og/arara-og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Arara: fale, não digite. Ditado por voz em português, 100% no seu computador. Atalho Ctrl + Shift + Espaço.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ditado por voz no VS Code e no Copilot Chat, em português · Arara">
+  <meta name="twitter:description" content="Dite em português no chat do Copilot, no terminal integrado, em comentários e mensagens de commit do VS Code. O Arara transcreve no seu computador, grátis e sem nuvem.">
+  <meta name="twitter:image" content="https://arara-voice.vercel.app/assets/og/arara-og.png">
+  <meta name="twitter:image:alt" content="Arara: fale, não digite. Ditado por voz em português, 100% no seu computador. Atalho Ctrl + Shift + Espaço.">
+  <meta name="theme-color" content="#0F1712">
+  <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="paginas.css">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Funciona com o GitHub Copilot Chat?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sim. Clique no campo do chat, dite e o texto é colado ali. O mesmo vale para as extensões do Claude Code, do Codex e de outros agentes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Preciso instalar alguma extensão?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Não. O Arara é um app à parte, com atalho global, e funciona em qualquer janela."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Dá para ditar código?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O Arara é melhor para texto: pedidos, explicações, comentários e commits. Ele transcreve o que você fala com pontuação automática, sem comandos de sintaxe como “abre parênteses”."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Funciona no Cursor e no Windsurf?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sim. Qualquer editor com campo de texto. Veja a dica do atalho acima, que também vale para eles."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "O código do meu projeto sai do computador?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Não pelo Arara. Ele só ouve o microfone e cola texto; não lê os seus arquivos e não envia nada para a internet."
+      }
+    }
+  ]
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Arara",
+      "item": "https://arara-voice.vercel.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Ditar no VS Code",
+      "item": "https://arara-voice.vercel.app/ditar-no-vs-code.html"
+    }
+  ]
+}
+  </script>
+  <!-- Vercel Web Analytics: conta visitas sem cookies; só funciona com o Analytics ligado no projeto. -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <nav class="nav" aria-label="Principal">
+      <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+      <a class="voltar" href="index.html">Voltar ao site</a>
+    </nav>
+  </header>
+
+  <main id="conteudo" class="wrap doc">
+    <p class="chip">Usos · VS Code</p>
+    <h1>Ditar no VS Code</h1>
+    <p class="sub">Dite no chat do Copilot, no terminal integrado (com Claude Code, Codex ou Gemini CLI), em comentários e em mensagens de commit. O mesmo atalho em todo o VS Code e fora dele.</p>
+
+    <section aria-labelledby="problema">
+      <h2 id="problema">O problema</h2>
+      <p>No VS Code você escreve muito texto que não é código: pedidos para o chat de IA, mensagens de commit, descrições de pull request, comentários e README. É aí que a digitação pesa, e é texto que se fala com facilidade.</p>
+      <p>A extensão VS Code Speech, da Microsoft, também transcreve no computador, mas só dentro do VS Code. O Arara usa o mesmo atalho no editor, no terminal, no navegador e em qualquer outro app, com o Whisper configurado para português.</p>
+    </section>
+
+    <section aria-labelledby="como">
+      <h2 id="como">Como usar</h2>
+      <ol>
+        <li>Baixe e instale o Arara (botões no fim da página). Na primeira vez ele baixa o modelo de voz (o “Preciso”, Whisper large-v3-turbo, tem cerca de 550 MB) e depois fica na bandeja do Windows ou na barra de menus do Mac.</li>
+        <li>No VS Code, clique onde o texto deve entrar: o campo do chat, o terminal integrado (<kbd>Ctrl</kbd> + <kbd>`</kbd>), uma linha de comentário ou a caixa de mensagem do Controle do Código-Fonte.</li>
+        <li>Aperte <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd> e fale.</li>
+        <li>Aperte <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd> de novo. O texto é colado onde está o cursor.</li>
+        <li>Revise e envie (no chat, <kbd>Enter</kbd>; no commit, <kbd>Ctrl</kbd> + <kbd>Enter</kbd>).</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="dica">
+      <h2 id="dica">Dica: o VS Code também usa Ctrl + Shift + Espaço</h2>
+      <p>No Windows e no Linux, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd> é o atalho do VS Code para mostrar as dicas de parâmetros de uma função. O Arara não “engole” a tecla, então essa janelinha pode aparecer quando você dita dentro de um arquivo de código. É inofensivo.</p>
+      <p>Se incomodar, remova o atalho do VS Code: <strong>Arquivo › Preferências › Atalhos de Teclado</strong>, busque por <code>editor.action.triggerParameterHints</code> e apague a combinação. Ou troque o atalho do Arara nas Configurações do app. No Mac, o VS Code usa <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd> para isso, então não há conflito.</p>
+      <p>A mesma dica vale para editores baseados no VS Code, como Cursor e Windsurf.</p>
+    </section>
+
+    <section aria-labelledby="baixar">
+      <h2 id="baixar">Baixe grátis</h2>
+      <p>Grátis, open source (licença MIT), sem conta e sem nuvem. Windows 10 e 11, e macOS com Apple Silicon ou Intel.</p>
+      <div class="cta-doc">
+        <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe">Baixar para Windows <span class="seta" aria-hidden="true">→</span></a>
+        <a class="btn btn-escuro" href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg">Baixar para Mac <span class="seta" aria-hidden="true">→</span></a>
+      </div>
+      <p class="nota-cta">Mac com Intel: <a href="https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-Intel.dmg">baixe esta versão</a>. No Mac, a primeira abertura pede um passo a mais: <a href="mac.html">veja como abrir</a>. Código e versões no <a href="https://github.com/davimatosms/Arara-voice">GitHub</a>.</p>
+    </section>
+
+    <section class="faq" aria-labelledby="perguntas">
+      <h2 id="perguntas">Perguntas frequentes</h2>
+      <h3>Funciona com o GitHub Copilot Chat?</h3>
+      <p>Sim. Clique no campo do chat, dite e o texto é colado ali. O mesmo vale para as extensões do Claude Code, do Codex e de outros agentes.</p>
+      <h3>Preciso instalar alguma extensão?</h3>
+      <p>Não. O Arara é um app à parte, com atalho global, e funciona em qualquer janela.</p>
+      <h3>Dá para ditar código?</h3>
+      <p>O Arara é melhor para texto: pedidos, explicações, comentários e commits. Ele transcreve o que você fala com pontuação automática, sem comandos de sintaxe como “abre parênteses”.</p>
+      <h3>Funciona no Cursor e no Windsurf?</h3>
+      <p>Sim. Qualquer editor com campo de texto. Veja a dica do atalho acima, que também vale para eles.</p>
+      <h3>O código do meu projeto sai do computador?</h3>
+      <p>Não pelo Arara. Ele só ouve o microfone e cola texto; não lê os seus arquivos e não envia nada para a internet.</p>
+    </section>
+
+    <section aria-labelledby="outros">
+      <h2 id="outros">Outros usos</h2>
+      <p>O Arara cola em qualquer campo de texto. Veja como fica em cada app, ou volte para a <a href="index.html">página inicial</a>.</p>
+      <ul class="usos">
+        <li><a href="ditar-no-claude-code.html">Claude Code</a></li>
+        <li><a href="ditar-no-chatgpt.html">ChatGPT</a></li>
+        <li><a href="ditar-no-whatsapp-web.html">WhatsApp Web</a></li>
+        <li><a href="ditar-no-vs-code.html" aria-current="page">VS Code</a></li>
+        <li><a href="comparar.html">Comparar</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap rodape-grid">
+      <div>
+        <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+        <p class="suave">Ditado por voz em PT-BR, 100% local, para Windows e Mac.</p>
+      </div>
+      <div>
+        <ul class="rodape-links">
+          <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="mac.html">Arara no Mac</a></li>
+          <li><a href="politica.html" lang="en">Code signing policy</a></li>
+        </ul>
+        <p class="usos-rodape">Usos: <a href="ditar-no-claude-code.html">Claude Code</a> · <a href="ditar-no-chatgpt.html">ChatGPT</a> · <a href="ditar-no-whatsapp-web.html">WhatsApp Web</a> · <a href="ditar-no-vs-code.html" aria-current="page">VS Code</a> · <a href="comparar.html">Comparar</a></p>
+        <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

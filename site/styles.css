@@ -440,6 +440,9 @@ kbd {
 .rodape-links { display: flex; flex-wrap: wrap; gap: 24px; list-style: none; padding: 0; margin: 2px 0 0; }
 .rodape-links a { color: #fff; font-size: 15px; font-weight: 700; text-decoration: none; }
 .rodape-links a:hover { text-decoration: underline; }
+.rodape .usos-rodape { margin-top: 16px; font-size: 13px; }
+.rodape .usos-rodape a { color: #fff; font-weight: 700; text-decoration: none; }
+.rodape .usos-rodape a:hover, .rodape .usos-rodape a[aria-current="page"] { text-decoration: underline; }
 .rodape .marcas { font-size: 12px; font-weight: 400; margin-top: 22px; }
 
 /* ---------------------------------------------------------------- voltar ao topo (página 16 do design) */
@@ -674,6 +677,7 @@ kbd {
   .rodape .marca { font-size: 20px; }
   .rodape-links { gap: 0; }
   .rodape-links li + li::before { content: "·"; margin: 0 10px; color: #fff; }
+  .rodape .usos-rodape { margin-top: 10px; font-size: 12px; }
   .rodape .marcas { margin-top: 10px; font-size: 11px; }
   .rodape-grid > div:first-child p { display: none; }
 }
