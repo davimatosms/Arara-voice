@@ -1,0 +1,34 @@
+name: pacotes
+# Abre o PR da versão nova no microsoft/winget-pkgs quando uma release é publicada.
+# DESLIGADO até existir o secret WINGET_TOKEN (PAT clássico do dono do repo, escopo public_repo) e um fork
+# do microsoft/winget-pkgs na conta dele. Só funciona depois que a 1ª versão (davimatosms.Arara) foi aceita
+# à mão. Passo a passo: pacotes/README.md.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag da release (ex.: v0.5.0)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - name: Sem WINGET_TOKEN, não faz nada
+        if: env.WINGET_TOKEN == ''
+        run: echo "Secret WINGET_TOKEN ausente; winget pulado. Veja pacotes/README.md."
+      - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        if: env.WINGET_TOKEN != ''
+        with:
+          identifier: davimatosms.Arara
+          release-tag: ${{ inputs.tag || github.event.release.tag_name }}
+          # Só o arquivo com versão no nome; o Arara-Setup.exe é cópia para os botões do site
+          installers-regex: 'Arara-Setup-[0-9.]+\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

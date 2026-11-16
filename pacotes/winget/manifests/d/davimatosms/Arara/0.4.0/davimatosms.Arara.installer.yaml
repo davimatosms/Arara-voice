@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+PackageIdentifier: davimatosms.Arara
+PackageVersion: 0.4.0
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-11-16
+ProductCode: '{6B1E3C1A-4F7D-4E52-9A0B-A7A7A0A0B001}_is1'
+AppsAndFeaturesEntries:
+  - DisplayName: Arara
+    Publisher: Arara
+    ProductCode: '{6B1E3C1A-4F7D-4E52-9A0B-A7A7A0A0B001}_is1'
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/davimatosms/Arara-voice/releases/download/v0.4.0/Arara-Setup-0.4.0.exe
+    InstallerSha256: 62C063FFD54E8089506E9FD0AAAF0282EA8B382B7013AB9D26BCB25655D9E18F
+ManifestType: installer
+ManifestVersion: 1.10.0

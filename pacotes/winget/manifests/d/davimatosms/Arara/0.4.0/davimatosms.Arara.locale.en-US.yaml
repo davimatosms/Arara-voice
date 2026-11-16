@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+PackageIdentifier: davimatosms.Arara
+PackageVersion: 0.4.0
+PackageLocale: en-US
+Publisher: davimatosms
+PublisherUrl: https://github.com/davimatosms
+PublisherSupportUrl: https://github.com/davimatosms/Arara-voice/issues
+PrivacyUrl: https://arara-voice.vercel.app/politica.html
+Author: davimatosms
+PackageName: Arara
+PackageUrl: https://arara-voice.vercel.app
+License: MIT
+LicenseUrl: https://github.com/davimatosms/Arara-voice/blob/main/LICENSE
+Copyright: Copyright (c) 2026 davimatosms
+ShortDescription: Free, open source voice dictation for Brazilian Portuguese that runs 100% on your PC.
+Description: |-
+  Arara is a free and open source voice dictation app for Brazilian Portuguese (pt-BR).
+  Press a shortcut, speak, and the text is typed into any app.
+  Speech recognition (Whisper) runs locally: audio and text never leave your computer, and there is no telemetry.
+  On first run it downloads the voice model (about 574 MB).
+Moniker: arara
+Tags:
+  - dictation
+  - speech-to-text
+  - voice-typing
+  - transcription
+  - whisper
+  - offline
+  - portuguese
+  - pt-br
+  - accessibility
+  - open-source
+ReleaseNotesUrl: https://github.com/davimatosms/Arara-voice/releases/tag/v0.4.0
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0
