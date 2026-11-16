@@ -29,6 +29,8 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 function servir() {
   const srv = http.createServer((req, res) => {
     const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
+    // /_vercel/insights/script.js só existe na Vercel: aqui vai um script vazio no lugar do 404
+    if (rel.startsWith("_vercel/")) { res.writeHead(200, { "Content-Type": TIPOS[".js"] }); res.end(""); return; }
     const arq = path.join(SITE, rel);
     if (!arq.startsWith(SITE) || !fs.existsSync(arq) || fs.statSync(arq).isDirectory()) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "Content-Type": TIPOS[path.extname(arq)] || "application/octet-stream" });
