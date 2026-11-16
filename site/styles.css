@@ -242,9 +242,17 @@ a { color: inherit; }
 .tela-tras { left: 160px; top: 0; width: 470px; transform: rotate(-6deg); opacity: .55; border-radius: 14px; }
 .tela-frente { left: 60px; top: 70px; width: 580px; border-radius: 16px; border: 1px solid #FFFFFF1F; box-shadow: var(--sombra); }
 .camadas .popup { left: 0; top: 390px; --rot: -3deg; }
-.c-hoje { position: absolute; left: 480px; top: 20px; width: 210px; height: 70px; padding: 12px 18px; --rot: 5deg; border-radius: 18px; }
-.c-hoje .rotulo { font-size: 11px; }
-.c-hoje strong { font-size: 14px; font-weight: 700; margin-top: 2px; }
+/* entre 1280 e ~1350 px o cartão encostaria na borda da janela: recua junto com a largura */
+.c-hoje { position: absolute; left: min(480px, 50vw - 230px); top: 20px; width: 210px; height: 96px; padding: 12px 18px; --rot: 5deg; border-radius: 18px; }
+.c-hoje .rotulo { font-size: 11px; line-height: 16px; }
+/* dois números em Anton, no estilo do cartão "62 palavras em 4,4 s" */
+.hoje-num { display: flex; margin-top: 2px; color: var(--suave); font-size: 12px; font-weight: 700; line-height: 16px; }
+.hoje-num > span { position: relative; display: block; }
+.hoje-num > span:first-child { width: 68px; }
+.hoje-num > span + span { padding-left: 16px; }
+.hoje-num > span + span::before { content: ""; position: absolute; left: 0; top: 6px; width: 1px; height: 46px; background: #FFFFFF1F; }
+.c-hoje strong { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 36px; margin-bottom: 2px; color: #fff; }
+.c-hoje strong.lima { color: var(--lima); }
 .rastro { position: absolute; left: 200px; top: -134px; width: 290px; height: 124px; }
 .rastro i { position: absolute; width: 10px; height: 10px; border-radius: 2px; background: var(--verde-claro); }
 .rastro i:nth-child(1) { left: 0; top: 0; opacity: .15; }
@@ -384,16 +392,47 @@ kbd {
 .cta-conteudo { position: relative; z-index: 2; }
 .s-cta h2 { color: #fff; font-size: clamp(64px, 8.4vw, 120px); line-height: 1.02; }
 .s-cta h2 span { display: block; }
-.baixar { position: relative; display: inline-block; margin-top: 178px; }
-.pouso { position: absolute; left: 50%; bottom: calc(100% - 6px); width: 124px; height: 152px; margin-left: -62px; }
-.nota { margin: 18px 0 0; font-size: 15px; font-weight: 600; }
-/* downloads: link do outro sistema, lista dos 3 instaladores e aviso do Mac (fundo claro, texto escuro) */
-.downloads a, .s-cta .nota a { color: var(--escuro); text-underline-offset: 3px; }
-.baixar .btn + .btn { margin-left: 16px; }
-.downloads { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 40px; list-style: none; padding: 0; margin: 26px 0 0; font-size: 15px; font-weight: 600; }
-.downloads li { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
-.downloads strong { font-weight: 800; }
-.aviso-mac { max-width: 640px; margin-left: auto; margin-right: auto; font-weight: 400; }
+/* download: grid único de 2 colunas iguais (botão sobre o cartão do mesmo sistema); apoio e aviso na largura toda */
+.baixar {
+  position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 412px)); justify-content: center; gap: 16px;
+  margin-top: 178px; text-align: left;
+}
+/* a arara pousa no meio do botão do Windows (1ª coluna); o main.js mede o .pouso */
+.pouso { position: absolute; left: calc(50% - 8px - min(412px, (100% - 16px) / 2) / 2); bottom: calc(100% - 6px); width: 124px; height: 152px; margin-left: -62px; }
+.baixar .btn-escuro { justify-content: space-between; }
+.downloads { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; gap: inherit; list-style: none; padding: 0; margin: 0; }
+.so-cartao { display: flex; gap: 16px; min-height: 92px; padding: 18px; }
+.so-cartao .logo-tile { width: 56px; height: 56px; border-radius: 14px; }
+.so-cartao .mono { width: 28px; height: 28px; }
+.so-cartao .rotulo { margin-top: 2px; line-height: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chips a {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border-radius: 16px;
+  background: var(--fundo-2); border: 1px solid var(--borda); color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap;
+  transition: border-color .2s;
+}
+.chips a span { color: var(--lima); font-weight: 900; }
+.chips a:hover { border-color: var(--lima); }
+.nota {
+  grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 36px; margin: 0; padding: 4px 16px;
+  border-radius: 18px; background: #0B140DCC; color: #fff; font-size: 14px; font-weight: 600; text-align: center;
+}
+.nota .ponto { color: var(--suave); font-weight: 700; }
+.nota a { color: var(--lima); font-weight: 800; text-decoration: none; }
+.nota a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.aviso-mac {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 12px 12px 12px 14px;
+  border-radius: 20px; background: #0B140DE6; border: 1px solid #FFC93C66; box-shadow: var(--sombra); color: var(--suave);
+}
+.alerta { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: #3A3214; color: var(--amarelo); font-size: 17px; font-weight: 900; }
+.aviso-mac p { flex: 1; margin: 0; font-size: 13px; font-weight: 600; line-height: 18px; }
+.aviso-mac strong { display: block; margin-bottom: 2px; color: #fff; font-size: 14px; font-weight: 800; line-height: 20px; }
+.passo-a-passo {
+  display: inline-flex; align-items: center; gap: 8px; flex: none; height: 40px; padding: 0 16px 0 18px; border-radius: 20px;
+  background: var(--lima); color: var(--escuro); font-size: 14px; font-weight: 800; text-decoration: none; transition: transform .2s;
+}
+.passo-a-passo span { font-size: 16px; font-weight: 900; }
+.passo-a-passo:hover { transform: translateY(-2px); }
 .rodape { background: #0B140D; color: var(--suave); padding: 40px 0 34px; }
 .rodape-grid { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px 40px; }
 .rodape .marca { margin: 0; }
@@ -461,6 +500,7 @@ kbd {
   .oque-grid { grid-template-columns: minmax(0, 1fr); }
   .s-oque h2 { white-space: normal; }
   .camadas { margin: 70px auto 0; width: 690px; max-width: 100%; }
+  .c-hoje { left: 480px; }
   .app-topo { flex-direction: column; gap: 0; }
   .app-topo .sub { margin-top: 18px; width: auto; max-width: 560px; }
   .c-atalho { position: relative; left: auto; top: auto; margin: 36px 0 0 10px; }
@@ -505,7 +545,8 @@ kbd {
   .c-ouvindo .ondas { grid-column: 1; height: 24px; gap: 4px; overflow: hidden; }
   .c-ouvindo .ondas i { height: calc(var(--h) * .55px); }
   .c-colado { width: 170px; height: 62px; padding: 10px 14px; }
-  .c-colado .logo-tile, .check { display: none; }
+  .c-colado .logo-tile { display: none; }
+  .check { right: 4px; top: -10px; width: 28px; height: 28px; font-size: 15px; }
   .c-colado strong { font-size: 17px; line-height: 24px; }
   .c-colado .suave { font-size: 12px; }
   .c-numeros { width: 176px; height: 92px; padding: 8px 14px; }
@@ -576,12 +617,18 @@ kbd {
 
   .s-cta { padding: 110px 0 130px; }
   .s-cta h2 { font-size: 72px; line-height: 72px; }
-  .baixar { margin-top: 126px; display: block; }
-  .baixar .btn-escuro { width: 100%; max-width: 310px; min-height: 58px; justify-content: space-between; font-size: 16px; }
-  .pouso { width: 93px; height: 114px; margin-left: -46px; }
-  .nota { font-size: 14px; margin-top: 16px; }
-  .baixar .btn + .btn { margin: 12px 0 0; }
-  .downloads { flex-direction: column; font-size: 14px; }
+  .baixar { margin-top: 126px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .baixar .btn-escuro { min-height: 58px; font-size: 16px; }
+  .pouso { left: 50%; width: 93px; height: 114px; margin-left: -46px; }
+  .so-cartao { min-height: 84px; padding: 18px 16px; }
+  .so-cartao .logo-tile { width: 48px; height: 48px; }
+  .so-cartao .mono { width: 24px; height: 24px; }
+  .nota { min-height: 34px; font-size: 13px; }
+  .aviso-mac { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px 12px; padding: 14px; border-radius: 18px; }
+  .aviso-mac p { display: contents; }
+  .aviso-mac strong { margin: 0; font-size: 13px; line-height: 18px; }
+  .aviso-mac p span { grid-column: 1 / -1; line-height: 19px; }
+  .passo-a-passo { grid-column: 1 / -1; justify-self: start; }
   .f5 { left: -130px; top: auto; bottom: 120px; width: 260px; height: 110px; }
   .f6 { left: auto; right: -120px; top: auto; bottom: 150px; width: 260px; height: 110px; }
   .t3, .b4 { display: none; }
