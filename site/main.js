@@ -58,11 +58,40 @@
     }).catch(() => {});
   }
 
+  // ---------- voltar ao topo: aparece depois de 600 px, some abaixo de 300 (histerese) ----------
+  const topoBtn = $(".topo-btn"), setaTopo = $(".seta", topoBtn), marca = $(".marca");
+  const cobrem = $$(".baixar > *, .rodape-grid > *"); // o botão não cobre o download nem o rodapé
+  let mostra = false, segura = false, tSome = 0, pedido = false;
+  function verBotao() {
+    if (segura) return; // durante a puxada quem manda no botão é a arara
+    const y = scrollY, vh = innerHeight, vw = innerWidth;
+    if (y > 600) mostra = true; else if (y < 300) mostra = false;
+    const esq = vw - (vw <= 760 ? 64 : 80); // borda esquerda do botão
+    const cobre = cobrem.some((el) => { const r = el.getBoundingClientRect(); return r.top < vh && r.bottom > vh - 96 && r.right > esq; });
+    if (mostra && !cobre) {
+      clearTimeout(tSome);
+      if (topoBtn.hidden) { topoBtn.hidden = false; void topoBtn.offsetWidth; } // reflow para o fade começar de 0
+      topoBtn.classList.add("ver");
+    } else if (topoBtn.classList.contains("ver")) {
+      topoBtn.classList.remove("ver");
+      tSome = setTimeout(() => { topoBtn.hidden = true; }, 200); // hidden: fora do Tab e do leitor de tela
+    }
+  }
+  addEventListener("scroll", verBotao, { passive: true });
+  addEventListener("resize", verBotao);
+  verBotao();
+  topoBtn.addEventListener("click", () => {
+    if (anim) { pedido = true; return; } // a máquina da arara atende no próximo quadro
+    scrollTo({ top: 0, behavior: "instant" }); // movimento reduzido: direto, sem animação
+    marca.focus({ preventScroll: true });
+  });
+
   if (!anim) return;
 
   // =====================================================================
   // A ATRIZ: um só elemento de arara, uma máquina de estados explícita.
   //   pousada-no-hero -> voando-com-scroll -> pegando-agente -> saindo-com-agente -> pousada-no-download
+  //   e, pelo botão de voltar ao topo, puxando-para-cima -> pousada-no-hero (o único que ignora a zona)
   // Regras: as transições são decididas só em quadro(), pela zona do scroll; entrar() cancela o
   // estado anterior (solta o cartão, limpa timers); a posição só muda por mover(), com passo
   // máximo VMAX por quadro, então ela nunca teleporta enquanto está na tela.
@@ -90,7 +119,7 @@
     const n = pag(ninho), r = pag(rastro), l = pag(lista), p = pag(pouso), b = pag(btn), h = pag(heroEl);
     const r8 = rastro.lastElementChild.getBoundingClientRect();
     A = {
-      kHero, kVoo: estreito ? 2 : 3, kPouso: estreito ? 3 : 4,
+      kHero, kVoo: estreito ? 2 : 3, kPouso: estreito ? 3 : 4, kPuxa: estreito ? 3 : 4,
       hero: { x: n.x + n.w / 2, y: n.y + (QH * kHero) / 2 },
       // fim do voo ligado ao scroll: logo depois do último ponto do rastro na seção 2
       oque: { x: Math.min(r8.right + scrollX + 40, innerWidth - 60), y: r8.top + scrollY - 40 },
@@ -161,6 +190,117 @@
     return d - s;
   }
 
+  // ---------- puxando-para-cima: o botão de voltar ao topo ----------
+  // Fases por tempo: aproximação (0-300 ms) -> agarra (120 ms) -> puxa (700 ms, easeInOutCubic) -> solta e
+  // pousa (pousada-no-hero). Enquanto vale, pos fica em coordenadas da TELA, porque a página rola por baixo.
+  const PUXA = "puxando-para-cima", T_APROX = 300, T_AGARRA = 120, T_PUXA = 700, PATA = 0.45;
+  const rastroTopo = document.createElement("div");
+  rastroTopo.className = "topo-rastro";
+  rastroTopo.setAttribute("aria-hidden", "true");
+  rastroTopo.innerHTML = "<i></i>".repeat(5);
+  document.body.append(rastroTopo);
+  const pontos = [...rastroTopo.children];
+  const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  let puxa = null, cancelar = false;
+
+  // wheel/toque/tecla/clique cancelam; o evento scroll não serve, o próprio laço rola a página
+  const cancela = (e) => {
+    if (estado !== PUXA) return;
+    const noBotao = topoBtn.contains(e.target);
+    if (e.type === "keydown" ? !(noBotao && (e.key === "Enter" || e.key === " ")) : e.type === "wheel" || !noBotao) cancelar = true;
+  };
+  for (const t of ["wheel", "touchstart", "keydown", "pointerdown"]) addEventListener(t, cancela, { passive: true, capture: true });
+
+  function iniciarPuxada(agora) {
+    const vw = innerWidth, vh = innerHeight, w = QW * k, h = QH * k;
+    const sx = pos.x - scrollX, sy = pos.y - scrollY;
+    const fora = !visivel || sy + h / 2 < 0 || sy - h / 2 > vh || sx + w / 2 < 0 || sx - w / 2 > vw;
+    entrar(PUXA, agora); // solta o cartão, se ela estava com um
+    subindo = false;
+    escala(A.kVoo);
+    const r = setaTopo.getBoundingClientRect();
+    puxa = { bx: r.left + r.width / 2, by: r.top + r.height / 2, y0: scrollY, tA: 0, tP: 0, S: null, rastro: [] };
+    // fora da tela: começa escondida na borda direita, a mais perto do botão, e entra voando
+    pos = fora ? { x: vw + (QW * k) / 2 + 10, y: clamp(puxa.by - QH * k, (QH * k) / 2, vh - (QH * k) / 2) } : { x: sx, y: sy };
+    document.documentElement.style.scrollBehavior = "auto"; // o scrollTo de cada quadro tem de ser instantâneo
+    segura = true;
+  }
+
+  function fimPuxada(ok, agora) {
+    pos = { x: pos.x + scrollX, y: pos.y + scrollY }; // de volta às coordenadas da página
+    document.documentElement.style.scrollBehavior = "";
+    for (const p of pontos) p.style.opacity = "0";
+    puxa = null;
+    if (ok) {
+      // solta a seta: cai 24 px e some em 150 ms; depois o botão volta a ficar escondido
+      setaTopo.classList.add("solta");
+      setaTopo.style.transform += " translateY(24px) scale(.7)";
+      setTimeout(() => {
+        topoBtn.classList.remove("ver", "puxando");
+        topoBtn.hidden = true;
+        setaTopo.classList.remove("solta");
+        setaTopo.style.transform = "";
+        segura = false;
+        verBotao();
+      }, 160);
+      marca.focus({ preventScroll: true });
+      entrar("pousada-no-hero", agora);
+    } else {
+      // cancelada: a seta volta ao botão em 150 ms e a zona do scroll decide o estado neste mesmo quadro
+      setaTopo.classList.add("volta");
+      setaTopo.style.transform = "";
+      topoBtn.classList.remove("puxando");
+      setTimeout(() => setaTopo.classList.remove("volta"), 160);
+      segura = false;
+      verBotao();
+      estado = null;
+      subindo = false;
+    }
+  }
+
+  function quadroPuxada(agora) {
+    const vw = innerWidth, vh = innerHeight, H = QH * k, W = QW * k;
+    const naTela = (p) => ({ x: clamp(p.x, W / 2, vw - W / 2), y: clamp(p.y, H / 2, vh - H / 2) });
+    const perto = naTela({ x: puxa.bx, y: puxa.by - H * PATA - 8 }); // patas logo acima da seta do botão
+    const te = agora - t0;
+    let seta = null; // onde a seta está na tela (null = no botão)
+    if (!puxa.tA) {
+      const resta = mover(perto, 0.3);
+      if (te >= T_APROX && (resta < 2 || te >= T_APROX + 150)) {
+        puxa.tA = agora;
+        corpo.classList.add("pousou"); // squash leve ao agarrar
+        topoBtn.classList.add("puxando");
+      }
+    } else if (agora < puxa.tA + T_AGARRA) {
+      mover(perto, 0.3);
+      q = 0; // asas para cima
+      const u = suave((agora - puxa.tA) / T_AGARRA);
+      seta = { x: lerp(puxa.bx, pos.x, u), y: lerp(puxa.by, pos.y + H * PATA, u) };
+    } else {
+      if (!puxa.tP) { puxa.tP = agora; puxa.S = { ...pos }; corpo.classList.remove("pousou"); }
+      const u = clamp((agora - puxa.tP) / T_PUXA, 0, 1), e = easeInOutCubic(u);
+      scrollTo(0, Math.round(puxa.y0 * (1 - e)));
+      escala(e < 0.5 ? A.kVoo : A.kPuxa);
+      // curva até um pouco acima do ninho (no topo, página = tela); a pousada desce o resto
+      const E = naTela({ x: A.hero.x, y: A.hero.y - 120 });
+      const S = puxa.S, arco = Math.sin(Math.PI * e) * Math.min(140, vh * 0.15);
+      mover(naTela({ x: lerp(S.x, E.x, e), y: lerp(S.y, E.y, e) - arco }), 1);
+      seta = { x: pos.x, y: pos.y + QH * k * PATA };
+      if (u >= 1) return fimPuxada(true, agora);
+    }
+    if (seta) {
+      setaTopo.style.transform = `translate(${Math.round(seta.x - puxa.bx)}px, ${Math.round(seta.y - puxa.by)}px)`;
+      // rastro de pontos lima: posições antigas da seta durante a puxada
+      if (puxa.tP) puxa.rastro.unshift(seta);
+      pontos.forEach((p, i) => {
+        const r = puxa.rastro[(i + 1) * 3];
+        p.style.opacity = r ? String(0.8 - i * 0.14) : "0";
+        if (r) p.style.transform = `translate(${Math.round(r.x)}px, ${Math.round(r.y)}px)`;
+      });
+      puxa.rastro.length = Math.min(puxa.rastro.length, 18);
+    }
+  }
+
   function alvoScroll(agora) {
     const y = scrollY, vh = innerHeight;
     const p = clamp(y / Math.max(1, A.oque.y - vh * 0.45), 0, 1), e = suave(p);
@@ -174,9 +314,14 @@
     if (!A) return;
     const y = scrollY, vh = innerHeight, vw = innerWidth;
 
-    // 1) transições (o único lugar que muda o estado)
-    const z = zona();
-    if (z === "topo") {
+    // 1) transições (o único lugar que muda o estado); puxando-para-cima não consulta a zona
+    if (!pos) { escala(A.kHero); pos = { ...A.hero }; }
+    if (cancelar) { cancelar = false; if (estado === PUXA) fimPuxada(false, agora); }
+    if (pedido) { pedido = false; if (estado !== PUXA) iniciarPuxada(agora); }
+    const z = estado === PUXA ? null : zona();
+    if (z === null) {
+      // a puxada decide sozinha, pelo tempo
+    } else if (z === "topo") {
       subindo = false;
       const alvo = y <= 4 ? "pousada-no-hero" : "voando-com-scroll";
       if (estado !== alvo) entrar(alvo, agora);
@@ -185,13 +330,11 @@
       else if (!subindo && (estado === null || estado === "pousada-no-hero" || estado === "voando-com-scroll")) entrar("pegando-agente", agora);
     } else if (estado !== "pousada-no-download") entrar("pousada-no-download", agora);
 
-    if (!pos) { escala(A.kHero); pos = { ...A.hero }; }
-
     // 2) fora da tela ela espera colada à borda: ao voltar, entra pela borda mais próxima.
     // A margem usa a maior escala e um passo, para ela não aparecer no mesmo quadro.
     const w = QW * k, h = QH * k, wm = QW * A.kHero + 2 * VMAX, hm = QH * A.kHero + 2 * VMAX;
     const fora = pos.y + h / 2 < y || pos.y - h / 2 > y + vh || pos.x + w / 2 < 0 || pos.x - w / 2 > vw;
-    if (fora) {
+    if (fora && estado !== PUXA) {
       pos.x = clamp(pos.x, -wm / 2 - 10, vw + wm / 2 + 10);
       pos.y = clamp(pos.y, y - hm / 2 - 10, y + vh + hm / 2 + 10);
     }
@@ -199,7 +342,9 @@
     // 3) movimento do estado atual
     q = Math.floor(agora / MS_QUADRO) % 6;
     visivel = true;
-    if (estado === "pousada-no-hero" || estado === "voando-com-scroll") {
+    if (estado === PUXA) {
+      quadroPuxada(agora);
+    } else if (estado === "pousada-no-hero" || estado === "voando-com-scroll") {
       mover(alvoScroll(agora), 0.35);
     } else if (estado === "pegando-agente") {
       escala(A.kVoo);
@@ -233,8 +378,8 @@
     }
 
     // 4) desenho: por quadro, só transform e opacity
-    const W = QW * k, H = QH * k;
-    atriz.style.transform = `translate3d(${Math.round(pos.x - scrollX - W / 2)}px, ${Math.round(pos.y - y - H / 2)}px, 0)`;
+    const W = QW * k, H = QH * k, tela = estado === PUXA; // na puxada pos já está na tela
+    atriz.style.transform = `translate3d(${Math.round(pos.x - (tela ? 0 : scrollX) - W / 2)}px, ${Math.round(pos.y - (tela ? 0 : scrollY) - H / 2)}px, 0)`;
     atriz.style.opacity = visivel ? "1" : "0";
     tira.style.transform = `translateX(${-q * W}px)`;
 

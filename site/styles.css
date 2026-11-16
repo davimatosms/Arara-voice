@@ -442,6 +442,40 @@ kbd {
 .rodape-links a:hover { text-decoration: underline; }
 .rodape .marcas { font-size: 12px; font-weight: 400; margin-top: 22px; }
 
+/* ---------------------------------------------------------------- voltar ao topo (página 16 do design) */
+/* fixo no canto, logo abaixo da arara (z-index 30); o main.js tira o hidden depois de 600 px de rolagem */
+.topo-btn {
+  position: fixed; right: 24px; bottom: 24px; z-index: 29; width: 56px; height: 56px; padding: 0;
+  display: grid; place-items: center; border-radius: 50%; cursor: pointer; font: inherit;
+  background: var(--escuro); border: 1px solid #FFFFFF2E; box-shadow: 0 8px 20px #0000004D;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s, box-shadow .2s, background-color .2s, border-color .2s;
+}
+.topo-btn[hidden] { display: none; }
+.topo-btn.ver { opacity: 1; transform: none; }
+.topo-btn .seta { width: 40px; height: 40px; font-size: 18px; pointer-events: none; transition: background-color .2s; }
+.topo-btn::after {
+  content: "Voltar ao topo"; position: absolute; right: 0; bottom: calc(100% + 10px); padding: 6px 14px; border-radius: 999px;
+  background: var(--escuro); border: 1px solid #FFFFFF2E; color: #fff; font-size: 13px; font-weight: 800; white-space: nowrap;
+  opacity: 0; transform: translateY(4px); transition: opacity .2s, transform .2s; pointer-events: none;
+}
+@media (hover: hover) {
+  .topo-btn.ver:hover { transform: translateY(-2px); box-shadow: 0 14px 30px #00000066; }
+  .topo-btn:hover::after { opacity: 1; transform: none; }
+}
+/* foco: o anel amarelo da página (outline) + contorno escuro por fora, para ler também no céu claro do download */
+.topo-btn:focus-visible { border-radius: 50%; box-shadow: 0 0 0 8px var(--escuro), 0 8px 20px #0000004D; }
+.topo-btn:focus-visible::after { opacity: 1; transform: none; }
+.topo-btn.ver:active { transform: scale(.94); }
+.topo-btn:active .seta { background: #B4E04F; }
+/* durante a puxada só a seta (levada pela arara) aparece; o resto do botão some */
+.topo-btn.ver.puxando { background: transparent; border-color: transparent; box-shadow: none; transform: none; outline: none; }
+.topo-btn.puxando::after { display: none; }
+.topo-btn .seta.solta { opacity: 0; transition: opacity .15s, transform .15s; }
+.topo-btn .seta.volta { transition: transform .15s; }
+.topo-rastro { position: fixed; left: 0; top: 0; z-index: 29; pointer-events: none; }
+.topo-rastro i { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--lima); opacity: 0; }
+
 /* ---------------------------------------------------------------- movimento (só com .anim) */
 .anim #atriz { position: fixed; z-index: 30; pointer-events: none; opacity: 0; will-change: transform; }
 .anim #atriz .tira { transform: none; will-change: transform; }
@@ -517,6 +551,8 @@ kbd {
 /* ---------------------------------------------------------------- celular (design 390 px) */
 @media (max-width: 760px) {
   :root { --k: 3; --morro: 3; --nuvem-px: 3; }
+  .topo-btn { width: 48px; height: 48px; right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .topo-btn .seta { width: 36px; height: 36px; font-size: 16px; }
   .so-largo { display: none; }
   .so-estreito { display: inline; }
   br.so-estreito { display: block; }
