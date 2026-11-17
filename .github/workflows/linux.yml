@@ -3,7 +3,7 @@ name: linux
 # Para abrir o AppImage: libfuse2 instalada, ou APPIMAGE_EXTRACT_AND_RUN=1 ./Arara-x86_64.AppImage.
 on:
   push:
-    tags: ['v*']
+    tags: ['v*-beta*', 'v0.[5-9]*', 'v[1-9]*'] # Linux só a partir da 0.5 (beta)
   workflow_dispatch:
   pull_request:
     paths:
