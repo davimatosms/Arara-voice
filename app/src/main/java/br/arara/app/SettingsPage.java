@@ -136,6 +136,15 @@ final class SettingsPage extends MainView.Page {
                 row("Pasta do histórico",
                         Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
+
+        JButton uninstall = UninstallDialog.button();
+        uninstall.addActionListener(e -> UninstallDialog.open(this));
+        JPanel ask = new JPanel(new BorderLayout(16, 0));
+        ask.setOpaque(false);
+        ask.setBorder(new CompoundBorder(new MatteBorder(1, 0, 0, 0, Theme.BORDER), new EmptyBorder(14, 0, 14, 0)));
+        ask.add(Ui.label("Quer ir embora? Sem problema, a gente deixa tudo arrumado.", Theme.semibold(15), Theme.TEXT));
+        ask.add(Ui.centerY(uninstall), BorderLayout.EAST);
+        content.add(section("Desinstalar", "Remove o Arara deste computador. Seus ditados só saem se você pedir.", ask));
     }
 
     /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */

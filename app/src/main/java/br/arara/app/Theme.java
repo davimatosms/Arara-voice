@@ -62,6 +62,8 @@ public final class Theme {
     public static final Color SELECTED = token(p -> mix(p.surface, p.primary, 0.15));
     // Erro e aviso: iguais em todos os temas escuros; no claro, versões escuras para o texto ler bem.
     public static final Color ERROR = token(p -> p.light ? 0xC0392B : 0xF0705A);
+    /** Terracota suave do "Desinstalar": nunca vermelho cheio; no claro, mais escuro para o contraste (>= 4,5:1). */
+    public static final Color TERRACOTA = token(p -> p.light ? 0xA8502B : 0xE8A98A);
     /** Texto sobre ERROR ou SUPPORT (o "!" dos avisos). */
     public static final Color ON_ALERT = token(p -> p.light ? 0xFFFFFF : 0x0B140D);
     public static final Color ERROR_BG = token(p -> p.light ? 0xFDECEA : 0x3A1D18);

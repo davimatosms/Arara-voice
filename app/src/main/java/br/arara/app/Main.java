@@ -43,6 +43,19 @@ import java.util.Optional;
 public final class Main {
     /** Lock de cópia única; campo estático para não ser coletado enquanto o app roda. */
     private static SingleInstance instance;
+    /** Modo demo: o "Desinstalar" não mexe em nada. */
+    static boolean demo;
+    private static AraraCore active;
+
+    /** Solta o atalho global e o lock de instância única (o desinstalador chama antes de apagar ou mover algo). */
+    static void release() {
+        try {
+            if (active != null) active.close();
+            if (instance != null) instance.close();
+        } catch (Exception ignored) {
+            // já está saindo
+        }
+    }
 
     public static void main(String[] args) {
         if (List.of(args).contains("--diagnostico-colar")) { // roda e sai, sem abrir janela
@@ -54,7 +67,7 @@ public final class Main {
             }
             System.exit(0); // JNativeHook e AWT deixam threads vivas
         }
-        boolean demo = List.of(args).contains("--demo");
+        demo = List.of(args).contains("--demo");
         // Antes do atalho global e do core: duas cópias na mesma pasta colavam cada ditado duas vezes.
         if (!demo) {
             Path dir = AraraCore.defaultDataDir();
@@ -115,6 +128,7 @@ public final class Main {
             }));
 
             AraraCore core = real;
+            active = real;
             Settings look = settings.load();
             Theme.use(look.macaw(), look.lightMode());
             Theme.install();
