@@ -13,6 +13,8 @@ Aperte <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd>, fale, e o texto 
 
 [Site](https://arara-voice.vercel.app) · [Todas as versões](https://github.com/davimatosms/Arara-voice/releases) · [Licença MIT](LICENSE)
 
+[![Apoie com um café](https://img.shields.io/badge/Apoie_com_um-café-FFC93C?style=flat-square&logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/davimatosms)
+
 </div>
 
 > **In English:** Arara is a free, open-source (MIT) voice dictation app for Windows and macOS, built for Brazilian
