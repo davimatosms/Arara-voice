@@ -145,6 +145,21 @@ public final class Main {
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
+            // shortcut: os.name local (sem AraraCore.LINUX); sem bandeja no Linux (GNOME sem extensão) o app não some:
+            // fechar minimiza e o menu Arquivo > Sair encerra.
+            if (tray == null && System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+                frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+                frame.addWindowListener(new WindowAdapter() {
+                    @Override public void windowClosing(WindowEvent e) { frame.setState(java.awt.Frame.ICONIFIED); }
+                });
+                javax.swing.JMenuItem quit = new javax.swing.JMenuItem("Sair do Arara");
+                quit.addActionListener(e -> System.exit(0));
+                javax.swing.JMenu file = new javax.swing.JMenu("Arquivo");
+                file.add(quit);
+                javax.swing.JMenuBar bar = new javax.swing.JMenuBar();
+                bar.add(file);
+                frame.setJMenuBar(bar);
+            }
             // Atualização: só o app de verdade consulta o site; o --demo usa uma versão de mentira para ver as telas.
             UpdateChecker checker = core != null ? UpdateChecker.system(core.settings()) : null;
             UpdateUi updates = new UpdateUi(frame, checker != null ? UpdateUi.of(checker) : demoUpdates(), tray,
@@ -322,7 +337,11 @@ public final class Main {
 
     /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve null se o sistema não tem bandeja. */
     private static TrayIcon tray(JFrame frame, java.awt.Image image) {
-        if (!SystemTray.isSupported()) return null;
+        try {
+            if (!SystemTray.isSupported()) return null;
+        } catch (RuntimeException | Error e) {
+            return null;
+        }
         Runnable open = () -> show(frame);
         PopupMenu menu = new PopupMenu();
         MenuItem openItem = new MenuItem("Abrir");
@@ -340,7 +359,7 @@ public final class Main {
         try {
             SystemTray.getSystemTray().add(icon);
             return icon;
-        } catch (AWTException e) {
+        } catch (AWTException | RuntimeException e) { // Linux sem bandeja pode falhar de formas variadas
             return null;
         }
     }

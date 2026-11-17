@@ -114,3 +114,58 @@ tasks.register('instalador', Exec) {
     if (findProperty('signedUninstallerDir')) args "/DSignedUninstallerDir=${rootProject.file(findProperty('signedUninstallerDir'))}"
     args new File(instaladorDir, 'arara.iss')
 }
+
+// ---- Empacotamento para Linux x86_64 (rode no Linux): jpackage app-image + appimagetool -> Arara-x86_64.AppImage ----
+// Precisa de -PappimagetoolPath=<arquivo> (o workflow linux.yml baixa a versão fixa e confere o SHA-256).
+// Para abrir o AppImage é preciso libfuse2; sem ela: APPIMAGE_EXTRACT_AND_RUN=1 ./Arara-x86_64.AppImage. Veja docs/linux.md.
+def linuxDir = layout.buildDirectory.dir('jpackage-linux')
+
+tasks.register('linuxAppImage', Exec) {
+    description = 'Só o jpackage (app-image) do Linux; use appimage.'
+    onlyIf { System.getProperty('os.name').toLowerCase().contains('linux') }
+    dependsOn tasks.named('installDist')
+    def lib = layout.buildDirectory.dir('install/app/lib')
+    inputs.dir(lib)
+    outputs.dir(linuxDir)
+    doFirst {
+        delete linuxDir
+        executable jdk.get().metadata.installationPath.file('bin/jpackage').asFile
+        args '--type', 'app-image', '--dest', linuxDir.get().asFile,
+                '--name', 'Arara', '--app-version', versao, '--vendor', 'Arara',
+                '--icon', new File(instaladorDir, 'assets/icone-256.png'),
+                '--input', lib.get().asFile, '--main-jar', tasks.jar.archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                '--add-modules', modulos, '--jlink-options', jlinkOpcoes
+    }
+}
+
+tasks.register('appimage', Exec) {
+    group = 'distribution'
+    description = 'Gera build/linux/Arara-x86_64.AppImage (-PappimagetoolPath=<appimagetool-x86_64.AppImage>).'
+    onlyIf { System.getProperty('os.name').toLowerCase().contains('linux') }
+    dependsOn 'linuxAppImage'
+    def tool = findProperty('appimagetoolPath')
+    def saida = rootProject.layout.buildDirectory.file('linux/Arara-x86_64.AppImage').get().asFile
+    def appDir = layout.buildDirectory.dir('AppDir').get().asFile
+    outputs.file(saida)
+    environment 'APPIMAGE_EXTRACT_AND_RUN', '1', 'ARCH', 'x86_64' // sem FUSE no CI
+    doFirst { if (!tool) throw new GradleException('Passe -PappimagetoolPath=<appimagetool-x86_64.AppImage>') }
+    commandLine 'sh', '-eu', '-c', '''
+        rm -rf "$2"; mkdir -p "$2" "$(dirname "$4")"
+        cp -a "$1/Arara/." "$2/"
+        cp "$5" "$2/Arara.png"
+        cat > "$2/Arara.desktop" <<'EOT'
+[Desktop Entry]
+Type=Application
+Name=Arara
+Comment=Ditado por voz local em português
+Exec=Arara
+Icon=Arara
+Categories=Utility;AudioVideo;
+Terminal=false
+EOT
+        printf '#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/bin/Arara" "$@"\n' > "$2/AppRun"
+        chmod +x "$2/AppRun"
+        "$3" "$2" "$4"
+    ''', 'sh', linuxDir.get().asFile, appDir, tool ?: '', saida, new File(instaladorDir, 'assets/icone-256.png')
+}

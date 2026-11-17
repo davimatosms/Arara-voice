@@ -25,6 +25,8 @@ def plataforma(nome):
         return "mac-arm64"
     if nome.endswith(".dmg") and ("Intel" in nome or "x64" in nome):
         return "mac-x64"
+    if nome.endswith(".AppImage"):
+        return "linux-x64"
     raise SystemExit(f"Não sei de que plataforma é {nome}")
 
 
@@ -40,7 +42,7 @@ def main():
     p = argparse.ArgumentParser(description="Gera site/versao.json a partir dos artefatos da release.")
     p.add_argument("versao", help="ex.: 0.3.0 (sem o v)")
     p.add_argument("notas", help="notas curtas em PT-BR, mostradas no aviso de atualização")
-    p.add_argument("arquivos", nargs="+", help="Setup .exe e os dois .dmg, com a versão no nome")
+    p.add_argument("arquivos", nargs="+", help="Setup .exe, os dois .dmg e (opcional) o .AppImage, com a versão no nome")
     p.add_argument("--data", default=datetime.date.today().isoformat())
     p.add_argument("--saida", default=SAIDA)
     a = p.parse_args()
@@ -59,7 +61,7 @@ def main():
         raise SystemExit(f"Faltou o arquivo de: {', '.join(sorted(faltando))}")
 
     manifesto = {"versao": a.versao, "data": a.data, "notas": a.notas,
-                 "arquivos": {k: arquivos[k] for k in ("windows", "mac-arm64", "mac-x64")}}
+                 "arquivos": {k: arquivos[k] for k in ("windows", "mac-arm64", "mac-x64", "linux-x64") if k in arquivos}}
     with open(a.saida, "w", encoding="utf-8", newline="\n") as f:
         json.dump(manifesto, f, ensure_ascii=False, indent=2)
         f.write("\n")

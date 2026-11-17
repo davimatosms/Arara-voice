@@ -43,6 +43,12 @@ public final class UpdateChecker implements AutoCloseable {
             open "$3"
             """;
 
+    // Linux: espera o Arara antigo sair e abre o AppImage novo (já no lugar do antigo).
+    static final String LINUX_RESTART = """
+            while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+            exec "$2"
+            """;
+
     /**
      * Versão nova do manifesto, já com o arquivo desta plataforma.
      *
@@ -82,6 +88,7 @@ public final class UpdateChecker implements AutoCloseable {
     private final Optional<String> exe;
     private final boolean mac;
     private final Runner runner;
+    private final String appImage; // env APPIMAGE (Linux) ou null
     private final Path tmp;
     private final long pid;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
@@ -89,7 +96,7 @@ public final class UpdateChecker implements AutoCloseable {
     private ScheduledExecutorService timer;
 
     UpdateChecker(URI manifest, String current, String platform, SettingsStore settings, String allowed,
-            Optional<String> exe, boolean mac, Runner runner, Path tmp, long pid) {
+            Optional<String> exe, boolean mac, Runner runner, Path tmp, long pid, String appImage) {
         this.manifest = manifest;
         this.current = current;
         this.platform = platform;
@@ -98,17 +105,21 @@ public final class UpdateChecker implements AutoCloseable {
         this.exe = exe;
         this.mac = mac;
         this.runner = runner;
+        this.appImage = appImage;
         this.tmp = tmp;
         this.pid = pid;
     }
 
     /** Para o app: versão do jar (gradle.properties), plataforma e executável atuais. */
     public static UpdateChecker system(SettingsStore settings) {
-        String platform = !AraraCore.MAC ? "windows"
+        // shortcut: Linux só x64 (AppImage x86_64); detecta pelo os.name, sem depender de AraraCore.LINUX
+        boolean linux = System.getProperty("os.name", "").toLowerCase().contains("linux");
+        String platform = linux ? "linux-x64" : !AraraCore.MAC ? "windows"
                 : System.getProperty("os.arch").equals("aarch64") ? "mac-arm64" : "mac-x64";
         return new UpdateChecker(MANIFEST, UpdateChecker.class.getPackage().getImplementationVersion(), platform,
                 settings, RELEASES, ProcessHandle.current().info().command(), AraraCore.MAC, new Processes(),
-                Path.of(System.getProperty("java.io.tmpdir"), "arara-atualizacao"), ProcessHandle.current().pid());
+                Path.of(System.getProperty("java.io.tmpdir"), "arara-atualizacao"), ProcessHandle.current().pid(),
+                System.getenv("APPIMAGE"));
     }
 
     /**
@@ -202,6 +213,7 @@ public final class UpdateChecker implements AutoCloseable {
      */
     public boolean install(Update u, AraraCore.DownloadProgress progress, BooleanSupplier cancelled) throws IOException {
         checkUrl(u.url().toString(), allowed);
+        if (platform.equals("linux-x64")) return installAppImage(u, progress, cancelled);
         String path = exe.orElse("");
         if (!Startup.packaged(path, mac)) {
             LOG.info("Instalar a atualização " + u.version() + " ignorado fora do app instalado: " + path);
@@ -240,6 +252,35 @@ public final class UpdateChecker implements AutoCloseable {
         }
         runner.start(List.of("/bin/sh", "-c", MAC_SWAP, "sh", Long.toString(pid), staged.toString(), app.toString(),
                 app.resolveSibling(".Arara-velha.app").toString()));
+        return true;
+    }
+
+    /** Linux: troca o próprio AppImage (env APPIMAGE) por um arquivo novo baixado ao lado, com rename atômico. */
+    private boolean installAppImage(Update u, AraraCore.DownloadProgress progress, BooleanSupplier cancelled)
+            throws IOException {
+        if (appImage == null || appImage.isEmpty()) {
+            LOG.info("Instalar a atualização " + u.version() + " ignorado fora do AppImage.");
+            return false;
+        }
+        Path self = Path.of(appImage);
+        if (!(Files.isWritable(self) && Files.isWritable(self.toAbsolutePath().getParent())))
+            throw new ManualInstallNeeded("Sem permissão para substituir o Arara em " + self
+                    + ". Baixe a versão " + u.version() + " em arara-voice.vercel.app.");
+        Path next = self.resolveSibling(".Arara-nova.AppImage"); // mesma pasta: o rename é atômico
+        try {
+            if (!WhisperTranscriber.download(u.url(), u.sha256(), next, progress, cancelled)) return false;
+        } catch (WhisperTranscriber.ChecksumMismatch e) {
+            throw new Corrupted(e.getMessage());
+        }
+        try {
+            run(List.of("chmod", "+x", next.toString()));
+            Files.move(next, self, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            Files.deleteIfExists(next);
+            throw e;
+        }
+        runner.start(List.of("/bin/sh", "-c", LINUX_RESTART, "sh", Long.toString(pid), self.toString()));
         return true;
     }
 

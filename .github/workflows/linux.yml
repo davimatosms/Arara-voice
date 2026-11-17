@@ -1,0 +1,73 @@
+name: linux
+# Gera Arara-x86_64.AppImage (beta) em ubuntu-22.04 (glibc antiga) e anexa à release em tag v*.
+# Para abrir o AppImage: libfuse2 instalada, ou APPIMAGE_EXTRACT_AND_RUN=1 ./Arara-x86_64.AppImage.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'app/**'
+      - '*.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/linux.yml'
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '21.0.13+9.0.LTS'
+  APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
+  APPIMAGETOOL_SHA256: 46fdd785094c7f6e545b61afcfb0f3d98d8eab243f644b4b17698c01d06083d1
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    permissions:
+      contents: write # anexar à release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: appimagetool (versão fixa, SHA-256 conferido)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" "$APPIMAGETOOL_URL"
+          echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool"
+
+      - name: AppImage
+        run: ./gradlew :app:appimage -PappimagetoolPath="$RUNNER_TEMP/appimagetool" --no-daemon
+
+      - name: SHA-256 e fumaça (abre e fica de pé por 20 s sem tela)
+        run: |
+          cd build/linux
+          sha256sum Arara-x86_64.AppImage | tee Arara-x86_64.AppImage.sha256
+          ls -l
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libxtst6 libxi6 libxrender1
+          export APPIMAGE_EXTRACT_AND_RUN=1 APPDATA="$RUNNER_TEMP/dados" XDG_DATA_HOME="$RUNNER_TEMP/dados"
+          xvfb-run -a ./Arara-x86_64.AppImage > "$RUNNER_TEMP/app.log" 2>&1 &
+          sleep 20
+          if pgrep -f 'bin/Arara|Arara-x86_64' >/dev/null; then echo "app de pé: sim" >> "$GITHUB_STEP_SUMMARY"; else echo "app de pé: nao" >> "$GITHUB_STEP_SUMMARY"; cat "$RUNNER_TEMP/app.log"; exit 1; fi
+          pkill -f 'bin/Arara' || true
+          cat "$RUNNER_TEMP/app.log"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arara-linux-x86_64
+          path: |
+            build/linux/Arara-x86_64.AppImage
+            build/linux/Arara-x86_64.AppImage.sha256
+          if-no-files-found: error
+
+      - name: Anexar à release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" build/linux/Arara-x86_64.AppImage build/linux/Arara-x86_64.AppImage.sha256 --clobber
