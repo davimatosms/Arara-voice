@@ -30,6 +30,10 @@ def corpo_voo():
             if x < ini or x > fim:
                 linha[x] = "."
         linha[ini] = linha[fim] = "K"
+    # o torso aparado fica a ~1px à esquerda do eixo das asas (coluna 15): espelha o lado esquerdo para fechar o vão à direita
+    for y in range(17, 30):
+        for c in range(16, 31):
+            grade[y][c] = grade[y][30 - c]
     return grade
 
 

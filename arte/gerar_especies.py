@@ -151,8 +151,12 @@ def corpo_voo(esp):
     cor = recolor([list(l) for l in g.GRADE], esp)
     cor, fonte = cor[:30] + cor[34:], g.GRADE[:30] + g.GRADE[34:]
     # onde corpo_voo trocou o pixel (contorno novo do torso), vale o dele
-    return [[c if c in ".K" and c != fonte[y][x] else cor[y][x] if c != "." else "." for x, c in enumerate(l)]
-            for y, l in enumerate(orig)]
+    grade = [[c if c in ".K" and c != fonte[y][x] else cor[y][x] if c != "." else "." for x, c in enumerate(l)]
+             for y, l in enumerate(orig)]
+    for y in range(17, 30):  # mesmo espelho de gerar_sprites.corpo_voo, na grade já recolorida
+        for c in range(16, 31):
+            grade[y][c] = grade[y][30 - c]
+    return grade
 
 
 def quadro_voo(esp, angulo, bob):
