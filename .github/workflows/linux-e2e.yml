@@ -35,7 +35,7 @@ jobs:
       - name: Dependências (X11, Wayland, áudio sintético)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq desktop-file-utils xvfb xdotool libasound2-dev libxtst6 libxi6 libxrender1 \
+          sudo apt-get install -y -qq desktop-file-utils xvfb openbox xdotool libasound2-dev libxtst6 libxi6 libxrender1 \
             libxkbcommon-x11-0 libxkbcommon0 libx11-xcb1 libxt6 libxinerama1 \
             sway xwayland wtype wl-clipboard espeak-ng python3-gi gir1.2-gtk-3.0
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" "$APPIMAGETOOL_URL"

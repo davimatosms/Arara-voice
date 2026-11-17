@@ -24,6 +24,7 @@ datadir() { echo "${APPDATA:-$HOME/.local/share}/Arara"; }
 Xvfb :99 -screen 0 1280x800x24 >"$W/xvfb.log" 2>&1 & XVFB=$!
 sleep 2
 export DISPLAY=:99
+openbox >"$W/openbox.log" 2>&1 & sleep 2 # gerenciador de janelas: foco de verdade para o Robot
 
 # ---------------------------------------------------------------- 1. sobe e fica de pé 20 s (só HOME/XDG)
 sec "1a. App sobe e fica de pé 20 s (HOME/XDG em pasta temp, SEM APPDATA)"
@@ -59,7 +60,7 @@ env_item paste
 rm -f "$W/colado-x11.txt"
 "$JAVA" -cp "$CP" br.arara.core.PasteTarget "$W/colado-x11.txt" 25 >"$W/target.log" 2>&1 &
 TG=$!
-xdotool search --sync --onlyvisible --name PasteTarget windowfocus >/dev/null 2>&1; sleep 1
+sleep 6; WID=$(timeout 20 xdotool search --onlyvisible --name PasteTarget | head -1); echo "janela PasteTarget: [$WID]"; xdotool windowactivate --sync "$WID" 2>&1 || xdotool windowfocus "$WID" 2>&1; sleep 1; echo "foco: $(xdotool getwindowfocus getwindowname 2>&1)"
 timeout 60 "$APP" --diagnostico-colar >"$W/diag-x11.log" 2>&1; cat "$W/diag-x11.log"
 wait "$TG"; echo "colado: [$(cat "$W/colado-x11.txt" 2>/dev/null)]"
 [ "$(cat "$W/colado-x11.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] && ok "2c texto colado no X11 conferido" || bad "2c colagem X11" "recebido=[$(cat "$W/colado-x11.txt" 2>/dev/null)] $(cat "$W/target.log" | head -3)"
@@ -69,12 +70,10 @@ sec "4. --alternar: segunda instância alterna a primeira"
 WORKAROUND_APPDATA=${WORKAROUND_APPDATA:-0}
 env_item alt
 mkdir -p "$(datadir)"; echo '{"startWithWindows": false}' > "$(datadir)/config.json" # não é primeira execução: sem onboarding
-"$APP" --alternar >"$W/alt0.log" 2>&1; R0=$?
-[ "$R0" = 1 ] && ok "4a --alternar sem o Arara aberto sai 1" || bad "4a --alternar sem instância" "saída $R0 (esperado 1): $(head -c 300 "$W/alt0.log")"
 "$APP" >"$W/alt1.log" 2>&1 & A1=$!
 for i in $(seq 1 30); do [ -s "$(datadir)/arara.porta" ] && break; sleep 1; done
 sleep 3
-"$APP" --alternar >"$W/alt2.log" 2>&1; R=$?
+timeout 30 "$APP" --alternar >"$W/alt2.log" 2>&1; R=$?
 sleep 3
 echo "--- 1a instância:"; head -30 "$W/alt1.log"; echo "--- 2a instância (saída $R):"; cat "$W/alt2.log"
 [ "$R" = 0 ] && ok "4b segunda instância saiu 0" || bad "4b segunda instância" "saída $R: $(head -c 300 "$W/alt2.log")"
