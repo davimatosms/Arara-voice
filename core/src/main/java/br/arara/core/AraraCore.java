@@ -79,13 +79,16 @@ public final class AraraCore implements AutoCloseable {
         this.hotkey = hotkey;
     }
 
-    /** %APPDATA%\Arara no Windows; ~/Library/Application Support/Arara no macOS. */
+    /** %APPDATA%\Arara no Windows; ~/Library/Application Support/Arara no macOS; $XDG_DATA_HOME/Arara (ou ~/.local/share/Arara) no Linux. */
     public static Path defaultDataDir() {
-        return dataDir(MAC, System.getenv("APPDATA"), System.getProperty("user.home"));
+        return dataDir(MAC, System.getenv("APPDATA"), System.getenv("XDG_DATA_HOME"), System.getProperty("user.home"));
     }
 
-    static Path dataDir(boolean mac, String appData, String home) {
-        return mac ? Path.of(home, "Library", "Application Support", "Arara") : Path.of(appData, "Arara");
+    static Path dataDir(boolean mac, String appData, String xdgDataHome, String home) {
+        if (mac) return Path.of(home, "Library", "Application Support", "Arara");
+        if (appData != null && !appData.isBlank()) return Path.of(appData, "Arara");
+        boolean xdg = xdgDataHome != null && !xdgDataHome.isBlank();
+        return xdg ? Path.of(xdgDataHome, "Arara") : Path.of(home, ".local", "share", "Arara");
     }
 
     /** Só lê o config.json (padrões se não existe), sem criar nada: o aviso da segunda cópia usa o tema escolhido. */

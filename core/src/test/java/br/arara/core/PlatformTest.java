@@ -13,9 +13,11 @@ class PlatformTest {
     @Test
     void dataDirPerSystem() {
         assertEquals(Path.of("C:\\Users\\Ana\\AppData\\Roaming", "Arara"),
-                AraraCore.dataDir(false, "C:\\Users\\Ana\\AppData\\Roaming", "C:\\Users\\Ana"));
+                AraraCore.dataDir(false, "C:\\Users\\Ana\\AppData\\Roaming", null, "C:\\Users\\Ana"));
         assertEquals(Path.of("/Users/ana", "Library", "Application Support", "Arara"),
-                AraraCore.dataDir(true, null, "/Users/ana"));
+                AraraCore.dataDir(true, null, null, "/Users/ana"));
+        assertEquals(Path.of("/x", "Arara"), AraraCore.dataDir(false, null, "/x", "/home/ana"));
+        assertEquals(Path.of("/home/ana", ".local", "share", "Arara"), AraraCore.dataDir(false, null, "", "/home/ana"));
     }
 
     @Test

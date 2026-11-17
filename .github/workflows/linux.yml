@@ -52,7 +52,7 @@ jobs:
           sha256sum Arara-x86_64.AppImage | tee Arara-x86_64.AppImage.sha256
           ls -l
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libxtst6 libxi6 libxrender1 libxkbcommon-x11-0 libxkbcommon0
-          export APPIMAGE_EXTRACT_AND_RUN=1 APPDATA="$RUNNER_TEMP/dados" XDG_DATA_HOME="$RUNNER_TEMP/dados"
+          export APPIMAGE_EXTRACT_AND_RUN=1 XDG_DATA_HOME="$RUNNER_TEMP/dados"
           xvfb-run -a ./Arara-x86_64.AppImage > "$RUNNER_TEMP/app.log" 2>&1 &
           sleep 20
           if pgrep -f 'bin/Arara|Arara-x86_64' >/dev/null; then echo "app de pé: sim" >> "$GITHUB_STEP_SUMMARY"; else echo "app de pé: nao" >> "$GITHUB_STEP_SUMMARY"; cat "$RUNNER_TEMP/app.log"; exit 1; fi

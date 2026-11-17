@@ -35,6 +35,7 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
             return;
         }
         lastStrategy = "robot";
+        if (!AraraCore.MAC && !System.getProperty("os.name", "").startsWith("Windows")) waitOwnership(clipboard, text);
         Robot robot = new Robot();
         // shortcut: 10 ms entre eventos no macOS, que às vezes perde teclas seguidas; medir num Mac de verdade.
         if (AraraCore.MAC) robot.setAutoDelay(10);
@@ -45,6 +46,18 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         robot.keyRelease(modifier);
 
         restore(clipboard, previous);
+    }
+
+    /** X11: o destino pede a seleção ao dono; espera o clipboard devolver o texto antes do Ctrl+V. */
+    private static void waitOwnership(Clipboard clipboard, String text) throws InterruptedException {
+        for (int i = 0; i < 15; i++) {
+            try {
+                if (text.equals(clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor))) break;
+            } catch (Exception ignored) { // ainda sem dono: tenta de novo
+            }
+            Thread.sleep(20);
+        }
+        Thread.sleep(50);
     }
 
     /** Estratégia usada na última colagem (diagnóstico). */
