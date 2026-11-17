@@ -36,6 +36,12 @@ tasks.register('jpackageImage', Exec) {
                 '--main-class', application.mainClass.get(),
                 '--add-modules', modulos, '--jlink-options', jlinkOpcoes
     }
+    doLast {
+        // O whisper-jni usa OpenMP (vcomp140.dll), que o JDK não traz e o Windows limpo não tem sem o VC++ Redistributable.
+        def vcomp = new File(System.getenv('SystemRoot') ?: 'C:/Windows', 'System32/vcomp140.dll')
+        if (!vcomp.exists()) throw new GradleException('vcomp140.dll não achado em ' + vcomp)
+        copy { from vcomp; into new File(appImageDir.get().asFile, 'Arara/runtime/bin') }
+    }
 }
 
 // ---- Empacotamento para macOS (rode num Mac): Arara.app com runtime enxuto e Arara-<versão>-macos-<arq>.dmg ----

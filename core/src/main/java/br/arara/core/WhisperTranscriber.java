@@ -163,6 +163,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
                 continue;
             }
             if (whisper == null) {
+                preloadVcomp();
                 WhisperJNI.loadLibrary();
                 WhisperJNI.setLibraryLogger(null); // sem log do whisper.cpp no console
                 whisper = new WhisperJNI();
@@ -181,6 +182,12 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             loaded = m;
             return;
         }
+    }
+
+    /** Windows: carrega o vcomp140.dll empacotado em runtime/bin; sem ele o whisper-jni dá UnsatisfiedLinkError num PC limpo. */
+    private static void preloadVcomp() {
+        Path dll = Path.of(System.getProperty("java.home"), "bin", "vcomp140.dll");
+        if (Files.exists(dll)) System.load(dll.toString());
     }
 
     @Override
