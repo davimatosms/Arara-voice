@@ -26,7 +26,18 @@ class GlobalHotkeyTest {
         public Settings load() { return settings; }
         public void save(Settings s) { settings = s; }
     };
-    final GlobalHotkey hk = new GlobalHotkey(engine, store);
+    long now;
+    Runnable pending; // tarefa de 150 ms agendada e ainda não disparada
+    final GlobalHotkey hk = new GlobalHotkey(engine, store, () -> now, (task, ms) -> {
+        pending = task;
+        return () -> { if (pending == task) pending = null; };
+    });
+
+    void elapse() { // os 150 ms passaram com a tecla ainda segurada
+        Runnable t = pending;
+        pending = null;
+        if (t != null) t.run();
+    }
     final int mods = NativeInputEvent.CTRL_MASK | NativeInputEvent.SHIFT_MASK;
 
     NativeKeyEvent key(int id, int code, int m) {
@@ -81,9 +92,50 @@ class GlobalHotkeyTest {
         settings = settings.withHotkey("RCtrl");
         int R = NativeKeyEvent.KEY_LOCATION_RIGHT;
         hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        elapse();
         hk.nativeKeyPressed(key(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_C, 0));
         hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
         assertEquals(List.of("press", "cancel"), calls);
+    }
+
+    @Test
+    void rightCtrlCombinedWithKeyWithinDelayDoesNothing() {
+        settings = settings.withHotkey("RCtrl");
+        int R = NativeKeyEvent.KEY_LOCATION_RIGHT;
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        hk.nativeKeyPressed(key(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_C, 0));
+        elapse();
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void rightCtrlShortTapDoesNothingAndLongHoldPressesThenReleases() {
+        settings = settings.withHotkey("RCtrl");
+        int R = NativeKeyEvent.KEY_LOCATION_RIGHT;
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        elapse();
+        assertEquals(List.of(), calls);
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        elapse();
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        assertEquals(List.of("press", "release"), calls);
+    }
+
+    @Test
+    void winMatchesBothSidesAndLostReleaseRecoversAfterStuckTime() {
+        settings = settings.withHotkey("Win");
+        int R = NativeKeyEvent.KEY_LOCATION_RIGHT, L = NativeKeyEvent.KEY_LOCATION_LEFT;
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_META, R));
+        elapse();
+        now += 30; // repetição automática: ignorada
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_META, R));
+        assertEquals(List.of("press"), calls);
+        now += 2000; // soltar perdido; novo aperto (lado esquerdo) bem depois
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_META, L));
+        elapse();
+        assertEquals(List.of("press", "press"), calls);
     }
 
     @Test

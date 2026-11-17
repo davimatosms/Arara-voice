@@ -6,6 +6,12 @@ import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 import com.github.kwhat.jnativehook.mouse.NativeMouseEvent;
 import com.github.kwhat.jnativehook.mouse.NativeMouseListener;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,10 +28,35 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     private boolean mouseDown;
     private boolean modDown; // modificador direito sozinho está apertado
     private boolean modDirty; // outra tecla entrou enquanto ele estava apertado (ex.: Ctrl direito + C)
+    private boolean modPressed; // press() já foi chamado para esse aperto
+    private Runnable modTimer; // cancela a espera dos 150 ms
+    private long lastKeyAt;
+    private long lastModAt;
+    private final LongSupplier clock;
+    private final BiFunction<Runnable, Long, Runnable> scheduler; // (tarefa, atraso ms) -> cancelador
+    /** Modificador solo: espera isto segurado antes de começar a ouvir, para não disparar em Ctrl+C. */
+    static final long HOLD_DELAY_MS = 150;
+    /** Sem soltar nem repetição por mais que isto = evento de soltar perdido. A repetição do SO é ~30 ms. */
+    static final long STUCK_MS = 1500;
+    private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "arara-atalho");
+        t.setDaemon(true);
+        return t;
+    });
 
     GlobalHotkey(DictationEngine engine, SettingsStore settings) {
+        this(engine, settings, System::currentTimeMillis, (task, ms) -> {
+            ScheduledFuture<?> f = TIMER.schedule(task, ms, TimeUnit.MILLISECONDS);
+            return () -> f.cancel(false);
+        });
+    }
+
+    GlobalHotkey(DictationEngine engine, SettingsStore settings, LongSupplier clock,
+                 BiFunction<Runnable, Long, Runnable> scheduler) {
         this.engine = engine;
         this.settings = settings;
+        this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     static GlobalHotkey register(DictationEngine engine, SettingsStore settings) throws NativeHookException {
@@ -67,7 +98,7 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     @Override
-    public void nativeKeyPressed(NativeKeyEvent e) {
+    public synchronized void nativeKeyPressed(NativeKeyEvent e) {
         // Não dá para engolir o Esc: o app em foco também o recebe.
         if (e.getKeyCode() == NativeKeyEvent.VC_ESCAPE && settings.load().escCancels()) engine.cancel();
         Hotkey h = hotkey();
@@ -76,33 +107,57 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
             return;
         }
         if (h == null || e.getKeyCode() != h.keyCode() || !h.modifiersMatch(e.getModifiers())) return;
-        if (keyDown) return; // repetição automática de tecla segurada
+        long now = clock.getAsLong();
+        boolean stale = now - lastKeyAt > STUCK_MS; // soltar perdido: trata como aperto novo
+        lastKeyAt = now;
+        if (keyDown && !stale) return; // repetição automática de tecla segurada
         keyDown = true;
         if (settings.load().holdToTalk()) engine.press();
         else engine.toggle();
     }
 
     private static boolean isRight(NativeKeyEvent e, Hotkey h) {
-        return e.getKeyCode() == h.keyCode() && e.getKeyLocation() == h.location();
+        return e.getKeyCode() == h.keyCode()
+                && (h.location() == Hotkey.ANY_SIDE || e.getKeyLocation() == h.location());
     }
 
     private void modifierPressed(NativeKeyEvent e, Hotkey h) {
         if (isRight(e, h)) {
-            if (modDown) return; // repetição automática
+            long now = clock.getAsLong();
+            boolean stale = now - lastModAt > STUCK_MS;
+            lastModAt = now;
+            if (modDown && !stale) return; // repetição automática
+            stopTimer();
             modDown = true;
             modDirty = false;
-            if (settings.load().holdToTalk()) engine.press();
+            modPressed = false;
+            if (settings.load().holdToTalk()) modTimer = scheduler.apply(this::holdElapsed, HOLD_DELAY_MS);
         } else if (modDown && !modDirty) {
             modDirty = true;
-            if (settings.load().holdToTalk()) engine.cancel(); // era um atalho de outra coisa: não cola nada
+            if (settings.load().holdToTalk()) {
+                if (modPressed) engine.cancel(); // era um atalho de outra coisa: não cola nada
+                else stopTimer();
+            }
         }
+    }
+
+    private synchronized void holdElapsed() {
+        if (!modDown || modDirty || modPressed) return;
+        modPressed = true;
+        engine.press();
+    }
+
+    private void stopTimer() {
+        if (modTimer != null) modTimer.run();
+        modTimer = null;
     }
 
     private void modifierReleased(NativeKeyEvent e, Hotkey h) {
         if (!modDown || !isRight(e, h)) return;
         modDown = false;
+        stopTimer();
         if (settings.load().holdToTalk()) {
-            if (!modDirty) engine.release();
+            if (!modDirty && modPressed) engine.release();
         } else if (!modDirty) engine.toggle();
     }
 
@@ -121,7 +176,7 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     @Override
-    public void nativeKeyReleased(NativeKeyEvent e) {
+    public synchronized void nativeKeyReleased(NativeKeyEvent e) {
         Hotkey h = hotkey();
         if (h == null) return;
         if (h.modifierOnly()) modifierReleased(e, h);

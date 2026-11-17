@@ -18,6 +18,9 @@ import java.util.Map;
  * @param location    0 para tecla comum; KEY_LOCATION_LEFT/RIGHT para modificador sozinho ("Ctrl", "RCtrl"...); keyCode é o VC_*
  */
 public record Hotkey(int keyCode, int mouseButton, int modifiers, int location) {
+    /** location de modificador sozinho que vale para o lado esquerdo e o direito. */
+    static final int ANY_SIDE = 99;
+
     public Hotkey(int keyCode, int mouseButton, int modifiers) {
         this(keyCode, mouseButton, modifiers, 0);
     }
@@ -55,10 +58,15 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers, int location) 
             case "RCTRL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, right); }
             case "RALT" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, right); }
             case "RSHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, right); }
-            case "CTRL", "CONTROL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, left); }
-            case "ALT", "OPTION" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, left); }
-            case "SHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, left); }
-            case "WIN", "META", "CMD" -> { return new Hotkey(NativeKeyEvent.VC_META, 0, 0, left); }
+            case "LCTRL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, left); }
+            case "LALT" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, left); }
+            case "LSHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, left); }
+            case "LWIN" -> { return new Hotkey(NativeKeyEvent.VC_META, 0, 0, left); }
+            case "RWIN" -> { return new Hotkey(NativeKeyEvent.VC_META, 0, 0, right); }
+            case "CTRL", "CONTROL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, ANY_SIDE); }
+            case "ALT", "OPTION" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, ANY_SIDE); }
+            case "SHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, ANY_SIDE); }
+            case "WIN", "META", "CMD" -> { return new Hotkey(NativeKeyEvent.VC_META, 0, 0, ANY_SIDE); }
             default -> { }
         }
         for (String part : text.split("\\+")) {
