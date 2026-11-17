@@ -65,7 +65,7 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
 
     private static void restore(Clipboard clipboard, Transferable previous) throws InterruptedException {
         if (previous != null) {
-            Thread.sleep(RESTORE_DELAY_MS);
+            Thread.sleep(System.getProperty("os.name", "").startsWith("Linux") ? 1000 : RESTORE_DELAY_MS); // X11 lê a seleção devagar
             clipboard.setContents(previous, null);
         }
     }
