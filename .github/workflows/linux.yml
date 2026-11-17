@@ -41,6 +41,7 @@ jobs:
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" "$APPIMAGETOOL_URL"
           echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/appimagetool"
+          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils
 
       - name: AppImage
         run: ./gradlew :app:appimage -PappimagetoolPath="$RUNNER_TEMP/appimagetool" --no-daemon
