@@ -73,7 +73,7 @@ final class HomePage extends MainView.Page {
         keys.removeAll();
         keys.add(Ui.keycaps(s.hotkey()));
         spaceHint.setVisible(s.hotkey().endsWith("+Space"));
-        boolean cpu = s.accel() == Settings.Accel.CPU;
+        boolean cpu = Ui.MAC ? !br.arara.core.AraraCore.gpuOn(s) : s.accel() != Settings.Accel.VULKAN;
         grid.removeAll();
         grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local", "Pronto", Theme.READY));
         grid.add(status("mic", "Microfone",

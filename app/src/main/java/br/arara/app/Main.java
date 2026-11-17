@@ -99,6 +99,11 @@ public final class Main {
                 dictionary = real.dictionary();
                 settings = real.settings();
             }
+            String notice = real != null ? real.takeNotice() : null;
+            if (notice != null) {
+                javax.swing.SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null, notice, "Arara",
+                        JOptionPane.INFORMATION_MESSAGE));
+            }
             AutoCloseable closer = demo ? engine : real;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {

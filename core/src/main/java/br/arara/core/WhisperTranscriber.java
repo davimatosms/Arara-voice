@@ -1,6 +1,7 @@
 package br.arara.core;
 
 import io.github.givimad.whisperjni.WhisperContext;
+import io.github.givimad.whisperjni.WhisperContextParams;
 import io.github.givimad.whisperjni.WhisperFullParams;
 import io.github.givimad.whisperjni.WhisperJNI;
 import io.github.givimad.whisperjni.WhisperSamplingStrategy;
@@ -50,6 +51,29 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     private WhisperJNI whisper;
     private WhisperContext context;
     private Settings.Model loaded;
+    private Supplier<Boolean> gpu = () -> false;
+    private Path gpuMarker;
+    private boolean gpuProved; // a primeira transcrição com GPU desta sessão deu certo
+
+    /** Liga a GPU, com o marcador de travamento em marker (ver {@link Gpu}). */
+    WhisperTranscriber gpu(Supplier<Boolean> enabled, Path marker) {
+        this.gpu = enabled;
+        this.gpuMarker = marker;
+        return this;
+    }
+
+    private boolean useGpu() {
+        return gpuMarker != null && gpu.get();
+    }
+
+    private void mark(boolean on) {
+        try {
+            if (on) Files.writeString(gpuMarker, "1");
+            else Files.deleteIfExists(gpuMarker);
+        } catch (IOException ignored) {
+            // sem o marcador só perde a proteção
+        }
+    }
 
     WhisperTranscriber(Path modelsDir, Supplier<Settings.Model> model) {
         this(modelsDir, model, THREADS);
@@ -143,7 +167,10 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
                 WhisperJNI.setLibraryLogger(null); // sem log do whisper.cpp no console
                 whisper = new WhisperJNI();
             }
-            WhisperContext next = whisper.init(file);
+            WhisperContextParams cp = new WhisperContextParams();
+            cp.useGPU = useGpu();
+            if (cp.useGPU && !gpuProved) mark(true);
+            WhisperContext next = whisper.init(file, cp);
             if (context != null) context.close();
             context = next;
             loaded = m;
@@ -180,7 +207,13 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         params.printProgress = false;
         params.printTimestamps = false;
         params.suppressNonSpeechTokens = true;
+        boolean testing = useGpu() && !gpuProved;
+        if (testing) mark(true);
         int result = whisper.full(context, params, samples, samples.length);
+        if (testing) {
+            gpuProved = true;
+            mark(false);
+        }
         if (result != 0) throw new IllegalStateException("whisper.cpp falhou com código " + result);
 
         StringBuilder text = new StringBuilder();

@@ -49,7 +49,8 @@ public record Settings(
         SoundLength(double f) { factor = f; }
     }
 
-    public enum Accel { CPU, VULKAN }
+    /** No Mac: AUTO usa a GPU (Metal), CPU_ONLY não; CPU (antigo) = AUTO, menos no M1. */
+    public enum Accel { CPU, VULKAN, AUTO, CPU_ONLY }
 
     /** Ara ararauna, Anodorhynchus hyacinthinus, Ara chloropterus, Anodorhynchus leari e Primolius maracana. */
     public enum Macaw { CANINDE, AZUL, VERMELHA, LEAR, MARACANA }

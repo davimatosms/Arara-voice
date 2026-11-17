@@ -104,7 +104,7 @@ final class MainView extends JPanel implements DictationListener {
         subtitle.setText(current.subtitle());
         Settings s = settings.load();
         modelName.setText(Ui.modelName(s.model()));
-        modelInfo.setText((s.accel() == Settings.Accel.CPU ? "CPU" : "Vulkan") + " · 100% local");
+        modelInfo.setText((Ui.MAC ? (br.arara.core.AraraCore.gpuOn(s) ? "Metal" : "CPU") : s.accel() == Settings.Accel.VULKAN ? "Vulkan" : "CPU") + " · 100% local");
     }
 
     SettingsPage settingsPage() {

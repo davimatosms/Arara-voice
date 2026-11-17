@@ -111,12 +111,16 @@ final class SettingsPage extends MainView.Page {
         JComponent modelRow = row("Modelo", "Mais preciso usa mais memória e demora um pouco mais.",
                 Ui.segmented(new String[] {"Leve", "Equilibrado", "Preciso"}, s.model().ordinal(), "Modelo",
                         i -> update(x -> x.withModel(models[i]))));
-        // Sem Aceleração no macOS: lá não há Vulkan, e o whisper.cpp já usa o Metal sozinho no Apple Silicon.
-        content.add(Ui.MAC ? section("Voz e captura", "Microfone e modelo.", micRow, modelRow)
-                : section("Voz e captura", "Microfone, modelo e velocidade.", micRow, modelRow,
-                row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
-                        Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
-                                i -> update(x -> x.withAccel(accels[i]))))));
+        JComponent accelRow = Ui.MAC
+                ? row("Aceleração", "A GPU (Metal) acelera o ditado. Se travar, use só o processador.",
+                        Ui.segmented(new String[] {"Automática (GPU quando der)", "Só processador"},
+                                br.arara.core.AraraCore.gpuOn(s) ? 0 : 1, "Aceleração",
+                                i -> update(x -> x.withAccel(i == 0 ? Settings.Accel.AUTO : Settings.Accel.CPU_ONLY))))
+                : row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
+                        Ui.segmented(new String[] {"CPU", "Vulkan"}, Math.min(1, s.accel().ordinal()), "Aceleração",
+                                i -> update(x -> x.withAccel(accels[i]))));
+        content.add(section("Voz e captura", Ui.MAC ? "Microfone, modelo e aceleração." : "Microfone, modelo e velocidade.",
+                micRow, modelRow, accelRow));
 
         content.add(soundSection(s));
 

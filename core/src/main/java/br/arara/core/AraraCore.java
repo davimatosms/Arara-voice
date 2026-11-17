@@ -123,7 +123,8 @@ public final class AraraCore implements AutoCloseable {
      */
     public static AraraCore start(Path dataDir) {
         Path models = dataDir.resolve("models");
-        return create(dataDir, s -> new WhisperTranscriber(models, () -> s.load().model()),
+        return create(dataDir, s -> new WhisperTranscriber(models, () -> s.load().model())
+                        .gpu(() -> Gpu.enabled(s.load()), dataDir.resolve(Gpu.MARKER)),
                 s -> new WhisperTranscriber.Preview(models, () -> s.load().model()));
     }
 
@@ -142,18 +143,38 @@ public final class AraraCore implements AutoCloseable {
         HistoryStore history = new JsonlHistoryStore(dataDir.resolve("historico.jsonl"));
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
         SettingsStore settings = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        String notice = Gpu.recover(dataDir, settings);
         Transcriber transcriber = makeTranscriber.apply(settings);
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
         engine.setSoundSettings(settings);
+        GlobalHotkey hotkey = null;
         try {
-            return new AraraCore(history, dictionary, settings, transcriber, preview, engine, GlobalHotkey.register(engine, settings));
+            hotkey = GlobalHotkey.register(engine, settings);
         } catch (NativeHookException e) {
-            if (MAC) return new AraraCore(history, dictionary, settings, transcriber, preview, engine, null); // falta Acessibilidade
-            engine.close();
-            throw new IllegalStateException("Não consegui registrar o atalho global.", e);
+            if (!MAC) { // no Mac falta Acessibilidade: segue sem atalho
+                engine.close();
+                throw new IllegalStateException("Não consegui registrar o atalho global.", e);
+            }
         }
+        AraraCore core = new AraraCore(history, dictionary, settings, transcriber, preview, engine, hotkey);
+        core.notice = notice;
+        return core;
+    }
+
+    /** A GPU está valendo nestas configurações (Mac). */
+    public static boolean gpuOn(Settings s) {
+        return Gpu.enabled(s);
+    }
+
+    private String notice;
+
+    /** Aviso da partida (a GPU travou e foi desligada), entregue uma vez; null se não há. */
+    public synchronized String takeNotice() {
+        String n = notice;
+        notice = null;
+        return n;
     }
 
     /**
