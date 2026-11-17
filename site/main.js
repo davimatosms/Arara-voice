@@ -40,11 +40,18 @@
   const REL = "https://github.com/davimatosms/Arara-voice/releases/latest/download/";
   const ua = navigator.userAgent;
   // iPad no Safari se diz "Macintosh": o toque separa ele de um Mac de verdade
-  const so = /Windows/.test(ua) ? "win" : /Macintosh/.test(ua) && navigator.maxTouchPoints < 2 ? "mac" : "outro";
+  const so = /Windows/.test(ua) ? "win" : /Macintosh/.test(ua) && navigator.maxTouchPoints < 2 ? "mac" : /Linux/.test(ua) && !/Android/.test(ua) ? "linux" : "outro";
+  // beta é pré-release: /releases/latest/ a ignora, então a URL fixa da tag fica só aqui (trocar na release estável)
+  const LINUX_URL = "https://github.com/davimatosms/Arara-voice/releases/download/v0.5.0-beta.1/Arara-x86_64.AppImage";
+  for (const el of $$("[data-linux]")) el.href = LINUX_URL;
+  for (const el of $$(`[data-so="${so === "outro" ? "win" : so}"]`)) el.classList.add("destaque");
   const topo = $("[data-baixar]");
   if (topo && so === "mac") {
     $("[data-rotulo]", topo).textContent = "Baixar para Mac";
     topo.href = REL + "Arara-Mac-AppleSilicon.dmg";
+  } else if (topo && so === "linux") {
+    $("[data-rotulo]", topo).textContent = "Baixar para Linux";
+    topo.href = LINUX_URL;
   } else if (topo && so === "outro") {
     $("[data-rotulo]", topo).textContent = "Baixar";
     topo.href = "#baixar";
@@ -409,11 +416,11 @@
   new ResizeObserver(medir).observe(document.body);
   requestAnimationFrame(quadro);
 
-  // contador real de downloads (.exe e .dmg); some se a API falhar ou der 0
+  // contador real de downloads (.exe, .dmg e .AppImage); some se a API falhar ou der 0
   fetch("https://api.github.com/repos/davimatosms/Arara-voice/releases?per_page=100")
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((rels) => {
-      const n = rels.flatMap((r) => r.assets).filter((a) => /\.(exe|dmg)$/i.test(a.name)).reduce((t, a) => t + a.download_count, 0);
+      const n = rels.flatMap((r) => r.assets).filter((a) => /\.(exe|dmg|AppImage)$/i.test(a.name)).reduce((t, a) => t + a.download_count, 0);
       if (!n) return;
       $("#contador-n").textContent = n.toLocaleString("pt-BR");
       $("#contador").hidden = false;

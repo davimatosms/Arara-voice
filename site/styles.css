@@ -84,6 +84,18 @@ a { color: inherit; }
 .btn:hover .seta { transform: translateX(3px); }
 .btn-vidro { background: #FFFFFF8C; border: 1.5px solid var(--escuro); color: var(--escuro); min-height: 60px; min-width: 200px; }
 .btn-vidro:hover { background: #ffffffcc; }
+.seta { flex-shrink: 0; }
+.rot { display: inline-flex; align-items: center; gap: 10px; }
+.ico { width: 32px; height: 32px; background: currentColor; -webkit-mask: var(--i) center/contain no-repeat; mask: var(--i) center/contain no-repeat; image-rendering: pixelated; }
+.beta { padding: 3px 8px; border-radius: 999px; background: var(--amarelo); color: var(--escuro); font-size: 11px; font-weight: 900; letter-spacing: .04em; }
+.btn.destaque { background: var(--lima); color: var(--escuro); border-color: var(--lima); }
+.btn.destaque .seta { background: var(--escuro); color: var(--lima); }
+.link-demo { display: block; margin: 12px 0 0; color: #fff; font-size: 15px; font-weight: 800; text-decoration: none; }
+.link-demo:hover { text-decoration: underline; text-underline-offset: 3px; }
+.baixar .btn-linux { grid-column: 1 / -1; justify-self: center; width: min(412px, 100%); }
+.nota-linux { grid-column: 1 / -1; margin: 0; text-align: center; font-size: 14px; font-weight: 600; color: #fff; }
+.nota-linux a { color: var(--lima); font-weight: 800; text-decoration: none; }
+.nota-linux a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .pilula {
   display: inline-flex; align-items: center; gap: 8px; height: 24px; padding: 0 12px; border-radius: 999px;
@@ -596,6 +608,8 @@ kbd {
   .c-local strong { font-size: 17px; line-height: 24px; }
   .c-local .suave { font-size: 12px; }
   .hero-sub { font-size: 17px; line-height: 25px; max-width: 340px; margin-bottom: 18px; }
+  .hero-botoes .btn-linux { width: 100%; max-width: 310px; min-height: 56px; }
+  .nota-linux { font-size: 13px; }
   .hero-botoes .btn-escuro { width: 100%; max-width: 310px; min-height: 56px; justify-content: space-between; font-size: 16px; }
   .seta { width: 44px; height: 44px; }
   .t1, .t2, .f3, .f4, .b1, .b3 { display: none; }
