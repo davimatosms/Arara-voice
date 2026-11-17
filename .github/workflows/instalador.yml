@@ -4,7 +4,7 @@ name: instalador
 # o Arara.exe (antes do Inno empacotar), o desinstalador e, por fim, o Setup. Cada pedido espera aprovação manual.
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '!v*-beta*'] # beta é só Linux
   workflow_dispatch:
 
 permissions:
