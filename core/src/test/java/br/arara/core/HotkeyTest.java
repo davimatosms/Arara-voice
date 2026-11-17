@@ -50,4 +50,13 @@ class HotkeyTest {
         assertTrue(Hotkey.parse("RCtrl").modifierOnly());
         assertEquals(NativeKeyEvent.VC_ALT, Hotkey.parse("RAlt").keyCode());
     }
+
+    @Test
+    void anyKeyAloneParses() {
+        assertEquals(NativeKeyEvent.VC_A, Hotkey.parse("A").keyCode());
+        assertEquals(NativeKeyEvent.VC_NUM_LOCK, Hotkey.parse("Num Lock").keyCode());
+        assertTrue(Hotkey.parse("Ctrl").modifierOnly());
+        assertEquals(NativeKeyEvent.KEY_LOCATION_LEFT, Hotkey.parse("Shift").location());
+        assertEquals(NativeKeyEvent.VC_META, Hotkey.parse("Win").keyCode());
+    }
 }

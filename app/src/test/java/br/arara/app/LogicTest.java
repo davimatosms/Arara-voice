@@ -51,19 +51,19 @@ class LogicTest {
 
     @Test
     void recusaAtalhoRuim() {
-        assertNotNull(SettingsPage.problem("Ctrl+Alt+D", false), "Ctrl+Alt vira AltGr");
-        assertNotNull(SettingsPage.problem("D", false), "letra sozinha");
-        assertNull(SettingsPage.problem("Ctrl+Alt+Shift+D", false));
-        assertNull(SettingsPage.problem("F9", false));
-        assertNull(SettingsPage.problem("Ctrl+Shift+Space", false));
+        assertNotNull(SettingsPage.tip("Ctrl+Alt+D", false), "Ctrl+Alt vira AltGr");
+        assertNotNull(SettingsPage.tip("D", false), "letra sozinha");
+        assertNull(SettingsPage.tip("Ctrl+Alt+Shift+D", false));
+        assertNull(SettingsPage.tip("F9", false));
+        assertNull(SettingsPage.tip("Ctrl+Shift+Space", false));
     }
 
     @Test
     void recusaAtalhoRuimNoMac() {
         for (String bad : new String[] {"Cmd+Space", "Ctrl+Space", "Ctrl+Option+Space", "Cmd+Shift+Space", "Option+D", "D"})
-            assertNotNull(SettingsPage.problem(bad, true), bad);
+            assertNotNull(SettingsPage.tip(bad, true), bad);
         for (String ok : new String[] {"Ctrl+Shift+Space", "Cmd+Option+K", "Ctrl+Option+D", "F9"})
-            assertNull(SettingsPage.problem(ok, true), ok);
+            assertNull(SettingsPage.tip(ok, true), ok);
     }
 
     @Test
@@ -205,10 +205,10 @@ class LogicTest {
 
     @Test
     void singleKeyRules() {
-        for (String ok : new String[] {"F1", "F24", "Pause", "Delete", "PageDown", "RCtrl", "RAlt", "ScrollLock"})
-            assertNull(SettingsPage.problem(ok, false), ok);
-        for (String bad : new String[] {"A", "5", "Space", "Enter", "Tab", "Esc", "Left", "Ctrl", "Alt", "Shift", "Win", "CapsLock"})
-            org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.problem(bad, false), bad);
+        for (String ok : new String[] {"F1", "F24", "Pause", "RCtrl", "RAlt", "ScrollLock"})
+            assertNull(SettingsPage.tip(ok, false), ok);
+        for (String bad : new String[] {"A", "5", "Space", "Enter", "Tab", "Esc", "Left", "Ctrl", "Alt", "Shift", "Win", "CapsLock", "Delete", "PageDown", "Home"})
+            org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.tip(bad, false), bad);
         assertNull(SettingsPage.soloWarning("Ctrl+Shift+Space"));
         org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.soloWarning("F9"));
         assertEquals("RShift", SettingsPage.soloModifier(KeyEvent.VK_SHIFT, KeyEvent.KEY_LOCATION_RIGHT));

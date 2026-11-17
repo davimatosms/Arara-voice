@@ -83,7 +83,7 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     private static boolean isRight(NativeKeyEvent e, Hotkey h) {
-        return e.getKeyCode() == h.keyCode() && e.getKeyLocation() == NativeKeyEvent.KEY_LOCATION_RIGHT;
+        return e.getKeyCode() == h.keyCode() && e.getKeyLocation() == h.location();
     }
 
     private void modifierPressed(NativeKeyEvent e, Hotkey h) {

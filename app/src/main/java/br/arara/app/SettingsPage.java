@@ -293,9 +293,16 @@ final class SettingsPage extends MainView.Page {
             boolean other; // outra tecla entrou desde que o modificador foi apertado
 
             private void accept(String hotkey) {
-                String problem = problem(hotkey);
-                if (problem != null) {
-                    JOptionPane.showMessageDialog(button, problem, "Atalho", JOptionPane.WARNING_MESSAGE);
+                try {
+                    br.arara.core.Hotkey.parse(hotkey);
+                } catch (IllegalArgumentException ex) {
+                    JOptionPane.showMessageDialog(button, "Não consegui usar essa tecla como atalho. Que tal tentar outra?", "Atalho",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                String tip = tip(hotkey);
+                if (tip != null && JOptionPane.showOptionDialog(button, tip, "Atalho", JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.INFORMATION_MESSAGE, null, new String[] {"Usar mesmo assim", "Escolher outra"}, "Escolher outra") != 0) {
                     return;
                 }
                 button.removeKeyListener(this);
@@ -378,56 +385,49 @@ final class SettingsPage extends MainView.Page {
         else if (keyCode == KeyEvent.VK_PAGE_DOWN) sb.append("PageDown");
         else if (keyCode == KeyEvent.VK_SCROLL_LOCK) sb.append("ScrollLock");
         else if (keyCode == KeyEvent.VK_CAPS_LOCK) sb.append("CapsLock");
-        else sb.append(KeyEvent.getKeyText(keyCode));
+        else sb.append(KeyEvent.getKeyText(keyCode).replace(" ", ""));
         return sb.toString();
     }
 
-    /** Motivo para recusar o atalho, ou null se está bom. */
-    static String problem(String hotkey) {
-        return problem(hotkey, Ui.MAC);
-    }
-
-    /** Teclas que podem ser o atalho sozinhas: não digitam nada e não têm outra função. */
-    private static final java.util.regex.Pattern SOLO_OK = java.util.regex.Pattern.compile(
-            "F([1-9]|1[0-9]|2[0-4])|Pause|ScrollLock|Insert|Delete|PageUp|PageDown|Home|End|RCtrl|RAlt|RShift");
+    /** Teclas sem função própria: só o aviso geral de tecla única. */
+    private static final java.util.regex.Pattern SOLO_SAFE = java.util.regex.Pattern.compile(
+            "F([1-9]|1[0-9]|2[0-4])|Pause|ScrollLock|RCtrl|RAlt|RShift");
 
     /** Aviso de tecla única (amarelo), ou null se o atalho é uma combinação. */
     static String soloWarning(String hotkey) {
-        if (hotkey.contains("+")) return null;
-        String base = "Uma tecla só é mais rápida, mas pode disparar sem querer. A combinação Ctrl+Shift+Espaço é a mais segura.";
-        // O Arara não engole a tecla: ela dispara o ditado e o app em foco também a recebe.
-        return hotkey.matches("Delete|PageUp|PageDown|Home|End")
-                ? base + " Essa tecla continua agindo no app em foco (apagar, rolar) além de ditar." : base;
+        return hotkey.contains("+") ? null
+                : "Uma tecla só é mais rápida, mas pode disparar sem querer. A combinação Ctrl+Shift+Espaço é a mais segura.";
     }
 
-    static String problem(String hotkey, boolean mac) {
-        if (!hotkey.contains("+") && !hotkey.startsWith("Mouse")) {
-            if (SOLO_OK.matcher(hotkey).matches()) return null;
-            return switch (hotkey) {
-                case "CapsLock" -> "Caps Lock também liga e desliga as maiúsculas. Escolha outra tecla.";
-                case "Ctrl", "Alt", "Shift", "Option", "Win", "Cmd" ->
-                        "Esse modificador é usado em quase todo atalho. Use o da direita (Ctrl, Alt ou Shift direito).";
-                default -> "Sozinha, essa tecla digita ou já tem função. Use F1 a F24, Pause, Insert, Delete, Page Up/Down, Home, End, Scroll Lock ou Ctrl, Alt ou Shift direito, ou junte um modificador.";
-            };
+    /** Dica gentil (nunca bloqueia) para o que mantém a função normal; null se é seguro. */
+    static String tip(String hotkey) {
+        return tip(hotkey, Ui.MAC);
+    }
+
+    static String tip(String hotkey, boolean mac) {
+        if (!hotkey.contains("+")) {
+            if (hotkey.startsWith("Mouse") || SOLO_SAFE.matcher(hotkey).matches()) return null;
+            String name = hotkey.equals("Space") ? "Espaço" : hotkey;
+            String what = hotkey.equals("Delete") ? "apagando" : hotkey.equals("CapsLock") ? "ligando as maiúsculas" : "funcionando normalmente";
+            return "Dica: a tecla " + name + " continua " + what + " enquanto for o atalho, e isso pode atrapalhar no dia a dia."
+                    + " Se preferir, F8 ou Ctrl direito funcionam bem sozinhos.";
         }
         if (mac) {
             boolean cmd = hotkey.contains("Cmd+"), ctrl = hotkey.contains("Ctrl+"), opt = hotkey.contains("Option+");
             boolean shift = hotkey.contains("Shift+"), fKey = hotkey.matches(".*\\bF\\d+$");
             switch (hotkey) {
-                case "Cmd+Space", "Cmd+Option+Space" -> { return "Esse atalho é do Spotlight e do Finder. Escolha outro."; }
-                case "Ctrl+Space", "Ctrl+Option+Space" -> { return "Esse atalho troca a fonte de entrada do teclado. Escolha outro."; }
-                case "Cmd+Shift+Space" -> { return "Esse atalho é da Inteligência Visual do macOS. Escolha outro."; }
-                case "Cmd+Ctrl+Space" -> { return "Esse atalho abre os emojis e símbolos. Escolha outro."; }
+                case "Cmd+Space", "Cmd+Option+Space" -> { return "Dica: esse atalho também abre o Spotlight ou o Finder."; }
+                case "Ctrl+Space", "Ctrl+Option+Space" -> { return "Dica: esse atalho também troca a fonte de entrada do teclado."; }
+                case "Cmd+Shift+Space" -> { return "Dica: esse atalho também é da Inteligência Visual do macOS."; }
+                case "Cmd+Ctrl+Space" -> { return "Dica: esse atalho também abre os emojis e símbolos."; }
                 default -> { }
             }
-            if (opt && !cmd && !ctrl && !fKey) return "Evite Option sem Cmd ou Ctrl: no Mac isso digita símbolos.";
-            if (!cmd && !ctrl && !opt && !shift && !fKey) return "Use pelo menos um modificador (Cmd, Ctrl, Option ou Shift).";
+            if (opt && !cmd && !ctrl && !fKey) return "Dica: Option sem Cmd ou Ctrl pode digitar símbolos no Mac.";
+            if (!cmd && !ctrl && !opt && !shift && !fKey) return "Dica: sem modificador, a tecla também digita.";
             return null;
         }
         boolean ctrl = hotkey.contains("Ctrl+"), alt = hotkey.contains("Alt+"), shift = hotkey.contains("Shift+");
-        boolean fKey = hotkey.matches(".*\\bF\\d+$");
-        if (ctrl && alt && !shift) return "Evite só Ctrl+Alt: no teclado ABNT2 isso vira AltGr. Junte o Shift.";
-        if (!ctrl && !alt && !shift && !fKey) return "Use pelo menos um modificador (Ctrl, Alt ou Shift).";
+        if (ctrl && alt && !shift) return "Dica: Ctrl+Alt vira AltGr no teclado ABNT2. Juntar o Shift evita isso.";
         return null;
     }
 

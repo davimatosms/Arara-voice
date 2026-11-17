@@ -15,11 +15,11 @@ import java.util.Map;
  * @param keyCode     código VC_* do JNativeHook, ou VC_UNDEFINED se for botão do mouse
  * @param mouseButton 3 a 5, ou 0 se for tecla
  * @param modifiers   máscaras CTRL/SHIFT/ALT/META do JNativeHook
- * @param right       true para Ctrl/Alt/Shift DIREITO sozinho ("RCtrl", "RAlt", "RShift"); keyCode é o VC_CONTROL/ALT/SHIFT
+ * @param location    0 para tecla comum; KEY_LOCATION_LEFT/RIGHT para modificador sozinho ("Ctrl", "RCtrl"...); keyCode é o VC_*
  */
-public record Hotkey(int keyCode, int mouseButton, int modifiers, boolean right) {
+public record Hotkey(int keyCode, int mouseButton, int modifiers, int location) {
     public Hotkey(int keyCode, int mouseButton, int modifiers) {
-        this(keyCode, mouseButton, modifiers, false);
+        this(keyCode, mouseButton, modifiers, 0);
     }
 
     private static final int[] GROUPS = {
@@ -33,6 +33,7 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers, boolean right)
             if (f.getName().startsWith("VC_") && Modifier.isStatic(f.getModifiers()) && f.getType() == int.class) {
                 try {
                     KEYS.put(f.getName().substring(3), f.getInt(null));
+                    KEYS.put(f.getName().substring(3).replace("_", ""), f.getInt(null));
                 } catch (IllegalAccessException e) {
                     throw new IllegalStateException(e);
                 }
@@ -49,15 +50,19 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers, boolean right)
     /** @throws IllegalArgumentException com mensagem em PT-BR se o texto não for um atalho válido */
     public static Hotkey parse(String text) {
         int key = NativeKeyEvent.VC_UNDEFINED, button = 0, mods = 0;
-        String solo = text.strip().toUpperCase(Locale.ROOT);
-        switch (solo) {
-            case "RCTRL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, true); }
-            case "RALT" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, true); }
-            case "RSHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, true); }
+        int left = NativeKeyEvent.KEY_LOCATION_LEFT, right = NativeKeyEvent.KEY_LOCATION_RIGHT;
+        switch (text.strip().toUpperCase(Locale.ROOT)) {
+            case "RCTRL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, right); }
+            case "RALT" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, right); }
+            case "RSHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, right); }
+            case "CTRL", "CONTROL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, left); }
+            case "ALT", "OPTION" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, left); }
+            case "SHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, left); }
+            case "WIN", "META", "CMD" -> { return new Hotkey(NativeKeyEvent.VC_META, 0, 0, left); }
             default -> { }
         }
         for (String part : text.split("\\+")) {
-            String p = part.strip().toUpperCase(Locale.ROOT);
+            String p = part.strip().toUpperCase(Locale.ROOT).replace(" ", "");
             switch (p) {
                 case "CTRL", "CONTROL" -> mods |= NativeInputEvent.CTRL_MASK;
                 case "SHIFT" -> mods |= NativeInputEvent.SHIFT_MASK;
@@ -80,9 +85,9 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers, boolean right)
         return new Hotkey(key, button, mods);
     }
 
-    /** Ctrl/Alt/Shift direito sozinho: só vale ao soltar sem outra tecla no meio (ou cancela, no modo segurar). */
+    /** Ctrl/Alt/Shift/Win sozinho: só vale ao soltar sem outra tecla no meio (ou cancela, no modo segurar). */
     boolean modifierOnly() {
-        return right;
+        return location != 0;
     }
 
     /** Modificadores pressionados iguais aos do atalho (nem a mais, nem a menos). */
