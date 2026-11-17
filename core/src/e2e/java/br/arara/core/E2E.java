@@ -70,6 +70,7 @@ public final class E2E {
             if (what.equals("whisper") || what.equals("tudo")) whisper(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("fluxo") || what.equals("tudo")) fluxo();
             if (what.equals("colar")) colar();
+            if (what.equals("colar-linux")) colarLinux();
             if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("bench")) bench(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("latencia")) latencia(args.length > 1 && !args[1].equals("-") ? Settings.Model.valueOf(args[1]) : null,
@@ -80,6 +81,11 @@ public final class E2E {
             report.forEach(System.out::println);
         }
         System.exit(0); // JNativeHook e AWT deixam threads vivas
+    }
+
+    /** Diagnóstico do colar no Linux/Wayland: cole a saída no relatório do beta. Deixe um editor de texto focado. */
+    static void colarLinux() throws Exception {
+        AraraCore.diagnosticoColar(E2E::log);
     }
 
     // ---------- 1 e 2: microfone e VAD ----------

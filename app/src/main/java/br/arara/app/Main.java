@@ -45,6 +45,14 @@ public final class Main {
     private static SingleInstance instance;
 
     public static void main(String[] args) {
+        if (List.of(args).contains("--diagnostico-colar")) { // roda e sai, sem abrir janela
+            try {
+                AraraCore.diagnosticoColar(System.out::println);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            System.exit(0); // JNativeHook e AWT deixam threads vivas
+        }
         boolean demo = List.of(args).contains("--demo");
         // Antes do atalho global e do core: duas cópias na mesma pasta colavam cada ditado duas vezes.
         if (!demo) {
@@ -52,6 +60,9 @@ public final class Main {
             try {
                 instance = SingleInstance.acquire(dir);
                 if (instance == null) {
+                    if (List.of(args).contains("--alternar")) { // atalho do sistema (Wayland): só avisa e sai
+                        System.exit(SingleInstance.notifyFirst(dir, SingleInstance.TOGGLE) ? 0 : 1);
+                    }
                     alreadyOpen(SingleInstance.notifyFirst(dir));
                     return;
                 }
@@ -117,9 +128,10 @@ public final class Main {
             JFrame frame = new JFrame("Arara");
             frame.setIconImages(Arara.windowIcons(look.macaw(), look.macawIcon()));
             frame.setMinimumSize(new java.awt.Dimension(960, 640));
+            Onboarding[] onb = new Onboarding[1];
             if (firstRun) {
                 DictationListener[] listener = new DictationListener[1];
-                Onboarding onboarding = new Onboarding(engine, settings, download, AraraCore::listen,
+                Onboarding onboarding = onb[0] = new Onboarding(engine, settings, download, AraraCore::listen,
                         core != null ? core::retryHotkey : () -> true, () -> {
                     engine.removeListener(listener[0]);
                     frame.setContentPane(view);
@@ -142,9 +154,28 @@ public final class Main {
                 frame.setSize(1100, 720);
             }
             frame.setLocationRelativeTo(null);
+            if (instance != null) instance.onToggle = () -> {
+                Onboarding o = onb[0];
+                if (o == null || !o.toggleProbe()) engine.toggle(); // o teste do passo do atalho no Linux não grava
+            };
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
+            // sem bandeja no Linux (GNOME sem extensão) o app não some:
+            // fechar minimiza e o menu Arquivo > Sair encerra.
+            if (tray == null && AraraCore.LINUX) {
+                frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+                frame.addWindowListener(new WindowAdapter() {
+                    @Override public void windowClosing(WindowEvent e) { frame.setState(java.awt.Frame.ICONIFIED); }
+                });
+                javax.swing.JMenuItem quit = new javax.swing.JMenuItem("Sair do Arara");
+                quit.addActionListener(e -> System.exit(0));
+                javax.swing.JMenu file = new javax.swing.JMenu("Arquivo");
+                file.add(quit);
+                javax.swing.JMenuBar bar = new javax.swing.JMenuBar();
+                bar.add(file);
+                frame.setJMenuBar(bar);
+            }
             // Atualização: só o app de verdade consulta o site; o --demo usa uma versão de mentira para ver as telas.
             UpdateChecker checker = core != null ? UpdateChecker.system(core.settings()) : null;
             UpdateUi updates = new UpdateUi(frame, checker != null ? UpdateUi.of(checker) : demoUpdates(), tray,
@@ -322,7 +353,11 @@ public final class Main {
 
     /** Ícone na bandeja (barra de menus no macOS) com Abrir / Sair. Devolve null se o sistema não tem bandeja. */
     private static TrayIcon tray(JFrame frame, java.awt.Image image) {
-        if (!SystemTray.isSupported()) return null;
+        try {
+            if (!SystemTray.isSupported()) return null;
+        } catch (RuntimeException | Error e) {
+            return null;
+        }
         Runnable open = () -> show(frame);
         PopupMenu menu = new PopupMenu();
         MenuItem openItem = new MenuItem("Abrir");
@@ -341,7 +376,7 @@ public final class Main {
         try {
             SystemTray.getSystemTray().add(icon);
             return icon;
-        } catch (AWTException e) {
+        } catch (AWTException | RuntimeException e) { // Linux sem bandeja pode falhar de formas variadas
             return null;
         }
     }

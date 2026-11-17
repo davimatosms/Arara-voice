@@ -30,7 +30,7 @@ def plataforma(nome):
         return "mac-x64"
     if nome.endswith(".AppImage") and "linux-arm64" in nome:
         return "linux-arm64"
-    if nome.endswith(".AppImage") and "linux-x64" in nome:
+    if nome.endswith(".AppImage") and ("linux-x64" in nome or "x86_64" in nome):
         return "linux-x64"
     raise SystemExit(f"Não sei de que plataforma é {nome}")
 
@@ -52,7 +52,7 @@ def main():
     p.add_argument(
         "arquivos",
         nargs="+",
-        help="Setup .exe, os dois .dmg e os dois .AppImage, com a versão no nome",
+        help="Setup .exe, os dois .dmg e os .AppImage (x64 e arm64), com a versão no nome",
     )
     p.add_argument("--data", default=datetime.date.today().isoformat())
     p.add_argument("--saida", default=SAIDA)

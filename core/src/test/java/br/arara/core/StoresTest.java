@@ -88,7 +88,7 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true);
+                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -100,6 +100,17 @@ class StoresTest {
 
         Files.writeString(file, "lixo");
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
+    }
+
+    @Test
+    void oldConfigWithoutSoundFieldsKeepsDefaults() throws Exception {
+        Path file = dir.resolve("config.json");
+        Files.writeString(file, "{\"hotkey\":\"Ctrl+Shift+Space\",\"macaw\":\"LEAR\"}");
+        Settings s = new JsonSettingsStore(file).load();
+        assertTrue(s.soundOn());
+        assertEquals(Settings.Sound.ARARA, s.sound());
+        assertEquals(50, s.soundVolume());
+        assertEquals(Settings.SoundLength.NORMAL, s.soundLength());
     }
 
     @Test

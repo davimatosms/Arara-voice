@@ -32,6 +32,8 @@ final class DefaultDictationEngine implements DictationEngine {
         void paste(String text) throws Exception;
     }
 
+    static final int TAP = Vad.RATE / 4; // 250 ms: toque mais curto que isto no modo segurar cancela
+    private boolean holding; // modo segurar para falar, com o lock do engine
     private static final int EDGE = Vad.RATE; // 1 s
     static final int PAUSE = Vad.RATE * 6 / 10; // 0,6 s de silêncio: fim de frase (entre palavras fica bem abaixo)
     static final int MIN_PART = Vad.RATE * 4; // trecho curto demais perde contexto e quase não adianta
@@ -70,6 +72,11 @@ final class DefaultDictationEngine implements DictationEngine {
         return t;
     });
 
+    // Som de início: o microfone abre ao mesmo tempo, então zera o áudio dele (duração + folga da saída de áudio)
+    // em vez de bloquear o motor esperando o som acabar. Som de fim toca depois do mic.stop(): nada a descartar.
+    private static final int SOUND_MARGIN_MS = 60;
+    private SettingsStore soundSettings; // null: sem som (testes)
+    private int skip; // amostras de 16 kHz a descartar no começo
     private DictationState state = DictationState.IDLE;
     private Vad vad;
     private short[] audio;
@@ -127,9 +134,25 @@ final class DefaultDictationEngine implements DictationEngine {
     }
 
     @Override
+    public synchronized void press() {
+        if (recording() || state == DictationState.TRANSCRIBING) return;
+        start();
+        holding = recording();
+    }
+
+    @Override
+    public synchronized void release() {
+        if (!holding || !recording()) return;
+        if (size < TAP) cancel(); // toque curto: ninguém falou
+        else finish();
+    }
+
+    @Override
     public synchronized void cancel() {
         if (!recording()) return;
+        holding = false;
         mic.stop();
+        sound(false);
         audio = null;
         take.cancelled = true; // trechos na fila são descartados; o que está no Whisper termina e é ignorado
         setState(DictationState.IDLE);
@@ -161,7 +184,16 @@ final class DefaultDictationEngine implements DictationEngine {
         return state == DictationState.LISTENING || state == DictationState.SILENCE;
     }
 
+    void setSoundSettings(SettingsStore store) {
+        soundSettings = store;
+    }
+
+    private void sound(boolean start) {
+        if (soundSettings != null) Sounds.play(soundSettings.load(), start);
+    }
+
     private void start() {
+        holding = false;
         vad = new Vad();
         audio = new short[Vad.RATE * 10];
         size = 0;
@@ -170,17 +202,27 @@ final class DefaultDictationEngine implements DictationEngine {
         partSpeech = -1;
         previewSpeech = 0;
         liveEnd = prevLiveEnd = -1;
+        skip = 0;
+        if (soundSettings != null) {
+            Settings cfg = soundSettings.load();
+            if (cfg.soundOn() && cfg.soundVolume() > 0) skip = (Sounds.millis(cfg) + SOUND_MARGIN_MS) * Vad.RATE / 1000;
+        }
         try {
             mic.start(this::onChunk); // os blocos esperam o lock: nenhum chega antes do LISTENING
         } catch (Exception e) {
             fail("Não consegui abrir o microfone.");
             return;
         }
+        sound(true);
         setState(DictationState.LISTENING);
     }
 
     private synchronized void onChunk(short[] chunk) {
         if (!recording()) return;
+        if (skip > 0) { // ainda é o som de início: zera as amostras (mantém a duração do áudio e o corte do VAD)
+            skip -= chunk.length;
+            Arrays.fill(chunk, (short) 0);
+        }
         if (size + chunk.length > audio.length) audio = Arrays.copyOf(audio, Math.max(audio.length * 2, size + chunk.length));
         System.arraycopy(chunk, 0, audio, size, chunk.length);
         size += chunk.length;
@@ -213,12 +255,16 @@ final class DefaultDictationEngine implements DictationEngine {
         switch (r) {
             case LISTENING -> setState(DictationState.LISTENING);
             case SILENCE -> setState(DictationState.SILENCE);
-            case TIMEOUT -> finish(); // 5 min sem fala: transcreve, salva e cola o que já foi dito
+            case TIMEOUT -> {
+                if (!holding) finish(); // segurando, só soltar encerra
+            } // 5 min sem fala: transcreve, salva e cola o que já foi dito
         }
     }
 
     private void finish() {
+        holding = false;
         mic.stop();
+        sound(false);
         // Whisper inventa frases em áudio sem fala ("A gente pode precisar."): nem chega a transcrever.
         if (!vad.heardSpeech()) {
             audio = null;
@@ -438,6 +484,9 @@ final class DefaultDictationEngine implements DictationEngine {
         }
         try {
             paster.paste(text);
+        } catch (LinuxPaste.CopiedOnly e) {
+            fail("Texto copiado: cole com Ctrl+V");
+            return;
         } catch (Exception e) {
             fail(saved ? "Não consegui colar. O texto está no histórico." : "Não consegui salvar nem colar o texto.");
             return;

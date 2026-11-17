@@ -582,4 +582,33 @@ class DefaultDictationEngineTest {
             assertNull(p.transcribe(new short[Vad.RATE], ""), "o LEVE já é o modelo escolhido: nem carrega outro");
         }
     }
+
+    @Test
+    void holdToTalkReleaseEndsAndSilenceTimeoutDoesNot() throws Exception {
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(new FakeTranscriber("oi"), pasted::add);
+        e.press();
+        e.press(); // repetição: ignorada
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
+        for (int i = 0; i < 12000; i++) mic.push(VadTest.QUIET); // ~6 min de silêncio: sem TIMEOUT segurando
+        assertTrue(mic.onChunk != null, "segue ouvindo");
+        e.release();
+        while (next() != DictationState.PASTED) {}
+        assertEquals(List.of("oi"), pasted);
+    }
+
+    @Test
+    void holdToTalkShortTapCancelsWithoutPasting() throws Exception {
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(new FakeTranscriber("oi"), pasted::add);
+        e.press();
+        assertEquals(DictationState.LISTENING, next());
+        mic.push(VadTest.QUIET); // menos de 250 ms
+        e.release();
+        assertEquals(DictationState.IDLE, next());
+        assertTrue(pasted.isEmpty());
+        assertTrue(errors.isEmpty());
+        e.release(); // solta sem ter apertado: nada
+    }
 }

@@ -15,7 +15,49 @@ public final class AraraCore implements AutoCloseable {
     /** Rodando no macOS. */
     public static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
     /** Rodando no Linux (nunca junto com {@link #MAC}). */
-    public static final boolean LINUX = System.getProperty("os.name", "").contains("Linux");
+    public static final boolean LINUX = System.getProperty("os.name", "").startsWith("Linux");
+
+    /** Sessão Wayland (o atalho global e o colar por teclas não funcionam lá); o ambiente vem por parâmetro para testar. */
+    static boolean wayland(boolean linux, Function<String, String> env) {
+        return linux && ("wayland".equals(env.apply("XDG_SESSION_TYPE")) || env.apply("WAYLAND_DISPLAY") != null);
+    }
+
+    /** Dispara o pedido de permissão do portal (GNOME Wayland); bloqueia até a resposta. true = permitido. */
+    public static boolean requestPastePermission() {
+        return LinuxPaste.grant(new LinuxPaste.SystemEnv());
+    }
+
+    /** Apaga a permissão guardada (portal-token) para o pedido aparecer de novo. */
+    public static void resetPastePermission() {
+        try {
+            java.nio.file.Files.deleteIfExists(defaultDataDir().resolve("portal-token"));
+        } catch (java.io.IOException ignored) {
+            // token antigo continua valendo; o usuário tenta de novo
+        }
+    }
+
+    public static boolean wayland() {
+        return wayland(LINUX, System::getenv);
+    }
+
+    /** Diagnóstico do colar no Linux/Wayland: cole a saída num relatório. Deixe um editor de texto focado. */
+    public static void diagnosticoColar(java.util.function.Consumer<String> log) throws Exception {
+        log.accept("Wayland=" + wayland() + "  sessão=" + System.getenv("XDG_SESSION_TYPE")
+                + "  desktop=" + System.getenv("XDG_CURRENT_DESKTOP"));
+        LinuxPaste.Env env = new LinuxPaste.SystemEnv();
+        for (String t : new String[] {"wtype", "ydotool", "wl-copy", "python3"}) log.accept(t + ": " + (env.has(t) ? "sim" : "nao"));
+        log.accept("socket do ydotoold: " + env.ydotoolSocket());
+        log.accept("token do portal salvo: " + !env.token().isEmpty());
+        ClipboardPaster paster = new ClipboardPaster();
+        log.accept("Foque um editor de texto: colando em 5 s...");
+        Thread.sleep(5000);
+        try {
+            paster.paste("Teste de colagem do Arara. ");
+            log.accept("estrategia usada: " + paster.lastStrategy);
+        } catch (LinuxPaste.CopiedOnly e) {
+            log.accept("NENHUMA estrategia funcionou: " + e.getMessage());
+        }
+    }
 
     private final HistoryStore history;
     private final DictionaryStore dictionary;
@@ -106,6 +148,7 @@ public final class AraraCore implements AutoCloseable {
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
+        engine.setSoundSettings(settings);
         try {
             return new AraraCore(history, dictionary, settings, transcriber, preview, engine, GlobalHotkey.register(engine, settings));
         } catch (NativeHookException e) {

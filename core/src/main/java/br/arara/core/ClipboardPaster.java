@@ -26,6 +26,15 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         Transferable previous = clipboard.getContents(null);
         clipboard.setContents(new StringSelection(text), null);
 
+        if (AraraCore.wayland()) { // X11 e o resto seguem o Robot abaixo, sem mudança
+            LinuxPaste.Env env = new LinuxPaste.SystemEnv();
+            LinuxPaste.wlCopy(env, text);
+            lastStrategy = LinuxPaste.press(env);
+            if (lastStrategy == null) throw new LinuxPaste.CopiedOnly(); // fica no clipboard, sem restaurar
+            restore(clipboard, previous);
+            return;
+        }
+        lastStrategy = "robot";
         Robot robot = new Robot();
         // shortcut: 10 ms entre eventos no macOS, que às vezes perde teclas seguidas; medir num Mac de verdade.
         if (AraraCore.MAC) robot.setAutoDelay(10);
@@ -35,6 +44,13 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         robot.keyRelease(KeyEvent.VK_V);
         robot.keyRelease(modifier);
 
+        restore(clipboard, previous);
+    }
+
+    /** Estratégia usada na última colagem (diagnóstico). */
+    volatile String lastStrategy;
+
+    private static void restore(Clipboard clipboard, Transferable previous) throws InterruptedException {
         if (previous != null) {
             Thread.sleep(RESTORE_DELAY_MS);
             clipboard.setContents(previous, null);

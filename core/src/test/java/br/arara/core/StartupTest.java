@@ -102,6 +102,25 @@ class StartupTest {
     static final String APPIMAGE = "/home/ana/Downloads/Arara-0.4.0-linux-x64.AppImage";
 
     @Test
+    void linuxWritesDesktopEntry(@TempDir Path cfg) throws IOException {
+        Startup.Autostart as = new Startup.Autostart(cfg.resolve("autostart"));
+        Path f = as.file("arara");
+        String bin = "/opt/Arara App/bin/Arara";
+        SettingsStore store = new Startup(as, "arara", Optional.of(bin), false, true).wrap(new MemoryStore());
+        String d = Files.readString(f);
+        assertTrue(d.contains("Type=Application\nName=Arara\nExec=\"" + bin + "\"\n"), d);
+        assertTrue(d.contains("X-GNOME-Autostart-enabled=true"), d);
+        store.save(withStart(store.load(), false));
+        assertFalse(Files.exists(f));
+        store.save(withStart(store.load(), false));
+        // fora do app (launcher ausente): nunca grava
+        new Startup(as, "arara", Optional.empty(), false, true).sync(true);
+        assertFalse(Files.exists(f));
+        assertTrue(Startup.packaged(bin, false, true));
+        assertFalse(Startup.packaged("/usr/lib/jvm/bin/java", false, true));
+    }
+
+    @Test
     void packagedPerSystem() {
         assertTrue(Startup.packaged(EXE, false));
         assertFalse(Startup.packaged(APP, false));
@@ -111,7 +130,7 @@ class StartupTest {
         assertFalse(Startup.packaged("", false));
         assertTrue(Startup.packaged(APPIMAGE, false, true));
         assertFalse(Startup.packaged(APPIMAGE, false, false));
-        assertFalse(Startup.packaged("/home/ana/Arara/bin/Arara", false, true));
+        assertTrue(Startup.packaged("/home/ana/Arara/bin/Arara", false, true));
         assertFalse(Startup.packaged("", false, true));
     }
 

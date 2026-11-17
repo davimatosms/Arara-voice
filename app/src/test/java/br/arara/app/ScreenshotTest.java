@@ -241,6 +241,36 @@ class ScreenshotTest {
         });
     }
 
+    /** Passos do Linux Wayland/GNOME (design 19). */
+    @Test
+    void desenhaLinux() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            DemoCore core = new DemoCore();
+            ModelDownload download = new ModelDownload(p -> {});
+            download.phase = ModelDownload.Phase.READY;
+            Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {},
+                    new Onboarding.Linux(true, true, false));
+            String dir = "linux/";
+            new File(DIR, dir).mkdirs();
+            o.show(6);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "1-atalho");
+            o.show(7);
+            o.pasteState(1);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "2-colar-aguardando");
+            o.pasteState(2);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "3-colar-pronto");
+            o.pasteState(3);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, dir + "4-colar-negado");
+            JPanel card = SettingsPage.linuxCard(new Onboarding.Linux(true, true, false));
+            card.setBackground(Theme.BG);
+            card.setOpaque(true);
+            save(card, 800, 240, dir + "5-configuracoes");
+        });
+    }
+
     /** Diálogo de atualização (design 13): 1a, 1d, 2, 3, 4a-4c, Configurações (5) e os estados do "Procurar agora" (5b). */
     @Test
     void desenhaAtualizacao() throws Exception {

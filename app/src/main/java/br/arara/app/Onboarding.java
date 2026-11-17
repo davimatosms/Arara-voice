@@ -59,7 +59,8 @@ final class Onboarding extends JPanel implements DictationListener {
     static final int WIDTH = 1100, HEIGHT = 683;
     /** Barra lateral; a área principal começa em x=272 no design, que aqui é MX dentro do conteúdo. */
     private static final int SIDE = 233, MX = 39, MW = 788;
-    private static final int WELCOME = 0, MODEL = 1, MIC = 2, HOTKEY = 3, DICTATION = 4, READY = 5;
+    // LINUXKEY e PASTE são páginas extras (só Linux Wayland); a ordem na tela vem de `order`.
+    private static final int WELCOME = 0, MODEL = 1, MIC = 2, HOTKEY = 3, DICTATION = 4, READY = 5, LINUXKEY = 6, PASTE = 7;
     static final BufferedImage NUVEM = Arara.read("sprites/nuvem.png");
     static final BufferedImage NUVEM_PEQ = Arara.read("sprites/nuvem_peq.png");
     static final BufferedImage MORROS = Arara.read("sprites/morros.png");
@@ -73,6 +74,23 @@ final class Onboarding extends JPanel implements DictationListener {
     private static final float VOICE_LEVEL = 0.45f;
 
     enum Mark { DONE, CURRENT, TODO }
+
+    /** Sessão Linux (null fora do Linux): decide os passos extras. */
+    record Linux(boolean wayland, boolean gnome, boolean kde) {
+        static Linux detect() {
+            if (!AraraCore.LINUX) return null;
+            String d = System.getenv("XDG_CURRENT_DESKTOP");
+            d = d == null ? "" : d.toUpperCase();
+            return new Linux(AraraCore.wayland(), d.contains("GNOME"), d.contains("KDE"));
+        }
+
+        /** Comando que o atalho do sistema deve chamar: AppImage se for o caso, senão "arara". */
+        static String command() {
+            String l = System.getenv("APPIMAGE");
+            if (l == null || l.isBlank()) l = "arara";
+            return (l.contains(" ") ? "\"" + l + "\"" : l) + " --alternar";
+        }
+    }
 
     static Mark mark(int step, int current) {
         return step < current ? Mark.DONE : step == current ? Mark.CURRENT : Mark.TODO;
@@ -94,8 +112,12 @@ final class Onboarding extends JPanel implements DictationListener {
     private final MicSource micSource;
     private final BooleanSupplier hotkeyAccess;
     private final Runnable onDone;
-    private final JPanel[] pages = new JPanel[STEPS.length];
-    private final Sky[] skies = new Sky[STEPS.length];
+    private final JPanel[] pages = new JPanel[PASTE + 1];
+    private final Sky[] skies = new Sky[PASTE + 1];
+    /** Páginas na ordem em que aparecem, e seus nomes na barra lateral. */
+    private final int[] order;
+    private final String[] names;
+    private final Linux linux;
     private final Timer anim = new Timer(33, e -> tick());
     int step = -1, tick;
 
@@ -169,7 +191,20 @@ final class Onboarding extends JPanel implements DictationListener {
     /** @param hotkeyAccess atalho global funcionando ({@code AraraCore::retryHotkey}: tenta de novo se não estava) */
     Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource,
             BooleanSupplier hotkeyAccess, Runnable onDone) {
+        this(engine, settings, download, micSource, hotkeyAccess, onDone, Linux.detect());
+    }
+
+    Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource,
+            BooleanSupplier hotkeyAccess, Runnable onDone, Linux linux) {
         super(null);
+        this.linux = linux;
+        boolean extra = linux != null && linux.wayland(), paste = extra && linux.gnome();
+        order = paste ? new int[] {WELCOME, MODEL, MIC, HOTKEY, LINUXKEY, PASTE, DICTATION, READY}
+                : extra ? new int[] {WELCOME, MODEL, MIC, HOTKEY, LINUXKEY, DICTATION, READY} : new int[] {0, 1, 2, 3, 4, 5};
+        names = new String[order.length];
+        for (int i = 0; i < order.length; i++) {
+            names[i] = order[i] == LINUXKEY ? "Atalho no Linux" : order[i] == PASTE ? "Permitir colar" : STEPS[order[i]];
+        }
         this.engine = engine;
         this.settings = settings;
         this.download = download;
@@ -198,11 +233,11 @@ final class Onboarding extends JPanel implements DictationListener {
         skip.addActionListener(e -> finish());
         Dimension sd = skip.getPreferredSize();
         put(content, skip, 711 - 6, 30 - 3, sd.width, sd.height);
-        back.addActionListener(e -> show(step - 1));
+        back.addActionListener(e -> show(order[pos() - 1]));
         put(content, back, MX, 607, 112, 48);
         next.addActionListener(e -> {
             if (step == READY) finish();
-            else show(step + 1);
+            else show(order[pos() + 1]);
         });
         next.setIcon(arrowCircle());
         next.setHorizontalTextPosition(SwingConstants.LEADING);
@@ -223,6 +258,8 @@ final class Onboarding extends JPanel implements DictationListener {
         hotkey(pages[HOTKEY]);
         dictation(pages[DICTATION]);
         ready(pages[READY]);
+        linuxKey(pages[LINUXKEY]);
+        pasteStep(pages[PASTE]);
 
         download.addListener(this::refresh);
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(keyWatch);
@@ -242,6 +279,12 @@ final class Onboarding extends JPanel implements DictationListener {
 
     // ------------------------------------------------------------------ navegação
 
+    /** Posição do passo atual na lista exibida (0 antes de começar). */
+    private int pos() {
+        for (int i = 0; i < order.length; i++) if (order[i] == step) return i;
+        return 0;
+    }
+
     void show(int index) {
         if (step == MIC && index != MIC) stopMic();
         step = index;
@@ -250,11 +293,11 @@ final class Onboarding extends JPanel implements DictationListener {
         stepLabel.setVisible(header && index != READY);
         title.setVisible(header);
         subtitle.setVisible(header);
-        stepLabel.setText("PASSO " + (index + 1) + " DE " + STEPS.length);
+        stepLabel.setText("PASSO " + (pos() + 1) + " DE " + order.length);
 
         back.setVisible(index != WELCOME);
         int w = index == WELCOME ? 170 : 200;
-        String cta = index == WELCOME ? "Começar" : index == READY ? "Começar a ditar" : "Continuar";
+        String cta = index == WELCOME ? "Começar" : index == READY ? "Começar a ditar" : index == LINUXKEY ? "Já criei" : "Continuar";
         next.setText(cta);
         next.setBounds(MX + MW - w, 607, w, 48);
         Insets in = next.getInsets();
@@ -313,6 +356,14 @@ final class Onboarding extends JPanel implements DictationListener {
             case HOTKEY -> {
                 title.setText("Seu atalho");
                 subtitle.setText("Aperte em qualquer janela para começar a ouvir. Aperte de novo para colar o texto.");
+            }
+            case LINUXKEY -> {
+                title.setText("Seu atalho no Linux");
+                subtitle.setText("No Wayland o sistema não deixa o Arara ouvir teclas. Crie um atalho que chame o comando abaixo.");
+            }
+            case PASTE -> {
+                title.setText("Permitir colar sozinho");
+                subtitle.setText("Para colar o texto no app onde você está, o GNOME pede sua permissão uma única vez.");
             }
             case READY -> {
                 title.setText("Tudo pronto! Escolha a sua arara.");
@@ -725,6 +776,164 @@ final class Onboarding extends JPanel implements DictationListener {
         label(p, "O Arara fica na " + Ui.TRAY + ", pronto para ouvir.", Theme.regular(13), Theme.TEXT_SOFT, MX + 58, 546);
     }
 
+    // ------------------------------------------------------------------ Linux (Wayland)
+
+    private JButton copyBtn, pasteBtn, preferCtrlV;
+    private JLabel testMsg, pasteMsg;
+    private Timer copyBack, testTimeout;
+    private Ui.Round pasteOk, pasteNo;
+    private volatile boolean probing;
+    /** Pede a permissão do portal; trocável no teste de tela. */
+    java.util.function.BooleanSupplier pasteRequest = AraraCore::requestPastePermission;
+
+    /** Chamado quando o atalho do sistema (arara --alternar) chega; true = foi o teste do onboarding, não ditar. */
+    boolean toggleProbe() {
+        if (!probing) return false;
+        probing = false;
+        SwingUtilities.invokeLater(() -> {
+            testTimeout.stop();
+            testMsg.setText("Funcionou! O atalho chegou ao Arara.");
+            testMsg.setForeground(Theme.READY);
+        });
+        return true;
+    }
+
+    private void linuxKey(JPanel p) {
+        String cmd = Linux.command();
+        Ui.Round box = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX, 150, MW, 84);
+        label(box, "COMANDO", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 19, 12);
+        Ui.Round field = put(box, round(Theme.BG, null, 10), 19, 32, 640, 38);
+        JLabel cl = Ui.label(cmd, Theme.bold(16), Theme.ACTIVE);
+        cl.setToolTipText(cmd);
+        put(field, cl, 14, 0, 612, 38);
+        copyBtn = put(box, pill("Copiar", Ui.Kind.PRIMARY, 14), 676, 32, 98, 38);
+        copyBack = new Timer(2000, e -> copyBtn.setText("Copiar"));
+        copyBack.setRepeats(false);
+        copyBtn.addActionListener(e -> {
+            copy(cmd);
+            copyBtn.setText("Copiado");
+            copyBack.restart();
+        });
+
+        String keys = "Ctrl+Shift+Espaço";
+        desktopCard(p, MX, "GNOME", "Configurações › Teclado › Ver e personalizar atalhos", "Atalhos personalizados › + (adicionar)",
+                "Nome: Arara · Comando: " + cmd, "Atalho: aperte " + keys);
+        desktopCard(p, MX + 399, "KDE Plasma", "Configurações do sistema › Atalhos", "Adicionar comando ou script",
+                "Comando: " + cmd, "Atalho: aperte " + keys);
+
+        label(p, "Atalho sugerido", Theme.regular(13), Theme.TEXT_SOFT, MX, 538);
+        int x = MX + 137;
+        for (String k : new String[] {"Ctrl", "Shift", "Espaço"}) {
+            int w = k.length() * 9 + 34;
+            Ui.Round cap = put(p, round(Theme.SURFACE, Theme.BORDER, 10), x, 527, w, 39);
+            JLabel kl = Ui.label(k, Theme.bold(15), Theme.TEXT);
+            kl.setHorizontalAlignment(SwingConstants.CENTER);
+            put(cap, kl, 0, 0, w, 39);
+            x += w + 7;
+        }
+
+        JButton test = put(p, Ui.link("Testar agora", Theme.bold(13), Theme.ACCENT), MX, 581, 100, 20);
+        testMsg = label(p, " ", Theme.semibold(13), Theme.TEXT_SOFT, MX + 112, 582);
+        testMsg.setSize(600, 18);
+        testTimeout = new Timer(10_000, e -> {
+            if (!probing) return;
+            probing = false;
+            testMsg.setText("Não chegou. Confira o comando e o atalho.");
+            testMsg.setForeground(Theme.ERROR);
+        });
+        testTimeout.setRepeats(false);
+        test.addActionListener(e -> {
+            probing = true;
+            testMsg.setText("Aguardando… aperte o atalho agora (até 10 s).");
+            testMsg.setForeground(Theme.TEXT_SOFT);
+            testTimeout.restart();
+        });
+    }
+
+    static void copy(String text) {
+        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(text), null);
+        try { // o clipboard do Java só chega aos apps Wayland via XWayland; wl-copy cobre o resto
+            Process pr = new ProcessBuilder("wl-copy").redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+            pr.getOutputStream().write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            pr.getOutputStream().close();
+        } catch (java.io.IOException ignored) {
+            // sem wl-copy: fica o clipboard do Java
+        }
+    }
+
+    private void desktopCard(JPanel p, int x, String name, String... rows) {
+        Ui.Round c = put(p, round(Theme.SURFACE, Theme.BORDER, 20), x, 253, 389, 243);
+        label(c, name, Theme.extrabold(20), Theme.TEXT, 22, 20);
+        int[] ys = {64, 112, 154, 198};
+        for (int i = 0; i < rows.length; i++) {
+            Ui.Round dot = put(c, round(Theme.SELECTED, null, 10), 22, ys[i], 20, 20);
+            JLabel n = Ui.label(String.valueOf(i + 1), Theme.extrabold(11), Theme.ACTIVE);
+            n.setHorizontalAlignment(SwingConstants.CENTER);
+            put(dot, n, 0, 0, 20, 20);
+            para(c, rows[i], Theme.regular(14), Theme.TEXT, 54, ys[i] - 1, 315, 18);
+        }
+    }
+
+    private void pasteStep(JPanel p) {
+        Ui.Round card = put(p, round(Theme.SURFACE, Theme.BORDER, 20), MX, 150, MW, 188);
+        label(card, "O QUE VAI APARECER", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 19, 12);
+        Ui.Round dlg = put(card, round(Theme.BG, Theme.BORDER, 14), 19, 41, 420, 129);
+        label(dlg, "Permitir controle remoto?", Theme.bold(15), Theme.TEXT, 20, 18);
+        label(dlg, "Arara quer controlar o teclado para colar o texto ditado.", Theme.regular(12), Theme.TEXT_SOFT, 20, 48);
+        fakeButton(dlg, "Negar", Theme.SURFACE, Theme.TEXT, 144, 80);
+        fakeButton(dlg, "Permitir", Theme.ACCENT, Theme.ON_ACCENT, 276, 80);
+        para(card, "Quando o pedido abrir, escolha Permitir.", Theme.extrabold(18), Theme.TEXT, 469, 52, 300, 26);
+        para(card, "Se você negar, o Arara ainda copia o texto: é só apertar Ctrl+V.", Theme.regular(13), Theme.TEXT_SOFT, 469, 112, 300, 20);
+
+        pasteBtn = put(p, pill("Mostrar pedido agora", Ui.Kind.PRIMARY, 15), MX, 361, 220, 47);
+        pasteMsg = label(p, " ", Theme.semibold(14), Theme.TEXT_SOFT, MX + 240, 376);
+        pasteMsg.setSize(400, 20);
+        pasteBtn.addActionListener(e -> {
+            pasteState(1);
+            Thread t = new Thread(() -> {
+                boolean ok = pasteRequest.getAsBoolean();
+                SwingUtilities.invokeLater(() -> pasteState(ok ? 2 : 3));
+            }, "arara-portal");
+            t.setDaemon(true);
+            t.start();
+        });
+
+        pasteOk = put(p, round(Theme.SELECTED, Theme.PRIMARY, 16), MX, 430, MW, 72);
+        Ui.Round tick = put(pasteOk, round(Theme.PRIMARY, null, 20), 18, 16, 40, 40);
+        JLabel ck = Ui.label("", Theme.bold(12), Theme.ON_PRIMARY);
+        ck.setIcon(Ui.icon("check", 22, Theme.ON_PRIMARY));
+        ck.setHorizontalAlignment(SwingConstants.CENTER);
+        put(tick, ck, 0, 0, 40, 40);
+        label(pasteOk, "Pronto! O Arara já pode colar sozinho.", Theme.extrabold(18), Theme.TEXT, 74, 14);
+        label(pasteOk, "Dá para rever depois em Configurações › Linux.", Theme.regular(13), Theme.TEXT_SOFT, 74, 41);
+
+        pasteNo = put(p, round(Theme.AMBER_BG, Theme.AMBER_BORDER, 16), MX, 430, MW, 60);
+        put(pasteNo, bang(Theme.SUPPORT, 18), 16, 14, 32, 32);
+        label(pasteNo, "Sem permissão por enquanto. O Arara copia o texto e você cola com Ctrl+V.", Theme.bold(15), Theme.AMBER_TEXT, 62, 19);
+
+        preferCtrlV = put(p, Ui.link("Prefiro colar com Ctrl+V", Theme.bold(13), Theme.ACCENT), MX, 524, 200, 20);
+        preferCtrlV.addActionListener(e -> show(order[pos() + 1]));
+        pasteState(0);
+    }
+
+    /** 0 = antes de pedir, 1 = aguardando, 2 = permitido, 3 = negado ou sem resposta. */
+    void pasteState(int state) {
+        pasteBtn.setEnabled(state != 1);
+        pasteMsg.setText(state == 1 ? "Aguardando você escolher…" : " ");
+        pasteOk.setVisible(state == 2);
+        pasteNo.setVisible(state == 3);
+        preferCtrlV.setVisible(state != 2);
+    }
+
+    /** Botão só desenhado (o diálogo do GNOME de mentira). */
+    private static void fakeButton(JPanel parent, String text, Color bg, Color fg, int x, int y) {
+        int w = text.equals("Negar") ? 120 : 126;
+        Ui.Round b = put(parent, round(bg, null, 14), x, y, w, 34);
+        JLabel l = Ui.label(text, Theme.bold(13), fg);
+        l.setHorizontalAlignment(SwingConstants.CENTER);
+        put(b, l, 0, 0, w, 34);
+    }
+
     // ------------------------------------------------------------------ peças
 
     static String spoken(String hotkey) {
@@ -1074,8 +1283,8 @@ final class Onboarding extends JPanel implements DictationListener {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = Ui.smooth(g);
             int x = 0;
-            for (int i = 0; i < STEPS.length; i++) {
-                Mark m = mark(i, step);
+            for (int i = 0; i < order.length; i++) {
+                Mark m = mark(i, pos());
                 int w = m == Mark.CURRENT ? 36 : 14;
                 g2.setColor(m == Mark.CURRENT ? Theme.HIGHLIGHT : m == Mark.DONE ? Theme.PRIMARY : Theme.BORDER);
                 g2.fillRoundRect(x, 0, w, 6, 6, 6);
@@ -1144,8 +1353,8 @@ final class Onboarding extends JPanel implements DictationListener {
             text(g2, "Arara", Theme.extrabold(22), Theme.TEXT, 64, 24);
             text(g2, "primeira execução", Theme.regular(12), Theme.TEXT_SOFT, 64, 52);
             text(g2, "EM 1 MINUTO", tracked(Theme.extrabold(11), 1.5f), Theme.TEXT_SOFT, 24, 100);
-            for (int i = 0; i < STEPS.length; i++) {
-                Mark m = mark(i, step);
+            for (int i = 0; i < order.length; i++) {
+                Mark m = mark(i, pos());
                 int y = 124 + i * 48;
                 if (m == Mark.CURRENT) {
                     g2.setColor(Theme.SELECTED);
@@ -1162,7 +1371,7 @@ final class Onboarding extends JPanel implements DictationListener {
                 if (m == Mark.DONE) Ui.icon("check", 16, Theme.ON_PRIMARY).paintIcon(this, g2, 27, y + 13);
                 else centered(g2, String.valueOf(i + 1), Theme.extrabold(13), m == Mark.CURRENT ? Theme.ON_HIGHLIGHT : Theme.TEXT_SOFT,
                         35, y + 12);
-                text(g2, STEPS[i], Theme.bold(14), m == Mark.CURRENT ? Theme.ACTIVE : m == Mark.DONE ? Theme.TEXT : Theme.TEXT_SOFT,
+                text(g2, names[i], Theme.bold(14), m == Mark.CURRENT ? Theme.ACTIVE : m == Mark.DONE ? Theme.TEXT : Theme.TEXT_SOFT,
                         60, y + 11);
             }
 

@@ -12,6 +12,8 @@ import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
+import br.arara.core.Sounds;
 import javax.swing.Timer;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
@@ -90,11 +92,14 @@ final class SettingsPage extends MainView.Page {
         JButton record = Ui.button("Gravar", null, Ui.Kind.OUTLINE);
         record.getAccessibleContext().setAccessibleName("Gravar novo atalho");
         record.addActionListener(e -> recordHotkey(record));
-        content.add(section("Atalho", "Modo liga e desliga: aperte para começar e de novo para terminar.",
+        content.add(section("Atalho", "Aperte para começar e de novo para terminar, ou segure para falar e solte para terminar.",
                 row("Atalho para ditar", Ui.MAC
                         ? "Teclas ou um botão do mouse. Evite Option sem Cmd ou Ctrl (digita símbolos)."
                         : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
+                row("Modo do atalho", "Segurar não funciona no Wayland.",
+                        Ui.segmented(new String[] {"Apertar para ligar e desligar", "Segurar para falar"},
+                                s.holdToTalk() ? 1 : 0, "Modo do atalho", i -> update(x -> x.withHoldToTalk(i == 1)))),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> x.withEscCancels(on))))));
 
@@ -113,6 +118,10 @@ final class SettingsPage extends MainView.Page {
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
                                 i -> update(x -> x.withAccel(accels[i]))))));
 
+        content.add(soundSection(s));
+
+        if (AraraCore.LINUX) content.add(linuxCard(Onboarding.Linux.detect()));
+
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
         JButton clear = Ui.button("Apagar tudo", "trash-2", Ui.Kind.OUTLINE);
@@ -125,6 +134,34 @@ final class SettingsPage extends MainView.Page {
                                 : Ui.LINUX ? "~/.local/share/Arara/historico.jsonl"
                                 : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
+    }
+
+    /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
+    static JPanel linuxCard(Onboarding.Linux l) {
+        boolean wayland = l.wayland();
+        String cmd = Onboarding.Linux.command();
+        String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
+        JButton copy = Ui.button("Copiar comando", null, Ui.Kind.OUTLINE);
+        Timer back = new Timer(2000, e -> copy.setText("Copiar comando"));
+        back.setRepeats(false);
+        copy.addActionListener(e -> {
+            Onboarding.copy(cmd);
+            copy.setText("Copiado");
+            back.restart();
+        });
+        JButton redo = Ui.button("Refazer permissão", null, Ui.Kind.OUTLINE);
+        redo.addActionListener(e -> {
+            AraraCore.resetPastePermission();
+            redo.setText("Pedido na próxima colagem");
+            redo.setEnabled(false);
+        });
+        JLabel none = Ui.label("", Theme.regular(12), Theme.TEXT_SOFT);
+        JComponent atalho = row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
+        JComponent colagem = row("Colagem", !wayland ? "Ctrl+V simulado"
+                : l.gnome() ? "Cola automática: portal do GNOME" : "wtype ou ydotool; sem eles, cole com Ctrl+V",
+                wayland && l.gnome() ? redo : none);
+        return section("Linux", wayland ? "Wayland: o sistema cuida do atalho e da permissão de colar." : "X11: atalho e colagem funcionam direto.",
+                row("Sessão", session, none), atalho, colagem);
     }
 
     /** Aparência: as 5 araras e o modo; embaixo, a chave do ícone (desligada por padrão). Tudo aplica na hora. */
@@ -196,6 +233,39 @@ final class SettingsPage extends MainView.Page {
         mic.getAccessibleContext().setAccessibleName("Microfone");
         mic.addActionListener(e -> onChange.accept(DEFAULT_MIC.equals(mic.getSelectedItem()) ? null : (String) mic.getSelectedItem()));
         return mic;
+    }
+
+    private JPanel soundSection(Settings s) {
+        Settings.Sound[] kinds = Settings.Sound.values();
+        Settings.SoundLength[] lengths = Settings.SoundLength.values();
+        JSlider volume = new JSlider(0, 100, s.soundVolume());
+        volume.setPreferredSize(new Dimension(220, 32));
+        volume.setOpaque(false);
+        volume.getAccessibleContext().setAccessibleName("Volume do som");
+        // grava ao soltar: arrastar não precisa regravar o config.json a cada pixel
+        volume.addChangeListener(e -> {
+            if (!volume.getValueIsAdjusting()) update(x -> x.withSoundVolume(volume.getValue()));
+        });
+        JButton listen = Ui.button("Ouvir", null, Ui.Kind.OUTLINE);
+        listen.getAccessibleContext().setAccessibleName("Ouvir o som");
+        listen.addActionListener(e -> {
+            Settings now = settings.load().withSoundOn(true).withSoundVolume(volume.getValue());
+            Sounds.play(now, true);
+            Timer t = new Timer(Sounds.millis(now) + 150, ev -> Sounds.play(now, false));
+            t.setRepeats(false);
+            t.start();
+        });
+        return section("Som", "Um toque curto ao começar e ao parar de ouvir.",
+                row("Tocar som", "Avisa que o Arara começou e parou de ouvir.",
+                        Ui.toggle(s.soundOn(), "Tocar som", on -> update(x -> x.withSoundOn(on)))),
+                row("Tipo", "Arara é um piado; Pixel, bipes de jogo; Suave, duas notas.",
+                        Ui.segmented(new String[] {"Arara", "Pixel", "Suave"}, s.sound().ordinal(), "Tipo de som",
+                                i -> update(x -> x.withSound(kinds[i])))),
+                row("Volume", "Só do som do Arara, não do computador.", volume),
+                row("Duração", "Mais curto ou mais longo que o normal.",
+                        Ui.segmented(new String[] {"Curta", "Normal", "Longa"}, s.soundLength().ordinal(), "Duração do som",
+                                i -> update(x -> x.withSoundLength(lengths[i])))),
+                row("Testar", "Toca o início e o fim com estes valores.", listen));
     }
 
     private void update(UnaryOperator<Settings> change) {

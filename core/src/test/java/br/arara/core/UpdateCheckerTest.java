@@ -82,6 +82,14 @@ class UpdateCheckerTest {
     }
 
     UpdateChecker checker(String allowed, String exe, String platform, boolean mac, boolean linux) {
+        return checker(platform, allowed, exe, mac, linux, null);
+    }
+
+    UpdateChecker checker(String platform, String allowed, String exe, boolean mac, String appImage) {
+        return checker(platform, allowed, exe, mac, platform.startsWith("linux"), appImage);
+    }
+
+    UpdateChecker checker(String platform, String allowed, String exe, boolean mac, boolean linux, String appImage) {
         return new UpdateChecker(URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/versao.json"),
                 "0.2.0", platform, settings, allowed, Optional.ofNullable(exe), mac, linux,
                 new UpdateChecker.Runner() {
@@ -93,7 +101,7 @@ class UpdateCheckerTest {
                     public void start(List<String> cmd) {
                         started.add(cmd);
                     }
-                }, dir.resolve("tmp"), 4242);
+                }, dir.resolve("tmp"), 4242, appImage);
     }
 
     UpdateChecker windows() {
@@ -268,6 +276,26 @@ class UpdateCheckerTest {
                 List.of("hdiutil", "detach", tmp.resolve("montagem").toString())), ran);
         assertEquals(List.of(List.of("/bin/sh", "-c", UpdateChecker.MAC_SWAP, "sh", "4242", staged.toString(),
                 app.toString(), apps.resolve(".Arara-velha.app").toString())), started);
+    }
+
+    @Test
+    void linuxReplacesAppImageAtomicallyAndRestarts() throws Exception {
+        Path self = dir.resolve("Arara-x86_64.AppImage");
+        Files.writeString(self, "velho");
+        Update u = windows().check().orElseThrow();
+        assertTrue(checker("linux-x64", base, null, false, self.toString()).install(u, (d, t) -> {}));
+        assertEquals(sha(SETUP), sha(Files.readAllBytes(self)));
+        assertFalse(Files.exists(dir.resolve(".Arara-nova.AppImage")));
+        assertEquals(List.of(List.of("chmod", "+x", dir.resolve(".Arara-nova.AppImage").toString())), ran);
+        assertEquals(List.of(List.of("/bin/sh", "-c", UpdateChecker.LINUX_RESTART, "sh", "4242", self.toString())),
+                started);
+    }
+
+    @Test
+    void linuxWithoutAppImageDoesNothing() throws Exception {
+        Update u = windows().check().orElseThrow();
+        assertFalse(checker("linux-x64", base, null, false, null).install(u, (d, t) -> {}));
+        assertEquals(List.of(), ran);
     }
 
     @Test

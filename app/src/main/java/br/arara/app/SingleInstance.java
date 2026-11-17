@@ -23,11 +23,15 @@ import java.util.Arrays;
 final class SingleInstance implements AutoCloseable {
     static final String HELLO = "ARARA\n";
     static final String SHOW = "MOSTRAR\n";
+    /** Pedido do atalho do sistema (arara --alternar): mesmo efeito do atalho global. */
+    static final String TOGGLE = "ALTERNAR\n";
 
     private final FileLock lock;
     private final ServerSocket server;
     /** O que fazer quando outra cópia pede para mostrar a janela (roda na thread do socket). */
     volatile Runnable onShow = () -> {};
+    /** O que fazer quando outra cópia pede para alternar o ditado (arara --alternar). */
+    volatile Runnable onToggle = () -> {};
 
     private SingleInstance(FileLock lock, ServerSocket server) {
         this.lock = lock;
@@ -66,8 +70,10 @@ final class SingleInstance implements AutoCloseable {
                 if (!s.getInetAddress().isLoopbackAddress()) continue;
                 s.setSoTimeout(2000);
                 s.getOutputStream().write(HELLO.getBytes(StandardCharsets.US_ASCII));
-                if (Arrays.equals(s.getInputStream().readNBytes(SHOW.length()), SHOW.getBytes(StandardCharsets.US_ASCII)))
-                    onShow.run();
+                // só duas mensagens fixas; ALTERNAR é mais longa, então lê pelo tamanho dela e confere o começo
+                String msg = new String(s.getInputStream().readNBytes(TOGGLE.length()), StandardCharsets.US_ASCII);
+                if (msg.equals(SHOW)) onShow.run();
+                else if (msg.equals(TOGGLE)) onToggle.run();
             } catch (IOException ignored) {
                 // conexão ruim ou servidor fechado: segue (o while confere)
             }
@@ -79,6 +85,10 @@ final class SingleInstance implements AutoCloseable {
      * o lock e ainda não ter escrito a porta. Devolve false se não conseguiu.
      */
     static boolean notifyFirst(Path dataDir) {
+        return notifyFirst(dataDir, SHOW);
+    }
+
+    static boolean notifyFirst(Path dataDir, String message) {
         for (int i = 0; i < 30; i++) {
             try {
                 int port = Integer.parseInt(Files.readString(dataDir.resolve("arara.porta")).trim());
@@ -88,7 +98,7 @@ final class SingleInstance implements AutoCloseable {
                     // a saudação confirma que é o Arara, e não um arquivo de porta velho apontando para outro programa
                     if (Arrays.equals(s.getInputStream().readNBytes(HELLO.length()), HELLO.getBytes(StandardCharsets.US_ASCII))) {
                         OutputStream out = s.getOutputStream();
-                        out.write(SHOW.getBytes(StandardCharsets.US_ASCII));
+                        out.write(message.getBytes(StandardCharsets.US_ASCII));
                         out.flush();
                         return true;
                     }

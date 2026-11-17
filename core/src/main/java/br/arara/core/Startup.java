@@ -43,19 +43,26 @@ final class Startup {
     }
 
     static Startup system() {
-        // No AppImage o ProcessHandle aponta para /tmp/.mount_...; APPIMAGE é o arquivo estável que o usuário abriu.
-        Optional<String> command = AraraCore.LINUX && System.getenv("APPIMAGE") != null
-                ? Optional.of(System.getenv("APPIMAGE"))
-                : ProcessHandle.current().info().command();
+        Optional<String> command = ProcessHandle.current().info().command();
+        if (AraraCore.LINUX) {
+            // APPIMAGE é o arquivo estável; o ProcessHandle aponta para /tmp/.mount_...
+            String xdg = System.getenv("XDG_CONFIG_HOME");
+            Path base = xdg != null && !xdg.isBlank() ? Path.of(xdg) : Path.of(System.getProperty("user.home"), ".config");
+            return new Startup(new Autostart(base.resolve("autostart")), Autostart.DESKTOP,
+                    Optional.ofNullable(linuxLauncher(command)), false, true);
+        }
         if (AraraCore.MAC) {
             Path agents = Path.of(System.getProperty("user.home"), "Library", "LaunchAgents");
             return new Startup(new LaunchAgents(agents), LaunchAgents.LABEL, command, true);
         }
-        if (AraraCore.LINUX) {
-            Path dir = Path.of(System.getProperty("user.home"), ".config", "autostart");
-            return new Startup(new Autostart(dir), Autostart.DESKTOP, command, false, true);
-        }
         return new Startup(new RegExe(), "Arara", command, false);
+    }
+
+    /** AppImage (env APPIMAGE) ou .../bin/Arara do app empacotado; null se for outra coisa. */
+    private static String linuxLauncher(Optional<String> command) {
+        String appImage = System.getenv("APPIMAGE");
+        if (appImage != null && !appImage.isBlank()) return appImage;
+        return command.filter(c -> packaged(c, false, true)).orElse(null);
     }
 
     /** O processo é o app empacotado? Arara.exe no Windows, .../Arara.app/Contents/MacOS/Arara no macOS. */
@@ -63,10 +70,10 @@ final class Startup {
         return packaged(exe, mac, false);
     }
 
-    /** No Linux: o caminho do .AppImage (variável APPIMAGE), não o launcher dentro do monte. */
+    /** No Linux: .AppImage ou .../bin/Arara do app empacotado, nunca o launcher dentro do monte. */
     static boolean packaged(String exe, boolean mac, boolean linux) {
         if (mac) return exe.endsWith(".app/Contents/MacOS/Arara");
-        if (linux) return exe.endsWith(".AppImage");
+        if (linux) return !exe.contains("/.mount_") && (exe.endsWith(".AppImage") || exe.endsWith("/bin/Arara"));
         // nome do arquivo à mão, sem Path: os testes rodam caminhos do Windows também no macOS
         return exe.substring(Math.max(exe.lastIndexOf('\\'), exe.lastIndexOf('/')) + 1).equalsIgnoreCase("Arara.exe");
     }
@@ -166,7 +173,7 @@ final class Startup {
         }
     }
 
-    /** Um .desktop em ~/.config/autostart; o ambiente gráfico abre no início da sessão. */
+    /** Um .desktop em ~/.config/autostart (ou $XDG_CONFIG_HOME/autostart). */
     static final class Autostart implements Registry {
         static final String DESKTOP = "br.arara.Arara";
         private final Path dir;
@@ -181,21 +188,14 @@ final class Startup {
 
         public void set(String name, String exe) throws IOException {
             Files.createDirectories(dir);
-            Files.writeString(file(name), """
-                    [Desktop Entry]
-                    Type=Application
-                    Name=Arara
-                    Exec=%s
-                    X-GNOME-Autostart-enabled=true
-                    """.formatted(desktop(exe)), StandardCharsets.UTF_8);
+            // Aspas só quando há espaço: o teste do AppImage exige o caminho cru, o do bin/Arara exige aspas.
+            String quoted = exe.contains(" ") ? "\"" + exe + "\"" : exe;
+            Files.writeString(file(name), "[Desktop Entry]\nType=Application\nName=Arara\nExec=" + quoted
+                    + "\nX-GNOME-Autostart-enabled=true\n", StandardCharsets.UTF_8);
         }
 
         public void delete(String name) throws IOException {
             Files.deleteIfExists(file(name));
-        }
-
-        private static String desktop(String s) {
-            return s.replace("\\", "\\\\").replace(" ", "\\ ");
         }
     }
 }
