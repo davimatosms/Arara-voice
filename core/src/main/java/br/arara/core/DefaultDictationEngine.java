@@ -438,6 +438,9 @@ final class DefaultDictationEngine implements DictationEngine {
         }
         try {
             paster.paste(text);
+        } catch (LinuxPaste.CopiedOnly e) {
+            fail("Texto copiado: cole com Ctrl+V");
+            return;
         } catch (Exception e) {
             fail(saved ? "Não consegui colar. O texto está no histórico." : "Não consegui salvar nem colar o texto.");
             return;

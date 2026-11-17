@@ -29,14 +29,6 @@ class LinuxPasteTest {
     }
 
     @Test
-    void detectaWayland() {
-        assertTrue(LinuxPaste.wayland("Linux", "wayland", null));
-        assertTrue(LinuxPaste.wayland("Linux", "x11", "wayland-0"));
-        assertFalse(LinuxPaste.wayland("Linux", "x11", null));
-        assertFalse(LinuxPaste.wayland("Windows 11", "wayland", "w"));
-    }
-
-    @Test
     void escolhePelaOrdem() {
         assertEquals("wtype", LinuxPaste.press(new Fake(Set.of("wtype", "ydotool", "python3"), true, Set.of())));
         assertEquals("ydotool", LinuxPaste.press(new Fake(Set.of("wtype", "ydotool"), true, Set.of("wtype"))));

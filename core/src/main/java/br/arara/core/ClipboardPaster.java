@@ -26,7 +26,7 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         Transferable previous = clipboard.getContents(null);
         clipboard.setContents(new StringSelection(text), null);
 
-        if (LinuxPaste.wayland()) { // X11 e o resto seguem o Robot abaixo, sem mudança
+        if (AraraCore.wayland()) { // X11 e o resto seguem o Robot abaixo, sem mudança
             LinuxPaste.Env env = new LinuxPaste.SystemEnv();
             LinuxPaste.wlCopy(env, text);
             lastStrategy = LinuxPaste.press(env);

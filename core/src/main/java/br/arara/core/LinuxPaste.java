@@ -38,16 +38,6 @@ final class LinuxPaste {
         }
     }
 
-    // shortcut: detecção local; trocar por AraraCore.wayland() quando o PR de Linux entrar.
-    static boolean wayland(String os, String sessionType, String waylandDisplay) {
-        if (!os.toLowerCase().contains("linux")) return false;
-        return "wayland".equalsIgnoreCase(sessionType) || (waylandDisplay != null && !waylandDisplay.isBlank());
-    }
-
-    static boolean wayland() {
-        return wayland(System.getProperty("os.name", ""), System.getenv("XDG_SESSION_TYPE"), System.getenv("WAYLAND_DISPLAY"));
-    }
-
     /** Aperta Ctrl+V e devolve o nome da estratégia que funcionou, ou null. */
     static String press(Env env) {
         if (env.has("wtype") && env.run(3000, null, "wtype", "-M", "ctrl", "v", "-m", "ctrl").exit() == 0) return "wtype";

@@ -26,6 +26,25 @@ public final class AraraCore implements AutoCloseable {
         return wayland(LINUX, System::getenv);
     }
 
+    /** Diagnóstico do colar no Linux/Wayland: cole a saída num relatório. Deixe um editor de texto focado. */
+    public static void diagnosticoColar(java.util.function.Consumer<String> log) throws Exception {
+        log.accept("Wayland=" + wayland() + "  sessão=" + System.getenv("XDG_SESSION_TYPE")
+                + "  desktop=" + System.getenv("XDG_CURRENT_DESKTOP"));
+        LinuxPaste.Env env = new LinuxPaste.SystemEnv();
+        for (String t : new String[] {"wtype", "ydotool", "wl-copy", "python3"}) log.accept(t + ": " + (env.has(t) ? "sim" : "nao"));
+        log.accept("socket do ydotoold: " + env.ydotoolSocket());
+        log.accept("token do portal salvo: " + !env.token().isEmpty());
+        ClipboardPaster paster = new ClipboardPaster();
+        log.accept("Foque um editor de texto: colando em 5 s...");
+        Thread.sleep(5000);
+        try {
+            paster.paste("Teste de colagem do Arara. ");
+            log.accept("estrategia usada: " + paster.lastStrategy);
+        } catch (LinuxPaste.CopiedOnly e) {
+            log.accept("NENHUMA estrategia funcionou: " + e.getMessage());
+        }
+    }
+
     private final HistoryStore history;
     private final DictionaryStore dictionary;
     private final SettingsStore settings;

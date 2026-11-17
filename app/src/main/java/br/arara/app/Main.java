@@ -45,6 +45,14 @@ public final class Main {
     private static SingleInstance instance;
 
     public static void main(String[] args) {
+        if (List.of(args).contains("--diagnostico-colar")) { // roda e sai, sem abrir janela
+            try {
+                AraraCore.diagnosticoColar(System.out::println);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            System.exit(0); // JNativeHook e AWT deixam threads vivas
+        }
         boolean demo = List.of(args).contains("--demo");
         // Antes do atalho global e do core: duas cópias na mesma pasta colavam cada ditado duas vezes.
         if (!demo) {
@@ -149,9 +157,9 @@ public final class Main {
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);
-            // shortcut: os.name local (sem AraraCore.LINUX); sem bandeja no Linux (GNOME sem extensão) o app não some:
+            // sem bandeja no Linux (GNOME sem extensão) o app não some:
             // fechar minimiza e o menu Arquivo > Sair encerra.
-            if (tray == null && System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+            if (tray == null && AraraCore.LINUX) {
                 frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
                 frame.addWindowListener(new WindowAdapter() {
                     @Override public void windowClosing(WindowEvent e) { frame.setState(java.awt.Frame.ICONIFIED); }

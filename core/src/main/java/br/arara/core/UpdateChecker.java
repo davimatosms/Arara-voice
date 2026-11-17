@@ -112,9 +112,8 @@ public final class UpdateChecker implements AutoCloseable {
 
     /** Para o app: versão do jar (gradle.properties), plataforma e executável atuais. */
     public static UpdateChecker system(SettingsStore settings) {
-        // shortcut: Linux só x64 (AppImage x86_64); detecta pelo os.name, sem depender de AraraCore.LINUX
-        boolean linux = System.getProperty("os.name", "").toLowerCase().contains("linux");
-        String platform = linux ? "linux-x64" : !AraraCore.MAC ? "windows"
+        // shortcut: Linux só x64 (AppImage x86_64)
+        String platform = AraraCore.LINUX ? "linux-x64" : !AraraCore.MAC ? "windows"
                 : System.getProperty("os.arch").equals("aarch64") ? "mac-arm64" : "mac-x64";
         return new UpdateChecker(MANIFEST, UpdateChecker.class.getPackage().getImplementationVersion(), platform,
                 settings, RELEASES, ProcessHandle.current().info().command(), AraraCore.MAC, new Processes(),

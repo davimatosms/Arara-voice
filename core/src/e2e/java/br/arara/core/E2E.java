@@ -85,21 +85,7 @@ public final class E2E {
 
     /** Diagnóstico do colar no Linux/Wayland: cole a saída no relatório do beta. Deixe um editor de texto focado. */
     static void colarLinux() throws Exception {
-        log("== colar no Linux ==  Wayland=" + LinuxPaste.wayland() + "  sessão=" + System.getenv("XDG_SESSION_TYPE")
-                + "  desktop=" + System.getenv("XDG_CURRENT_DESKTOP"));
-        LinuxPaste.Env env = new LinuxPaste.SystemEnv();
-        for (String t : new String[] {"wtype", "ydotool", "wl-copy", "python3"}) log(t + ": " + (env.has(t) ? "sim" : "nao"));
-        log("socket do ydotoold: " + env.ydotoolSocket());
-        log("token do portal salvo: " + !env.token().isEmpty());
-        ClipboardPaster paster = new ClipboardPaster();
-        log("Foque um editor de texto: colando em 5 s...");
-        Thread.sleep(5000);
-        try {
-            paster.paste("Teste de colagem do Arara. ");
-            log("estrategia usada: " + paster.lastStrategy);
-        } catch (LinuxPaste.CopiedOnly e) {
-            log("NENHUMA estrategia funcionou: " + e.getMessage());
-        }
+        AraraCore.diagnosticoColar(E2E::log);
     }
 
     // ---------- 1 e 2: microfone e VAD ----------
