@@ -1,19 +1,19 @@
 {
-  "versao": "0.4.2",
+  "versao": "0.4.3",
   "data": "2026-11-17",
-  "notas": "Atalho de uma tecla só, segurar para falar, som ao ditar e correções para Mac M1 e Windows.",
+  "notas": "Correção do pedido de permissão em loop no Mac.",
   "arquivos": {
     "windows": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-Setup-0.4.2.exe",
-      "sha256": "1a67dbf09132f47241294bdbefd39638405b7f2cae49319e8e6faf02801101cb"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.3/Arara-Setup-0.4.3.exe",
+      "sha256": "3418a4a069a2d2a05d0efe963078a61899a25a6245ba306b71c8874bf780a2ab"
     },
     "mac-arm64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-0.4.2-Mac-AppleSilicon.dmg",
-      "sha256": "65a64cac65168146010903fa831bb6e02f157f06eddf7b7cbda53a9b597a6d14"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.3/Arara-0.4.3-Mac-AppleSilicon.dmg",
+      "sha256": "46928235757e9cab3f8446ed62eb7ab8197ce1e8b8835295e8a3d2013114f813"
     },
     "mac-x64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-0.4.2-Mac-Intel.dmg",
-      "sha256": "8f6087e729cd9a5c7d1805471915d29ade14b0f6646630222ff04c7fd955204e"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.3/Arara-0.4.3-Mac-Intel.dmg",
+      "sha256": "e7a32877023643cbc27e887da5ccc4ef092019895cfa93b1776598ff7b73be01"
     }
   }
 }
