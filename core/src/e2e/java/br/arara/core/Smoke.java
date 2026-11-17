@@ -74,7 +74,7 @@ public final class Smoke {
 
         // 3. AraraCore com o JNativeHook (no macOS, sem Acessibilidade, deve abrir sem atalho em vez de falhar)
         try (AraraCore core = AraraCore.start(dir.resolve("dados"), p -> "")) {
-            System.out.println("atalho global registrado: " + core.retryHotkey());
+            System.out.println("atalho global registrado: " + core.hotkeyActive());
         } catch (Throwable e) {
             System.out.println("atalho global: " + e);
             if (AraraCore.MAC) throw e; // no macOS isso não pode impedir o app de abrir

@@ -137,7 +137,7 @@ public final class Main {
             if (firstRun) {
                 DictationListener[] listener = new DictationListener[1];
                 Onboarding onboarding = onb[0] = new Onboarding(engine, settings, download, AraraCore::listen,
-                        core != null ? core::retryHotkey : () -> true, () -> {
+                        core != null ? core::hotkeyActive : () -> true, () -> {
                     engine.removeListener(listener[0]);
                     frame.setContentPane(view);
                     frame.setResizable(true);
@@ -202,7 +202,7 @@ public final class Main {
                 later.setRepeats(false);
                 later.start();
             }
-            if (core != null && !firstRun && !core.retryHotkey()) askAccessibility(frame, core);
+            if (core != null && !firstRun && !core.hotkeyActive()) askAccessibility(frame, core);
         });
     }
 
@@ -244,21 +244,13 @@ public final class Main {
         frame.toFront();
     }
 
-    /** macOS sem Acessibilidade (a primeira execução tem um passo próprio para isso): explica e tenta de novo na volta. */
+    /** macOS sem Acessibilidade (a primeira execução tem um passo próprio): explica uma vez; a permissão só vale ao reabrir. */
     private static void askAccessibility(JFrame frame, AraraCore core) {
-        Object[] options = {"Abrir Ajustes", "Agora não"};
-        int choice = JOptionPane.showOptionDialog(frame,
-                "Para o atalho e o colar funcionarem, ligue o Arara em\n"
-                        + "Ajustes do Sistema › Privacidade e Segurança › Acessibilidade.",
+        Object[] options = {"Abrir Ajustes", "Reabrir o Arara", "Agora não"};
+        int choice = JOptionPane.showOptionDialog(frame, MacApp.accessHelp(),
                 "Arara", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
-        if (choice != 0) return;
-        Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
-        frame.addWindowFocusListener(new WindowAdapter() {
-            @Override
-            public void windowGainedFocus(WindowEvent e) {
-                if (core.retryHotkey()) frame.removeWindowFocusListener(this);
-            }
-        });
+        if (choice == 0) Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+        if (choice == 1) MacApp.relaunch();
     }
 
     /** Estado do modelo no cartão da barra lateral da tela principal. */

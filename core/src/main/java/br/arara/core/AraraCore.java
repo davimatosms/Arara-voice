@@ -119,7 +119,7 @@ public final class AraraCore implements AutoCloseable {
      * modelo com barra de progresso; senão o primeiro ditado espera o download.
      *
      * @throws IllegalStateException se não der para registrar o atalho global (no macOS, sem Acessibilidade,
-     *         abre sem atalho: veja {@link #retryHotkey})
+     *         abre sem atalho: veja {@link #hotkeyActive})
      */
     public static AraraCore start(Path dataDir) {
         Path models = dataDir.resolve("models");
@@ -178,17 +178,12 @@ public final class AraraCore implements AutoCloseable {
     }
 
     /**
-     * Atalho global funcionando? Se não, tenta registrar de novo (no macOS, depois de o usuário ligar o Arara em
-     * Acessibilidade). Enquanto falta a permissão, o próprio macOS pode mostrar o pedido a cada tentativa.
+     * Atalho global funcionando? Só consulta: NÃO registra de novo. No macOS cada registro sem Acessibilidade reabre o
+     * pedido do sistema (era o laço de pedidos), e um gancho criado antes da permissão não passa a valer: o usuário
+     * liga o Arara em Ajustes e reabre o app.
      */
-    public synchronized boolean retryHotkey() {
-        if (hotkey != null) return true;
-        try {
-            hotkey = GlobalHotkey.register(engine, settings);
-        } catch (NativeHookException e) {
-            return false;
-        }
-        return true;
+    public synchronized boolean hotkeyActive() {
+        return hotkey != null;
     }
 
     /** Bytes baixados até agora e o total (-1 se o servidor não disser). Chamado na thread do download. */

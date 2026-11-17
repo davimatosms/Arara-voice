@@ -190,7 +190,7 @@ final class Onboarding extends JPanel implements DictationListener {
     private long transcribeStart;
     private int phrase;
 
-    /** @param hotkeyAccess atalho global funcionando ({@code AraraCore::retryHotkey}: tenta de novo se não estava) */
+    /** @param hotkeyAccess atalho global funcionando ({@code AraraCore::hotkeyActive}: só consulta) */
     Onboarding(DictationEngine engine, SettingsStore settings, ModelDownload download, MicSource micSource,
             BooleanSupplier hotkeyAccess, Runnable onDone) {
         this(engine, settings, download, micSource, hotkeyAccess, onDone, Linux.detect());
@@ -719,13 +719,13 @@ final class Onboarding extends JPanel implements DictationListener {
         spaceText = label(spaceWarning, SPACE_TEXT, Theme.bold(14),
                 Theme.AMBER_TEXT, 62, 19);
 
-        JButton again = pill("Testar de novo", Ui.Kind.OUTLINE, 14);
-        again.addActionListener(e -> windowFocus(true));
+        JButton again = pill("Reabrir o Arara", Ui.Kind.OUTLINE, 14);
+        again.addActionListener(e -> MacApp.relaunch());
         JButton open = pill("Abrir Ajustes", Ui.Kind.PRIMARY, 14);
         open.addActionListener(e -> Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"));
         accessError = put(p, new ErrorBox(again, 140, open, 150), MX, 446, MW, 112);
         accessError.set("O macOS ainda não deixa o Arara usar o atalho",
-                "Em Ajustes do Sistema › Privacidade e Segurança › Acessibilidade, ligue o Arara. Serve também para colar o texto.");
+                "Ligue o Arara em Acessibilidade e reabra. Já ligado? Tire com “−”, adicione de novo e reabra.");
         accessError.setVisible(false);
     }
 
