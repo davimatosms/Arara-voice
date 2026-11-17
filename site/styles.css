@@ -86,7 +86,8 @@ a { color: inherit; }
 .btn-vidro:hover { background: #ffffffcc; }
 .seta { flex-shrink: 0; }
 .rot { display: inline-flex; align-items: center; gap: 10px; }
-.ico { width: 32px; height: 32px; background: currentColor; -webkit-mask: var(--i) center/contain no-repeat; mask: var(--i) center/contain no-repeat; image-rendering: pixelated; }
+.ico { width: 33px; height: 33px; background: var(--i) center/contain no-repeat; image-rendering: pixelated; } /* PNGs coloridos em grade 10-11 px: contain dá escala 3x inteira */
+.btn.destaque .ico { background-image: var(--il); }
 .beta { padding: 3px 8px; border-radius: 999px; background: var(--amarelo); color: var(--escuro); font-size: 11px; font-weight: 900; letter-spacing: .04em; }
 .btn.destaque { background: var(--lima); color: var(--escuro); border-color: var(--lima); }
 .btn.destaque .seta { background: var(--escuro); color: var(--lima); }
