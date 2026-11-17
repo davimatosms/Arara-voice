@@ -55,15 +55,19 @@ tail -5 "$W/smoke.log"
 grep -q 'SMOKE OK' "$W/smoke.log" && grep -q 'whisper: .*transcritos' "$W/smoke.log" && ok "2a Whisper LEVE transcreveu: $(grep -m1 'transcritos' "$W/smoke.log" | sed 's/.*: "//')" || bad "2a Whisper smoke" "$(tail -3 "$W/smoke.log" | tr '\n' '|')"
 grep -q 'atalho global registrado: true' "$W/smoke.log" && ok "2b atalho global registrado (JNativeHook/XRecord)" || bad "2b atalho global" "$(grep 'atalho' "$W/smoke.log" | head -2 | tr '\n' '|')"
 
-sec "2c. Colagem via Robot numa janela Swing (X11)"
+sec "2c. Colagem via Robot numa janela Swing (X11), 3 tentativas"
 env_item paste
-rm -f "$W/colado-x11.txt"
-"$JAVA" -cp "$CP" br.arara.core.PasteTarget "$W/colado-x11.txt" 25 >"$W/target.log" 2>&1 &
-TG=$!
-sleep 6; WID=$(timeout 20 xdotool search --onlyvisible --name PasteTarget | head -1); echo "janela PasteTarget: [$WID]"; xdotool windowactivate --sync "$WID" 2>&1 || xdotool windowfocus "$WID" 2>&1; sleep 1; echo "foco: $(xdotool getwindowfocus getwindowname 2>&1)"
-timeout 60 "$APP" --diagnostico-colar >"$W/diag-x11.log" 2>&1; cat "$W/diag-x11.log"
-wait "$TG"; echo "colado: [$(cat "$W/colado-x11.txt" 2>/dev/null)]"; echo "--- log do alvo:"; cat "$W/target.log"
-[ "$(cat "$W/colado-x11.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] && ok "2c texto colado no X11 conferido" || bad "2c colagem X11" "recebido=[$(cat "$W/colado-x11.txt" 2>/dev/null)] alvo: $(head -c 600 "$W/target.log" | tr '\n' '|')"
+GOOD=0
+for n in 1 2 3; do
+  rm -f "$W/colado-x11.txt"
+  "$JAVA" -cp "$CP" br.arara.core.PasteTarget "$W/colado-x11.txt" 14 >"$W/target$n.log" 2>&1 & TG=$!
+  sleep 5; WID=$(timeout 20 xdotool search --onlyvisible --name PasteTarget | head -1)
+  xdotool windowactivate --sync "$WID" >/dev/null 2>&1 || xdotool windowfocus "$WID" 2>&1; sleep 1
+  timeout 60 "$APP" --diagnostico-colar >"$W/diag-x11-$n.log" 2>&1
+  wait "$TG"; echo "tentativa $n: colado=[$(cat "$W/colado-x11.txt" 2>/dev/null)] alvo: $(tr '\n' '|' < "$W/target$n.log")"
+  [ "$(cat "$W/colado-x11.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] && GOOD=$((GOOD+1))
+done
+[ "$GOOD" = 3 ] && ok "2c colagem X11 (Robot) conferida: 3/3" || bad "2c colagem X11 (Robot)" "$GOOD/3 colaram (o app destino recebeu Ctrl+V nas 3, ver log)"
 
 # ---------------------------------------------------------------- 4. --alternar
 sec "4. --alternar: segunda instância alterna a primeira"
@@ -112,7 +116,8 @@ if [ -z "$SOCK" ]; then bad "3 sway headless" "não subiu: $(tail -5 "$W/sway.lo
 else
   export WAYLAND_DISPLAY=$SOCK XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=sway
   export SWAYSOCK=$(ls "$XDG_RUNTIME_DIR"/sway-ipc.*.sock 2>/dev/null | head -1)
-  wtype -k shift 2>/dev/null; sleep 1 # cria o teclado virtual no seat antes de abrir o cliente
+  wtype -P F24 -s 120000 -p F24 >/dev/null 2>&1 & # teclado virtual que fica vivo: sem ele o seat headless não tem teclado e o foco some
+  sleep 2
   XD=$(cat "$W/sway-display" 2>/dev/null); [ -n "$XD" ] && export DISPLAY=$XD
   echo "sway: $SOCK  DISPLAY(XWayland)=${XD:-<nenhum>}"
   env_item wl
