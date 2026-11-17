@@ -17,7 +17,7 @@ O atalho global Ctrl+Shift+Space e o colar automático funcionam direto.
 ## Wayland
 
 O Wayland não deixa apps comuns capturar atalhos globais. Crie um atalho do sistema que rode
-`<caminho do AppImage> --alternar` (ele só avisa o Arara aberto para iniciar/parar o ditado).
+`<caminho do AppImage> --alternar` (ele só avisa o Arara aberto para iniciar/parar o ditado). O modo "Segurar para falar" não funciona no Wayland: o atalho do sistema não envia o evento de soltar, então `--alternar` sempre liga e desliga.
 
 **GNOME**
 1. Configurações > Teclado > Atalhos personalizados > "+".

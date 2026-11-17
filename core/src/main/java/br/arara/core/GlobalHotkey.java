@@ -19,8 +19,9 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     private String parsedFrom;
     private Hotkey hotkey;
     private boolean keyDown;
+    private boolean mouseDown;
 
-    private GlobalHotkey(DictationEngine engine, SettingsStore settings) {
+    GlobalHotkey(DictationEngine engine, SettingsStore settings) {
         this.engine = engine;
         this.settings = settings;
     }
@@ -71,18 +72,46 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
         if (h == null || e.getKeyCode() != h.keyCode() || !h.modifiersMatch(e.getModifiers())) return;
         if (keyDown) return; // repetição automática de tecla segurada
         keyDown = true;
-        engine.toggle();
+        if (settings.load().holdToTalk()) engine.press();
+        else engine.toggle();
+    }
+
+    /** Tecla do combo (principal ou modificador) solta: no modo segurar, encerra o ditado. */
+    private void released(int keyCode, Hotkey h) {
+        int mod = switch (keyCode) {
+            case NativeKeyEvent.VC_CONTROL -> NativeKeyEvent.CTRL_MASK;
+            case NativeKeyEvent.VC_SHIFT -> NativeKeyEvent.SHIFT_MASK;
+            case NativeKeyEvent.VC_ALT -> NativeKeyEvent.ALT_MASK;
+            case NativeKeyEvent.VC_META -> NativeKeyEvent.META_MASK;
+            default -> 0;
+        };
+        if (!keyDown || (keyCode != h.keyCode() && (mod & h.modifiers()) == 0)) return;
+        keyDown = false;
+        if (settings.load().holdToTalk()) engine.release();
     }
 
     @Override
     public void nativeKeyReleased(NativeKeyEvent e) {
         Hotkey h = hotkey();
-        if (h != null && e.getKeyCode() == h.keyCode()) keyDown = false;
+        if (h != null) released(e.getKeyCode(), h);
     }
 
     @Override
     public void nativeMousePressed(NativeMouseEvent e) {
         Hotkey h = hotkey();
-        if (h != null && h.mouseButton() == e.getButton() && h.modifiersMatch(e.getModifiers())) engine.toggle();
+        if (h == null || h.mouseButton() != e.getButton() || !h.modifiersMatch(e.getModifiers())) return;
+        if (settings.load().holdToTalk()) {
+            mouseDown = true;
+            engine.press();
+        } else engine.toggle();
+    }
+
+    @Override
+    public void nativeMouseReleased(NativeMouseEvent e) {
+        Hotkey h = hotkey();
+        if (mouseDown && h != null && h.mouseButton() == e.getButton()) {
+            mouseDown = false;
+            engine.release();
+        }
     }
 }

@@ -32,6 +32,8 @@ final class DefaultDictationEngine implements DictationEngine {
         void paste(String text) throws Exception;
     }
 
+    static final int TAP = Vad.RATE / 4; // 250 ms: toque mais curto que isto no modo segurar cancela
+    private boolean holding; // modo segurar para falar, com o lock do engine
     private static final int EDGE = Vad.RATE; // 1 s
     static final int PAUSE = Vad.RATE * 6 / 10; // 0,6 s de silêncio: fim de frase (entre palavras fica bem abaixo)
     static final int MIN_PART = Vad.RATE * 4; // trecho curto demais perde contexto e quase não adianta
@@ -127,8 +129,23 @@ final class DefaultDictationEngine implements DictationEngine {
     }
 
     @Override
+    public synchronized void press() {
+        if (recording() || state == DictationState.TRANSCRIBING) return;
+        start();
+        holding = recording();
+    }
+
+    @Override
+    public synchronized void release() {
+        if (!holding || !recording()) return;
+        if (size < TAP) cancel(); // toque curto: ninguém falou
+        else finish();
+    }
+
+    @Override
     public synchronized void cancel() {
         if (!recording()) return;
+        holding = false;
         mic.stop();
         audio = null;
         take.cancelled = true; // trechos na fila são descartados; o que está no Whisper termina e é ignorado
@@ -162,6 +179,7 @@ final class DefaultDictationEngine implements DictationEngine {
     }
 
     private void start() {
+        holding = false;
         vad = new Vad();
         audio = new short[Vad.RATE * 10];
         size = 0;
@@ -213,11 +231,14 @@ final class DefaultDictationEngine implements DictationEngine {
         switch (r) {
             case LISTENING -> setState(DictationState.LISTENING);
             case SILENCE -> setState(DictationState.SILENCE);
-            case TIMEOUT -> finish(); // 5 min sem fala: transcreve, salva e cola o que já foi dito
+            case TIMEOUT -> {
+                if (!holding) finish(); // segurando, só soltar encerra
+            } // 5 min sem fala: transcreve, salva e cola o que já foi dito
         }
     }
 
     private void finish() {
+        holding = false;
         mic.stop();
         // Whisper inventa frases em áudio sem fala ("A gente pode precisar."): nem chega a transcrever.
         if (!vad.heardSpeech()) {

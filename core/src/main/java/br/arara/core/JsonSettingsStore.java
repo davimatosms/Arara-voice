@@ -43,7 +43,8 @@ final class JsonSettingsStore implements SettingsStore {
                 // ausentes (config de antes dos temas) = canindé, escuro, ícone fixo
                 enumOr(Settings.Macaw.class, m.get("macaw"), d.macaw()),
                 m.get("lightMode") instanceof Boolean b ? b : d.lightMode(),
-                m.get("macawIcon") instanceof Boolean b ? b : d.macawIcon());
+                m.get("macawIcon") instanceof Boolean b ? b : d.macawIcon(),
+                m.get("holdToTalk") instanceof Boolean b ? b : d.holdToTalk()); // ausente = apertar para ligar/desligar
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -68,7 +69,8 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"skippedVersion\": " + Json.quote(s.skippedVersion()) + ",\n"
                 + "  \"macaw\": " + Json.quote(s.macaw().name()) + ",\n"
                 + "  \"lightMode\": " + s.lightMode() + ",\n"
-                + "  \"macawIcon\": " + s.macawIcon() + "\n"
+                + "  \"macawIcon\": " + s.macawIcon() + ",\n"
+                + "  \"holdToTalk\": " + s.holdToTalk() + "\n"
                 + "}\n");
         cached = s;
     }

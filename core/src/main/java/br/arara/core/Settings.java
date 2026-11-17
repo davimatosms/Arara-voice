@@ -13,6 +13,7 @@ package br.arara.core;
  * @param macaw       arara do tema (Configurações › Aparência); só muda o visual
  * @param lightMode   modo claro em vez do escuro (padrão)
  * @param macawIcon   "Usar o ícone da arara escolhida" na bandeja, janela e Dock enquanto o app está aberto
+ * @param holdToTalk  "Segurar para falar": ouve enquanto o atalho está apertado (padrão: aperta para ligar e desligar)
  */
 public record Settings(
         String hotkey,
@@ -26,7 +27,8 @@ public record Settings(
         String skippedVersion,
         Macaw macaw,
         boolean lightMode,
-        boolean macawIcon) {
+        boolean macawIcon,
+        boolean holdToTalk) {
 
     public enum Model { LEVE, EQUILIBRADO, PRECISO }
 
@@ -39,54 +41,58 @@ public record Settings(
         // Igual no macOS: lá não é atalho do sistema (Spotlight é Cmd+Space, fonte de entrada é Ctrl+Space e
         // Ctrl+Option+Space, e o Cmd+Shift+Space virou a Inteligência Visual no macOS 27) e Ctrl não digita caractere.
         return new Settings("Ctrl+Shift+Space", Model.PRECISO, Accel.CPU, null, true, true, true, true, null,
-                Macaw.CANINDE, false, false);
+                Macaw.CANINDE, false, false, false);
     }
 
     public Settings withHotkey(String v) {
-        return new Settings(v, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(v, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withModel(Model v) {
-        return new Settings(hotkey, v, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, v, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withAccel(Accel v) {
-        return new Settings(hotkey, model, v, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, v, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withMicrophone(String v) {
-        return new Settings(hotkey, model, accel, v, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, v, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withStartWithWindows(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, v, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, v, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withShowPopup(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, v, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, v, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withEscCancels(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, v, checkUpdates, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, v, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withCheckUpdates(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, v, skippedVersion, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, v, skippedVersion, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withSkippedVersion(String v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, v, macaw, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, v, macaw, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withMacaw(Macaw v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, v, lightMode, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, v, lightMode, macawIcon, holdToTalk);
     }
 
     public Settings withLightMode(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, v, macawIcon);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, v, macawIcon, holdToTalk);
     }
 
     public Settings withMacawIcon(boolean v) {
-        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, v);
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, v, holdToTalk);
+    }
+
+    public Settings withHoldToTalk(boolean v) {
+        return new Settings(hotkey, model, accel, microphone, startWithWindows, showPopup, escCancels, checkUpdates, skippedVersion, macaw, lightMode, macawIcon, v);
     }
 }

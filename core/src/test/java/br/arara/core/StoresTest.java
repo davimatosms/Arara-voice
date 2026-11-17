@@ -88,7 +88,7 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true);
+                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 

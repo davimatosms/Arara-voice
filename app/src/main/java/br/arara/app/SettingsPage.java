@@ -90,11 +90,14 @@ final class SettingsPage extends MainView.Page {
         JButton record = Ui.button("Gravar", null, Ui.Kind.OUTLINE);
         record.getAccessibleContext().setAccessibleName("Gravar novo atalho");
         record.addActionListener(e -> recordHotkey(record));
-        content.add(section("Atalho", "Modo liga e desliga: aperte para começar e de novo para terminar.",
+        content.add(section("Atalho", "Aperte para começar e de novo para terminar, ou segure para falar e solte para terminar.",
                 row("Atalho para ditar", Ui.MAC
                         ? "Teclas ou um botão do mouse. Evite Option sem Cmd ou Ctrl (digita símbolos)."
                         : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
+                row("Modo do atalho", "Segurar não funciona no Wayland.",
+                        Ui.segmented(new String[] {"Apertar para ligar e desligar", "Segurar para falar"},
+                                s.holdToTalk() ? 1 : 0, "Modo do atalho", i -> update(x -> x.withHoldToTalk(i == 1)))),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> x.withEscCancels(on))))));
 
