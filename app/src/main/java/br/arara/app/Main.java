@@ -52,6 +52,9 @@ public final class Main {
             try {
                 instance = SingleInstance.acquire(dir);
                 if (instance == null) {
+                    if (List.of(args).contains("--alternar")) { // atalho do sistema (Wayland): só avisa e sai
+                        System.exit(SingleInstance.notifyFirst(dir, SingleInstance.TOGGLE) ? 0 : 1);
+                    }
                     alreadyOpen(SingleInstance.notifyFirst(dir));
                     return;
                 }
@@ -142,6 +145,7 @@ public final class Main {
                 frame.setSize(1100, 720);
             }
             frame.setLocationRelativeTo(null);
+            if (instance != null) instance.onToggle = engine::toggle;
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);

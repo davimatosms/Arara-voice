@@ -27,8 +27,14 @@ final class Startup {
     private final String name;
     private final Optional<String> command;
     private final boolean mac;
+    private final boolean linux;
 
     Startup(Registry registry, String name, Optional<String> command, boolean mac) {
+        this(registry, name, command, mac, false);
+    }
+
+    Startup(Registry registry, String name, Optional<String> command, boolean mac, boolean linux) {
+        this.linux = linux;
         this.registry = registry;
         this.name = name;
         this.command = command;
@@ -37,6 +43,12 @@ final class Startup {
 
     static Startup system() {
         Optional<String> command = ProcessHandle.current().info().command();
+        // shortcut: os.name local, trocar por AraraCore.LINUX quando existir
+        if (System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+            String xdg = System.getenv("XDG_CONFIG_HOME");
+            Path base = xdg != null && !xdg.isBlank() ? Path.of(xdg) : Path.of(System.getProperty("user.home"), ".config");
+            return new Startup(new Autostart(base.resolve("autostart")), "arara", Optional.ofNullable(linuxLauncher(command)), false, true);
+        }
         if (AraraCore.MAC) {
             Path agents = Path.of(System.getProperty("user.home"), "Library", "LaunchAgents");
             return new Startup(new LaunchAgents(agents), LaunchAgents.LABEL, command, true);
@@ -44,8 +56,20 @@ final class Startup {
         return new Startup(new RegExe(), "Arara", command, false);
     }
 
+    /** AppImage (env APPIMAGE) ou .../bin/Arara do app empacotado; null se for outra coisa. */
+    private static String linuxLauncher(Optional<String> command) {
+        String appImage = System.getenv("APPIMAGE");
+        if (appImage != null && !appImage.isBlank()) return appImage;
+        return command.filter(c -> packaged(c, false, true)).orElse(null);
+    }
+
     /** O processo é o app empacotado? Arara.exe no Windows, .../Arara.app/Contents/MacOS/Arara no macOS. */
     static boolean packaged(String exe, boolean mac) {
+        return packaged(exe, mac, false);
+    }
+
+    static boolean packaged(String exe, boolean mac, boolean linux) {
+        if (linux) return exe.endsWith("/bin/Arara");
         if (mac) return exe.endsWith(".app/Contents/MacOS/Arara");
         // nome do arquivo à mão, sem Path: os testes rodam caminhos do Windows também no macOS
         return exe.substring(Math.max(exe.lastIndexOf('\\'), exe.lastIndexOf('/')) + 1).equalsIgnoreCase("Arara.exe");
@@ -54,12 +78,13 @@ final class Startup {
     /** Liga ou desliga; ligado, regrava o caminho atual (corrige se o app mudou de pasta). */
     void sync(boolean on) {
         String exe = command.orElse("");
-        if (!packaged(exe, mac)) {
+        // no Linux o launcher já veio validado (APPIMAGE ou bin/Arara)
+        if (linux ? exe.isEmpty() : !packaged(exe, mac)) {
             LOG.info("Abrir com o sistema (" + on + ") ignorado fora do app instalado: " + exe);
             return;
         }
         try {
-            if (on) registry.set(name, mac ? exe : "\"" + exe + "\"");
+            if (on) registry.set(name, mac || linux ? exe : "\"" + exe + "\"");
             else registry.delete(name);
         } catch (IOException e) {
             LOG.warning("Não consegui atualizar o abrir com o sistema: " + e.getMessage());
@@ -143,6 +168,31 @@ final class Startup {
 
         private static String xml(String s) {
             return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        }
+    }
+
+    /** $XDG_CONFIG_HOME/autostart/<name>.desktop. */
+    static final class Autostart implements Registry {
+        private final Path dir;
+
+        Autostart(Path dir) {
+            this.dir = dir;
+        }
+
+        Path file(String name) {
+            return dir.resolve(name + ".desktop");
+        }
+
+        public void set(String name, String exe) throws IOException {
+            Files.createDirectories(dir);
+            // shortcut: só aspas para espaços; caminho com aspas ou barra invertida não é escapado
+            String quoted = exe.contains(" ") ? "\"" + exe + "\"" : exe;
+            Files.writeString(file(name), "[Desktop Entry]\nType=Application\nName=Arara\nExec=" + quoted
+                    + "\nX-GNOME-Autostart-enabled=true\n", StandardCharsets.UTF_8);
+        }
+
+        public void delete(String name) throws IOException {
+            Files.deleteIfExists(file(name));
         }
     }
 }

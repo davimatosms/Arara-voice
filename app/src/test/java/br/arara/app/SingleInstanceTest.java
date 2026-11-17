@@ -36,6 +36,19 @@ class SingleInstanceTest {
     }
 
     @Test
+    void alternarChegaNaPrimeira(@TempDir Path dir) throws Exception {
+        try (SingleInstance first = SingleInstance.acquire(dir)) {
+            CountDownLatch toggled = new CountDownLatch(1);
+            CountDownLatch shown = new CountDownLatch(1);
+            first.onToggle = toggled::countDown;
+            first.onShow = shown::countDown;
+            assertTrue(SingleInstance.notifyFirst(dir, SingleInstance.TOGGLE));
+            assertTrue(toggled.await(5, TimeUnit.SECONDS));
+            assertEquals(1, shown.getCount()); // alternar não mostra a janela
+        }
+    }
+
+    @Test
     void avisoSemNinguemOuvindoFalha(@TempDir Path dir) {
         assertFalse(SingleInstance.notifyFirst(dir));
     }
