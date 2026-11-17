@@ -60,9 +60,10 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     static GlobalHotkey register(DictationEngine engine, SettingsStore settings) throws NativeHookException {
-        // macOS: o padrão extrai a .dylib ao lado do jar, dentro do Arara.app (somente leitura no .dmg e quebraria a
-        // assinatura). Vai para a pasta temporária do usuário. Antes de qualquer uso do GlobalScreen.
-        if (AraraCore.MAC && System.getProperty("jnativehook.lib.path") == null)
+        // O padrão extrai a lib nativa ao lado do jar: no macOS fica dentro do Arara.app (somente leitura no .dmg e
+        // quebraria a assinatura); no Linux fica dentro do AppImage montado (squashfs, somente leitura). Vai para a
+        // pasta temporária do usuário. Antes de qualquer uso do GlobalScreen.
+        if ((AraraCore.MAC || AraraCore.LINUX) && System.getProperty("jnativehook.lib.path") == null)
             System.setProperty("jnativehook.lib.path", System.getProperty("java.io.tmpdir"));
         HOOK_LOG.setLevel(Level.OFF);
         HOOK_LOG.setUseParentHandlers(false);
