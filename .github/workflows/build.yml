@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -15,3 +15,10 @@ jobs:
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew build --no-daemon
+      - name: Fumaça no Linux (Whisper .so + JNativeHook em X11/Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libasound2-dev
+          xvfb-run -a ./gradlew :core:smoke --no-daemon --args="$RUNNER_TEMP/smoke" | tee "$RUNNER_TEMP/smoke.txt"
+          grep -q 'SMOKE OK' "$RUNNER_TEMP/smoke.txt"
+          { echo '```'; grep -E '^(os=|whisper|atalho|SMOKE)' "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

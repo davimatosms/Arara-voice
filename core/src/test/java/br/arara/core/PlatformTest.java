@@ -1,6 +1,8 @@
 package br.arara.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
@@ -20,5 +22,13 @@ class PlatformTest {
     void pasteWithCmdOnMac() {
         assertEquals(KeyEvent.VK_META, ClipboardPaster.pasteModifier(true));
         assertEquals(KeyEvent.VK_CONTROL, ClipboardPaster.pasteModifier(false));
+    }
+
+    @Test
+    void waylandDetection() {
+        assertTrue(AraraCore.wayland(true, k -> k.equals("XDG_SESSION_TYPE") ? "wayland" : null));
+        assertTrue(AraraCore.wayland(true, k -> k.equals("WAYLAND_DISPLAY") ? "wayland-0" : null));
+        assertFalse(AraraCore.wayland(true, k -> k.equals("XDG_SESSION_TYPE") ? "x11" : null));
+        assertFalse(AraraCore.wayland(false, k -> "wayland"));
     }
 }

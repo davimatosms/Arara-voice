@@ -14,6 +14,17 @@ import javax.sound.sampled.LineUnavailableException;
 public final class AraraCore implements AutoCloseable {
     /** Rodando no macOS (o resto do código assume Windows). */
     public static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
+    /** Rodando no Linux. */
+    public static final boolean LINUX = System.getProperty("os.name", "").startsWith("Linux");
+
+    /** Sessão Wayland (o atalho global e o colar por teclas não funcionam lá); o ambiente vem por parâmetro para testar. */
+    static boolean wayland(boolean linux, Function<String, String> env) {
+        return linux && ("wayland".equals(env.apply("XDG_SESSION_TYPE")) || env.apply("WAYLAND_DISPLAY") != null);
+    }
+
+    public static boolean wayland() {
+        return wayland(LINUX, System::getenv);
+    }
 
     private final HistoryStore history;
     private final DictionaryStore dictionary;
