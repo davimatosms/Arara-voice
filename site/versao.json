@@ -1,19 +1,19 @@
 {
-  "versao": "0.4.0",
-  "data": "2026-11-15",
-  "notas": "Temas com 5 araras brasileiras: canindé, arara-azul, vermelha, azul-de-lear e maracanã\nModo escuro e claro para todas, trocando na hora\nÍcone da sua arara na bandeja e no Dock (opcional)",
+  "versao": "0.4.2",
+  "data": "2026-11-17",
+  "notas": "Atalho de uma tecla só, segurar para falar, som ao ditar e correções para Mac M1 e Windows.",
   "arquivos": {
     "windows": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.0/Arara-Setup-0.4.0.exe",
-      "sha256": "62c063ffd54e8089506e9fd0aaaf0282ea8b382b7013ab9d26bcb25655d9e18f"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-Setup-0.4.2.exe",
+      "sha256": "1a67dbf09132f47241294bdbefd39638405b7f2cae49319e8e6faf02801101cb"
     },
     "mac-arm64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.0/Arara-0.4.0-Mac-AppleSilicon.dmg",
-      "sha256": "bb4760fcba5b829a0190f1fada06eef2194262437835c6b53846c32b6de75875"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-0.4.2-Mac-AppleSilicon.dmg",
+      "sha256": "65a64cac65168146010903fa831bb6e02f157f06eddf7b7cbda53a9b597a6d14"
     },
     "mac-x64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.0/Arara-0.4.0-Mac-Intel.dmg",
-      "sha256": "577d08f9eaa214621b20944b601c95e1e93548867d5d37b3aacb508410697ed3"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.2/Arara-0.4.2-Mac-Intel.dmg",
+      "sha256": "8f6087e729cd9a5c7d1805471915d29ade14b0f6646630222ff04c7fd955204e"
     }
   }
 }
