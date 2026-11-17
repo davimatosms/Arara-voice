@@ -148,7 +148,7 @@ tasks.register('appimage', Exec) {
     def saida = rootProject.layout.buildDirectory.file('linux/Arara-x86_64.AppImage').get().asFile
     def appDir = layout.buildDirectory.dir('AppDir').get().asFile
     outputs.file(saida)
-    environment 'APPIMAGE_EXTRACT_AND_RUN', '1', 'ARCH', 'x86_64' // sem FUSE no CI
+    environment 'APPIMAGE_EXTRACT_AND_RUN', '1'; environment 'ARCH', 'x86_64' // sem FUSE no CI
     doFirst { if (!tool) throw new GradleException('Passe -PappimagetoolPath=<appimagetool-x86_64.AppImage>') }
     commandLine 'sh', '-eu', '-c', '''
         rm -rf "$2"; mkdir -p "$2" "$(dirname "$4")"
