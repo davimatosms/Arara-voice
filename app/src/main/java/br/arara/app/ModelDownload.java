@@ -32,6 +32,8 @@ final class ModelDownload {
     private final Rate rate = new Rate();
     Phase phase = Phase.LOADING;
     long done, total = -1;
+    /** Causa do último erro de carregamento (FAILED), para mostrar e registrar. */
+    String error = "";
     /** Bytes por segundo, média dos últimos 5 s. */
     double speed;
     private boolean running, again;
@@ -66,6 +68,8 @@ final class ModelDownload {
                 end = Phase.PAUSED;
             } catch (RuntimeException | LinkageError e) {
                 end = Phase.FAILED;
+                error = String.valueOf(e.getMessage());
+                java.util.logging.Logger.getLogger(ModelDownload.class.getName()).log(java.util.logging.Level.WARNING, "modelo não carregou", e);
             }
             Phase result = end;
             SwingUtilities.invokeLater(() -> finished(result));

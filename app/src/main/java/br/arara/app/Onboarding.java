@@ -411,7 +411,7 @@ final class Onboarding extends JPanel implements DictationListener {
         lightCard.setVisible(!paused && !ready && s.model() == Settings.Model.PRECISO);
         netError.setVisible(paused);
         if (ph == ModelDownload.Phase.FAILED) {
-            netError.set("Não consegui carregar o modelo", "Tente de novo. Se continuar, use o modelo leve, em Configurações.");
+            netError.set("Não consegui carregar o modelo", "Tente de novo. Se continuar, use o modelo leve, em Configurações. Detalhe: " + download.error);
         } else {
             netError.set("Sem conexão com a internet",
                     "O download parou, mas nada se perdeu. Assim que a internet voltar, ele continua de onde parou.");

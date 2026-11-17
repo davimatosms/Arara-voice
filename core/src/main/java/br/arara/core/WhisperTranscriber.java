@@ -171,6 +171,11 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             cp.useGPU = useGpu();
             if (cp.useGPU && !gpuProved) mark(true);
             WhisperContext next = whisper.init(file, cp);
+            // O whisper-jni devolve null (sem exceção) quando o whisper.cpp não consegue carregar: falta de memória, arquivo ruim.
+            if (next == null) {
+                throw new IllegalStateException("o whisper.cpp não carregou " + file.getFileName() + " (" + Files.size(file)
+                        + " bytes; memória livre da máquina pode ser pouca)");
+            }
             if (context != null) context.close();
             context = next;
             loaded = m;

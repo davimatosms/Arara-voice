@@ -17,14 +17,16 @@ import java.time.LocalTime;
 /** Início: cartão "Pronto para ditar" e o resumo da configuração. */
 final class HomePage extends MainView.Page {
     private final SettingsStore settings;
+    private final JLabel modelState; // o selo da barra lateral: a verdade sobre o modelo (baixando, erro, pronto)
     private final JPanel keys = Ui.row(0);
     // O atalho também chega ao app em foco (o JNativeHook não engole teclas): com Espaço, alguns apps digitam um espaço.
     private final JLabel spaceHint = Ui.label("Se este atalho digitar um espaço em algum app, troque por outro.",
             Theme.regular(13), Theme.SUPPORT);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
 
-    HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings) {
+    HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings, JLabel modelState) {
         this.settings = settings;
+        this.modelState = modelState;
 
         Ui.Round box = new Ui.Round(new BorderLayout(), Theme.BG, null, 22);
         box.setPreferredSize(new Dimension(220, 210));
@@ -75,7 +77,8 @@ final class HomePage extends MainView.Page {
         spaceHint.setVisible(s.hotkey().endsWith("+Space"));
         boolean cpu = Ui.MAC ? !br.arara.core.AraraCore.gpuOn(s) : s.accel() != Settings.Accel.VULKAN;
         grid.removeAll();
-        grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local", "Pronto", Theme.READY));
+        grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local",
+                modelState.getText(), modelState.getForeground()));
         grid.add(status("mic", "Microfone",
                 s.microphone() == null ? "Microfone padrão do sistema" : s.microphone(), "Pronto", Theme.READY));
         grid.add(status("settings-2", "Aceleração", cpu ? "CPU agora · Vulkan é opcional" : "Vulkan · placa de vídeo",

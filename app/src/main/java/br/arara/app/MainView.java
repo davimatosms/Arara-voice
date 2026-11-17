@@ -63,7 +63,7 @@ final class MainView extends JPanel implements DictationListener {
         this.settings = settings;
         setBackground(Theme.BG);
         pages = new Page[] {
-                new HomePage(engine, settings, () -> show(3)),
+                new HomePage(engine, settings, () -> show(3), modelBadge),
                 new HistoryPage(history, this::refresh),
                 new DictionaryPage(dictionary, this::refresh),
                 new SettingsPage(settings, history, this::refresh)};
@@ -114,6 +114,7 @@ final class MainView extends JPanel implements DictationListener {
     /** Estado do modelo de voz no cartão da barra lateral ("Baixando 42%", "Pronto"...). */
     void modelStatus(String text, java.awt.Color color) {
         modelBadge.set(text, color, false);
+        refresh();
     }
 
     private JPanel sidebar() {
