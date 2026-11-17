@@ -75,8 +75,7 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"macaw\": " + Json.quote(s.macaw().name()) + ",\n"
                 + "  \"lightMode\": " + s.lightMode() + ",\n"
                 + "  \"macawIcon\": " + s.macawIcon() + ",\n"
-                + "  \"holdToTalk\": " + s.holdToTalk() + ",
-"
+                + "  \"holdToTalk\": " + s.holdToTalk() + ",\n"
                 + "  \"soundOn\": " + s.soundOn() + ",\n"
                 + "  \"sound\": " + Json.quote(s.sound().name()) + ",\n"
                 + "  \"soundVolume\": " + s.soundVolume() + ",\n"
