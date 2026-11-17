@@ -120,9 +120,10 @@ public final class Main {
             JFrame frame = new JFrame("Arara");
             frame.setIconImages(Arara.windowIcons(look.macaw(), look.macawIcon()));
             frame.setMinimumSize(new java.awt.Dimension(960, 640));
+            Onboarding[] onb = new Onboarding[1];
             if (firstRun) {
                 DictationListener[] listener = new DictationListener[1];
-                Onboarding onboarding = new Onboarding(engine, settings, download, AraraCore::listen,
+                Onboarding onboarding = onb[0] = new Onboarding(engine, settings, download, AraraCore::listen,
                         core != null ? core::retryHotkey : () -> true, () -> {
                     engine.removeListener(listener[0]);
                     frame.setContentPane(view);
@@ -145,7 +146,10 @@ public final class Main {
                 frame.setSize(1100, 720);
             }
             frame.setLocationRelativeTo(null);
-            if (instance != null) instance.onToggle = engine::toggle;
+            if (instance != null) instance.onToggle = () -> {
+                Onboarding o = onb[0];
+                if (o == null || !o.toggleProbe()) engine.toggle(); // o teste do passo do atalho no Linux não grava
+            };
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);

@@ -57,6 +57,11 @@ final class LinuxPaste {
         return null;
     }
 
+    /** Só pede a permissão do portal (onboarding); o Ctrl+V que vem junto é inofensivo. */
+    static boolean grant(Env env) {
+        return env.has("python3") && portal(env);
+    }
+
     private static boolean portal(Env env) {
         String token = env.token();
         for (int tries = 0; tries < 2; tries++) {

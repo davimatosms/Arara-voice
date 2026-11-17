@@ -22,6 +22,20 @@ public final class AraraCore implements AutoCloseable {
         return linux && ("wayland".equals(env.apply("XDG_SESSION_TYPE")) || env.apply("WAYLAND_DISPLAY") != null);
     }
 
+    /** Dispara o pedido de permissão do portal (GNOME Wayland); bloqueia até a resposta. true = permitido. */
+    public static boolean requestPastePermission() {
+        return LinuxPaste.grant(new LinuxPaste.SystemEnv());
+    }
+
+    /** Apaga a permissão guardada (portal-token) para o pedido aparecer de novo. */
+    public static void resetPastePermission() {
+        try {
+            java.nio.file.Files.deleteIfExists(defaultDataDir().resolve("portal-token"));
+        } catch (java.io.IOException ignored) {
+            // token antigo continua valendo; o usuário tenta de novo
+        }
+    }
+
     public static boolean wayland() {
         return wayland(LINUX, System::getenv);
     }

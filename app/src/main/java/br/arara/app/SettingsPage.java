@@ -113,6 +113,8 @@ final class SettingsPage extends MainView.Page {
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
                                 i -> update(x -> x.withAccel(accels[i]))))));
 
+        if (AraraCore.LINUX) content.add(linuxCard(Onboarding.Linux.detect()));
+
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
         JButton clear = Ui.button("Apagar tudo", "trash-2", Ui.Kind.OUTLINE);
@@ -123,6 +125,34 @@ final class SettingsPage extends MainView.Page {
                 row("Pasta do histórico",
                         Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
+    }
+
+    /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
+    static JPanel linuxCard(Onboarding.Linux l) {
+        boolean wayland = l.wayland();
+        String cmd = Onboarding.Linux.command();
+        String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
+        JButton copy = Ui.button("Copiar comando", null, Ui.Kind.OUTLINE);
+        Timer back = new Timer(2000, e -> copy.setText("Copiar comando"));
+        back.setRepeats(false);
+        copy.addActionListener(e -> {
+            Onboarding.copy(cmd);
+            copy.setText("Copiado");
+            back.restart();
+        });
+        JButton redo = Ui.button("Refazer permissão", null, Ui.Kind.OUTLINE);
+        redo.addActionListener(e -> {
+            AraraCore.resetPastePermission();
+            redo.setText("Pedido na próxima colagem");
+            redo.setEnabled(false);
+        });
+        JLabel none = Ui.label("", Theme.regular(12), Theme.TEXT_SOFT);
+        JComponent atalho = row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
+        JComponent colagem = row("Colagem", !wayland ? "Ctrl+V simulado"
+                : l.gnome() ? "Cola automática: portal do GNOME" : "wtype ou ydotool; sem eles, cole com Ctrl+V",
+                wayland && l.gnome() ? redo : none);
+        return section("Linux", wayland ? "Wayland: o sistema cuida do atalho e da permissão de colar." : "X11: atalho e colagem funcionam direto.",
+                row("Sessão", session, none), atalho, colagem);
     }
 
     /** Aparência: as 5 araras e o modo; embaixo, a chave do ícone (desligada por padrão). Tudo aplica na hora. */
