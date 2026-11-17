@@ -18,7 +18,7 @@ jobs:
       - name: Fumaça no Linux (Whisper .so + JNativeHook em X11/Xvfb)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update && sudo apt-get install -y xvfb libasound2-dev
+          sudo apt-get update && sudo apt-get install -y xvfb libasound2-dev libxkbcommon-x11-0 libxkbcommon0 libx11-xcb1 libxtst6 libxt6 libxinerama1
           xvfb-run -a ./gradlew :core:smoke --no-daemon --args="$RUNNER_TEMP/smoke" | tee "$RUNNER_TEMP/smoke.txt"
-          grep -q 'SMOKE OK' "$RUNNER_TEMP/smoke.txt"
+          grep -q 'SMOKE OK' "$RUNNER_TEMP/smoke.txt" && grep -q 'atalho global registrado' "$RUNNER_TEMP/smoke.txt"
           { echo '```'; grep -E '^(os=|whisper|atalho|SMOKE)' "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
