@@ -41,4 +41,13 @@ class HotkeyTest {
         assertFalse(h.modifiersMatch(NativeInputEvent.CTRL_L_MASK));
         assertFalse(h.modifiersMatch(CTRL_SHIFT | NativeInputEvent.ALT_L_MASK));
     }
+
+    @Test
+    void parsesSingleKeysAndRightModifiers() {
+        assertEquals(NativeKeyEvent.VC_PAGE_DOWN, Hotkey.parse("PageDown").keyCode());
+        assertEquals(NativeKeyEvent.VC_SCROLL_LOCK, Hotkey.parse("ScrollLock").keyCode());
+        assertEquals(NativeKeyEvent.VC_F20, Hotkey.parse("F20").keyCode());
+        assertTrue(Hotkey.parse("RCtrl").modifierOnly());
+        assertEquals(NativeKeyEvent.VC_ALT, Hotkey.parse("RAlt").keyCode());
+    }
 }

@@ -202,4 +202,16 @@ class LogicTest {
         popup.show(DictationState.SILENCE);
         assertEquals("Silêncio", popup.badge.getText());
     }
+
+    @Test
+    void singleKeyRules() {
+        for (String ok : new String[] {"F1", "F24", "Pause", "Delete", "PageDown", "RCtrl", "RAlt", "ScrollLock"})
+            assertNull(SettingsPage.problem(ok, false), ok);
+        for (String bad : new String[] {"A", "5", "Space", "Enter", "Tab", "Esc", "Left", "Ctrl", "Alt", "Shift", "Win", "CapsLock"})
+            org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.problem(bad, false), bad);
+        assertNull(SettingsPage.soloWarning("Ctrl+Shift+Space"));
+        org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.soloWarning("F9"));
+        assertEquals("RShift", SettingsPage.soloModifier(KeyEvent.VK_SHIFT, KeyEvent.KEY_LOCATION_RIGHT));
+        assertEquals("F20", SettingsPage.hotkey(0, KeyEvent.VK_F20, false));
+    }
 }

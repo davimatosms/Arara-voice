@@ -163,6 +163,8 @@ final class Onboarding extends JPanel implements DictationListener {
     final Set<String> held = new HashSet<>();
     boolean hotkeyWorked;
     private Ui.Round spaceWarning;
+    private JLabel spaceText;
+    private static final String SPACE_TEXT = "Se este atalho digitar um espaço em algum app, troque por outro.";
     /** macOS sem Acessibilidade: o atalho global não registra e o colar não funciona. */
     private ErrorBox accessError;
     boolean noAccess;
@@ -421,7 +423,11 @@ final class Onboarding extends JPanel implements DictationListener {
         refreshMic();
 
         // passo 4
-        spaceWarning.setVisible(!noAccess && s.hotkey().endsWith("+Space"));
+        String solo = SettingsPage.soloWarning(s.hotkey());
+        fit(spaceText, "<html>" + (solo != null ? solo : SPACE_TEXT).replace(". ", ".<br>"));
+        spaceText.setSize(spaceText.getPreferredSize());
+        spaceText.setLocation(62, 36 - spaceText.getHeight() / 2);
+        spaceWarning.setVisible(!noAccess && (solo != null || s.hotkey().endsWith("+Space")));
         accessError.setVisible(noAccess);
         tryChip.setText(hotkeyWorked ? "Funcionou! Seu atalho está pronto" : "Experimente agora: aperte as teclas");
         tryChip.check = hotkeyWorked;
@@ -708,9 +714,9 @@ final class Onboarding extends JPanel implements DictationListener {
             hotkeyWorked = false;
             refresh();
         }));
-        spaceWarning = put(p, round(Theme.AMBER_BG, Theme.AMBER_BORDER, 16), MX, 450, MW, 60);
-        put(spaceWarning, bang(Theme.SUPPORT, 18), 16, 14, 32, 32);
-        label(spaceWarning, "Se este atalho digitar um espaço em algum app, troque por outro.", Theme.bold(15),
+        spaceWarning = put(p, round(Theme.AMBER_BG, Theme.AMBER_BORDER, 16), MX, 446, MW, 72);
+        put(spaceWarning, bang(Theme.SUPPORT, 18), 16, 20, 32, 32);
+        spaceText = label(spaceWarning, SPACE_TEXT, Theme.bold(14),
                 Theme.AMBER_TEXT, 62, 19);
 
         JButton again = pill("Testar de novo", Ui.Kind.OUTLINE, 14);

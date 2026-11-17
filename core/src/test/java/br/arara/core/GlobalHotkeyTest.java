@@ -51,4 +51,45 @@ class GlobalHotkeyTest {
         hk.nativeKeyReleased(key(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_SPACE, mods));
         assertEquals(List.of("press", "release", "toggle"), calls);
     }
+
+    NativeKeyEvent loc(int id, int code, int location) {
+        return new NativeKeyEvent(id, 0, 0, code, NativeKeyEvent.CHAR_UNDEFINED, location);
+    }
+
+    @Test
+    void singleKeyFires() {
+        settings = settings.withHotkey("F9").withHoldToTalk(false);
+        hk.nativeKeyPressed(key(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_F9, 0));
+        assertEquals(List.of("toggle"), calls);
+    }
+
+    @Test
+    void rightCtrlTogglesOnReleaseOnlyIfAlone() {
+        settings = settings.withHotkey("RCtrl").withHoldToTalk(false);
+        int R = NativeKeyEvent.KEY_LOCATION_RIGHT;
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        hk.nativeKeyPressed(key(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_C, 0));
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        assertEquals(List.of(), calls);
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        assertEquals(List.of("toggle"), calls);
+    }
+
+    @Test
+    void rightCtrlHoldCancelsWhenAnotherKeyComes() {
+        settings = settings.withHotkey("RCtrl");
+        int R = NativeKeyEvent.KEY_LOCATION_RIGHT;
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, R));
+        hk.nativeKeyPressed(key(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_C, 0));
+        hk.nativeKeyReleased(loc(NativeKeyEvent.NATIVE_KEY_RELEASED, NativeKeyEvent.VC_CONTROL, R));
+        assertEquals(List.of("press", "cancel"), calls);
+    }
+
+    @Test
+    void leftCtrlDoesNotTriggerRightCtrlHotkey() {
+        settings = settings.withHotkey("RCtrl");
+        hk.nativeKeyPressed(loc(NativeKeyEvent.NATIVE_KEY_PRESSED, NativeKeyEvent.VC_CONTROL, NativeKeyEvent.KEY_LOCATION_LEFT));
+        assertEquals(List.of(), calls);
+    }
 }

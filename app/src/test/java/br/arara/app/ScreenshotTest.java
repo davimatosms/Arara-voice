@@ -243,6 +243,22 @@ class ScreenshotTest {
 
     /** Passos do Linux Wayland/GNOME (design 19). */
     @Test
+    void desenhaAtalhoUmaTecla() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            DemoCore core = new DemoCore();
+            ModelDownload download = new ModelDownload(p -> {});
+            Onboarding o = new Onboarding(core.engine(), core.settings(), download, (name, chunks) -> () -> {}, () -> true, () -> {});
+            new File(DIR, "atalho-uma-tecla/").mkdirs();
+            core.settings().save(core.settings().load().withHotkey("PageDown"));
+            o.show(3);
+            save(o, Onboarding.WIDTH, Onboarding.HEIGHT, "atalho-uma-tecla/atalho-pagedown");
+        });
+    }
+
+    @Test
     void desenhaLinux() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
         DIR.mkdirs();

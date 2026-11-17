@@ -15,8 +15,13 @@ import java.util.Map;
  * @param keyCode     código VC_* do JNativeHook, ou VC_UNDEFINED se for botão do mouse
  * @param mouseButton 3 a 5, ou 0 se for tecla
  * @param modifiers   máscaras CTRL/SHIFT/ALT/META do JNativeHook
+ * @param right       true para Ctrl/Alt/Shift DIREITO sozinho ("RCtrl", "RAlt", "RShift"); keyCode é o VC_CONTROL/ALT/SHIFT
  */
-public record Hotkey(int keyCode, int mouseButton, int modifiers) {
+public record Hotkey(int keyCode, int mouseButton, int modifiers, boolean right) {
+    public Hotkey(int keyCode, int mouseButton, int modifiers) {
+        this(keyCode, mouseButton, modifiers, false);
+    }
+
     private static final int[] GROUPS = {
         NativeInputEvent.CTRL_MASK, NativeInputEvent.SHIFT_MASK, NativeInputEvent.ALT_MASK, NativeInputEvent.META_MASK
     };
@@ -36,11 +41,21 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers) {
         KEYS.remove("UNDEFINED");
         for (String mod : new String[] {"CONTROL", "SHIFT", "ALT", "META"}) KEYS.remove(mod);
         KEYS.put("ESC", NativeKeyEvent.VC_ESCAPE);
+        KEYS.put("SCROLLLOCK", NativeKeyEvent.VC_SCROLL_LOCK);
+        KEYS.put("PAGEUP", NativeKeyEvent.VC_PAGE_UP);
+        KEYS.put("PAGEDOWN", NativeKeyEvent.VC_PAGE_DOWN);
     }
 
     /** @throws IllegalArgumentException com mensagem em PT-BR se o texto não for um atalho válido */
     public static Hotkey parse(String text) {
         int key = NativeKeyEvent.VC_UNDEFINED, button = 0, mods = 0;
+        String solo = text.strip().toUpperCase(Locale.ROOT);
+        switch (solo) {
+            case "RCTRL" -> { return new Hotkey(NativeKeyEvent.VC_CONTROL, 0, 0, true); }
+            case "RALT" -> { return new Hotkey(NativeKeyEvent.VC_ALT, 0, 0, true); }
+            case "RSHIFT" -> { return new Hotkey(NativeKeyEvent.VC_SHIFT, 0, 0, true); }
+            default -> { }
+        }
         for (String part : text.split("\\+")) {
             String p = part.strip().toUpperCase(Locale.ROOT);
             switch (p) {
@@ -63,6 +78,11 @@ public record Hotkey(int keyCode, int mouseButton, int modifiers) {
             throw new IllegalArgumentException("O atalho precisa de uma tecla além de Ctrl, Shift, Alt, Win, Cmd ou Option.");
         }
         return new Hotkey(key, button, mods);
+    }
+
+    /** Ctrl/Alt/Shift direito sozinho: só vale ao soltar sem outra tecla no meio (ou cancela, no modo segurar). */
+    boolean modifierOnly() {
+        return right;
     }
 
     /** Modificadores pressionados iguais aos do atalho (nem a mais, nem a menos). */

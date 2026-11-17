@@ -20,6 +20,8 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     private Hotkey hotkey;
     private boolean keyDown;
     private boolean mouseDown;
+    private boolean modDown; // modificador direito sozinho está apertado
+    private boolean modDirty; // outra tecla entrou enquanto ele estava apertado (ex.: Ctrl direito + C)
 
     GlobalHotkey(DictationEngine engine, SettingsStore settings) {
         this.engine = engine;
@@ -69,11 +71,39 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
         // Não dá para engolir o Esc: o app em foco também o recebe.
         if (e.getKeyCode() == NativeKeyEvent.VC_ESCAPE && settings.load().escCancels()) engine.cancel();
         Hotkey h = hotkey();
+        if (h != null && h.modifierOnly()) {
+            modifierPressed(e, h);
+            return;
+        }
         if (h == null || e.getKeyCode() != h.keyCode() || !h.modifiersMatch(e.getModifiers())) return;
         if (keyDown) return; // repetição automática de tecla segurada
         keyDown = true;
         if (settings.load().holdToTalk()) engine.press();
         else engine.toggle();
+    }
+
+    private static boolean isRight(NativeKeyEvent e, Hotkey h) {
+        return e.getKeyCode() == h.keyCode() && e.getKeyLocation() == NativeKeyEvent.KEY_LOCATION_RIGHT;
+    }
+
+    private void modifierPressed(NativeKeyEvent e, Hotkey h) {
+        if (isRight(e, h)) {
+            if (modDown) return; // repetição automática
+            modDown = true;
+            modDirty = false;
+            if (settings.load().holdToTalk()) engine.press();
+        } else if (modDown && !modDirty) {
+            modDirty = true;
+            if (settings.load().holdToTalk()) engine.cancel(); // era um atalho de outra coisa: não cola nada
+        }
+    }
+
+    private void modifierReleased(NativeKeyEvent e, Hotkey h) {
+        if (!modDown || !isRight(e, h)) return;
+        modDown = false;
+        if (settings.load().holdToTalk()) {
+            if (!modDirty) engine.release();
+        } else if (!modDirty) engine.toggle();
     }
 
     /** Tecla do combo (principal ou modificador) solta: no modo segurar, encerra o ditado. */
@@ -93,7 +123,9 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     @Override
     public void nativeKeyReleased(NativeKeyEvent e) {
         Hotkey h = hotkey();
-        if (h != null) released(e.getKeyCode(), h);
+        if (h == null) return;
+        if (h.modifierOnly()) modifierReleased(e, h);
+        else released(e.getKeyCode(), h);
     }
 
     @Override

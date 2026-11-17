@@ -20,7 +20,8 @@ final class HomePage extends MainView.Page {
     private final JLabel modelState; // o selo da barra lateral: a verdade sobre o modelo (baixando, erro, pronto)
     private final JPanel keys = Ui.row(0);
     // O atalho também chega ao app em foco (o JNativeHook não engole teclas): com Espaço, alguns apps digitam um espaço.
-    private final JLabel spaceHint = Ui.label("Se este atalho digitar um espaço em algum app, troque por outro.",
+    private static final String SPACE_TEXT = "Se este atalho digitar um espaço em algum app, troque por outro.";
+    private final JLabel spaceHint = Ui.label(SPACE_TEXT,
             Theme.regular(13), Theme.SUPPORT);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
 
@@ -74,7 +75,10 @@ final class HomePage extends MainView.Page {
         Settings s = settings.load();
         keys.removeAll();
         keys.add(Ui.keycaps(s.hotkey()));
-        spaceHint.setVisible(s.hotkey().endsWith("+Space"));
+        String solo = SettingsPage.soloWarning(s.hotkey());
+        if (solo != null) spaceHint.setText(solo);
+        else spaceHint.setText(SPACE_TEXT);
+        spaceHint.setVisible(solo != null || s.hotkey().endsWith("+Space"));
         boolean cpu = Ui.MAC ? !br.arara.core.AraraCore.gpuOn(s) : s.accel() != Settings.Accel.VULKAN;
         grid.removeAll();
         grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local",
