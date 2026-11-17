@@ -4,7 +4,7 @@ Uso: GDK_BACKEND=wayland alvo_gtk.py <saida> <segundos>"""
 import sys
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, Gdk, GLib
 
 out, secs = sys.argv[1], int(sys.argv[2])
 win = Gtk.Window(title='AlvoGtk')
@@ -20,6 +20,7 @@ entry.connect('paste-clipboard', lambda w: print('paste-clipboard', flush=True))
 
 
 def fim():
+    print('clipboard visto pelo GTK:', repr(Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()), flush=True)
     open(out, 'w').write(entry.get_text())
     Gtk.main_quit()
     return False

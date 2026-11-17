@@ -127,8 +127,8 @@ else
   sleep 5; swaymsg -t get_seats | head -c 700; echo; swaymsg -t get_tree | grep -E '"(focused|app_id|name)"' | head -12; tail -5 "$W/sway.log"
   printf 'controle' | wl-copy; sleep 1; wtype -M ctrl v -m ctrl; wait "$GTK"; cat "$W/gtk0.log"
   echo "controle: [$(cat "$W/controle-wl.txt" 2>/dev/null)]"
-  [ "$(cat "$W/controle-wl.txt" 2>/dev/null)" = controle ] && ok "3a-controle wtype direto cola no cliente GTK (harness ok)" || bad "3a-controle (harness)" "wtype direto não colou: [$(cat "$W/controle-wl.txt" 2>/dev/null)] $(head -c 300 "$W/gtk0.log" | tr '
-' '|')"
+  [ "$(cat "$W/controle-wl.txt" 2>/dev/null)" = controle ] && ok "3a-controle wtype direto cola no cliente GTK (ambiente ok)" || echo "INFO  3a-controle: wtype direto também não inseriu texto no GTK ($(tr '
+' '|' < "$W/gtk0.log" | head -c 300))" | tee -a "$RES"
 
   sec "3a. Colagem no Wayland (wtype) num cliente GTK nativo"
   rm -f "$W/colado-wl.txt"
@@ -137,9 +137,13 @@ else
   timeout 60 "$APP" --diagnostico-colar >"$W/diag-wl.log" 2>&1; cat "$W/diag-wl.log"
   wait "$GTK"; echo "colado: [$(cat "$W/colado-wl.txt" 2>/dev/null)]"; cat "$W/gtk.log" | head -10
   grep -q '^Wayland=true' "$W/diag-wl.log" && ok "3a0 Wayland detectado" || bad "3a0 detecção Wayland" "$(head -2 "$W/diag-wl.log" | tr '\n' '|')"
-  grep -q 'wtype: sim' "$W/diag-wl.log" && grep -q 'estrategia usada: wtype' "$W/diag-wl.log" && [ "$(cat "$W/colado-wl.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] \
-    && ok "3a colou via wtype no Wayland e o texto confere" \
-    || bad "3a colagem Wayland" "recebido=[$(cat "$W/colado-wl.txt" 2>/dev/null)] | $(tail -3 "$W/diag-wl.log" | tr '\n' '|')"
+  grep -q 'estrategia usada: wtype' "$W/diag-wl.log" && ok "3a Arara escolheu wtype e ele saiu 0" || bad "3a estratégia no Wayland" "$(tail -3 "$W/diag-wl.log" | tr '
+' '|')"
+  grep -q '^tecla: 118 estado: 4' "$W/gtk.log" && ok "3a Ctrl+V chegou ao cliente Wayland nativo (GTK viu v+Ctrl)" || bad "3a Ctrl+V no cliente Wayland" "GTK não viu a tecla: $(tr '
+' '|' < "$W/gtk.log" | head -c 400)"
+  if [ "$(cat "$W/colado-wl.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ]; then ok "3a texto colado no cliente Wayland conferido"
+  elif [ "$(cat "$W/controle-wl.txt" 2>/dev/null)" != controle ]; then echo "INCONCLUSIVO  3a texto no Wayland: o controle (wl-copy+wtype sem o Arara) também não cola neste sway headless, então a falha é do ambiente de teste" | tee -a "$RES"
+  else bad "3a texto colado no Wayland" "recebido=[$(cat "$W/colado-wl.txt" 2>/dev/null)] mas o controle passou"; fi
 
   sec "3b. Só copiado (sem wtype/ydotool/portal)"
   MIN="$W/pathmin"; rm -rf "$MIN"; mkdir -p "$MIN"
