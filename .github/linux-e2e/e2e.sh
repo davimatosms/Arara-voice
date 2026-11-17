@@ -11,7 +11,7 @@ REAL_PATH=$PATH
 ok()  { echo "PASSOU  $1" | tee -a "$RES"; }
 bad() { echo "FALHOU  $1 :: $2" | tee -a "$RES"; FAIL=1; }
 sec() { echo; echo "=================== $* ==================="; }
-quiet_kill() { pkill -f 'bin/Arara' 2>/dev/null; pkill -f 'Arara-x86_64' 2>/dev/null; sleep 1; true; }
+quiet_kill() { pkill -f 'bin/Arara' 2>/dev/null; sleep 1; true; }
 
 # HOME e XDG limpos por item. APPDATA só é definido se o item pedir (WORKAROUND_APPDATA=1).
 env_item() {
