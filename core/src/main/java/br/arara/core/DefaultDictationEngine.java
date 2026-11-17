@@ -102,6 +102,7 @@ final class DefaultDictationEngine implements DictationEngine {
         final StringBuilder text = new StringBuilder(); // só a thread de transcrição mexe
         boolean failed; // idem
         volatile boolean cancelled;
+        boolean delivering; // já passou da checagem de cancelled e vai colar; muda com o lock do engine
         int confirmed; // fim (amostra) do último trecho já transcrito; muda com o lock do engine
         volatile String confirmedText = "";
         final TreeMap<Integer, String> drafts = new TreeMap<>(); // prévia por início de trecho ainda não confirmado; idem
@@ -149,6 +150,12 @@ final class DefaultDictationEngine implements DictationEngine {
 
     @Override
     public synchronized void cancel() {
+        if (state == DictationState.TRANSCRIBING) { // Esc na transcrição: a thread de fundo vê cancelled e não cola
+            if (take.delivering) return; // já está colando: tarde demais para cancelar
+            take.cancelled = true;
+            setState(DictationState.IDLE);
+            return;
+        }
         if (!recording()) return;
         holding = false;
         mic.stop();
@@ -459,8 +466,12 @@ final class DefaultDictationEngine implements DictationEngine {
         return word.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase(Locale.ROOT);
     }
 
+    /** O lock cobre só a checagem: histórico e colagem (com a espera do clipboard) rodam sem travar o atalho. */
     private void deliver(Take t) {
-        if (t.cancelled) return;
+        synchronized (this) {
+            if (t.cancelled) return;
+            t.delivering = true; // daqui em diante o cancel() não desfaz
+        }
         String text;
         try {
             if (t.failed) throw new IllegalStateException("trecho falhou");

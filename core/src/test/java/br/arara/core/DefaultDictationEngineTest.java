@@ -314,6 +314,59 @@ class DefaultDictationEngineTest {
     }
 
     @Test
+    void cancelWhileTranscribingSkipsPasteAndHistory() throws Exception {
+        CountDownLatch busy = new CountDownLatch(1), release = new CountDownLatch(1);
+        Transcriber t = pcm16k -> {
+            busy.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                throw new IllegalStateException(ex);
+            }
+            return "não pode colar";
+        };
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(t, pasted::add);
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertTrue(busy.await(5, TimeUnit.SECONDS), "Whisper em andamento");
+        e.cancel();
+        assertEquals(DictationState.IDLE, next());
+        release.countDown();
+        assertNull(states.poll(500, TimeUnit.MILLISECONDS), "nada depois do cancelamento");
+        assertEquals(DictationState.IDLE, e.state());
+        assertTrue(pasted.isEmpty());
+        assertTrue(history.all().isEmpty());
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void cancelDuringPasteIsTooLateAndDoesNotBlock() throws Exception {
+        CountDownLatch pasting = new CountDownLatch(1), release = new CountDownLatch(1);
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(pcm16k -> "já está colando", text -> {
+            pasting.countDown();
+            release.await();
+            pasted.add(text);
+        });
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertTrue(pasting.await(5, TimeUnit.SECONDS), "colagem em andamento");
+        e.cancel(); // volta na hora: a colagem não segura o lock do motor
+        assertEquals(DictationState.TRANSCRIBING, e.state());
+        release.countDown();
+        assertEquals(DictationState.PASTED, next());
+        assertEquals(List.of("já está colando"), pasted);
+        assertEquals(1, history.all().size());
+    }
+
+    @Test
     void cancelDropsPartInProgressAndQueuedParts() throws Exception {
         CountDownLatch busy = new CountDownLatch(1), release = new CountDownLatch(1);
         List<Integer> calls = new ArrayList<>();
