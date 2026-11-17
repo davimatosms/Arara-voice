@@ -14,6 +14,9 @@ win.set_default_size(400, 80)
 win.connect('destroy', Gtk.main_quit)
 win.show_all()
 entry.grab_focus()
+win.connect('notify::has-toplevel-focus', lambda w, p: print('janela com foco:', w.has_toplevel_focus(), flush=True))
+entry.connect('key-press-event', lambda w, e: print('tecla:', e.keyval, 'estado:', int(e.state), flush=True) and False)
+entry.connect('paste-clipboard', lambda w: print('paste-clipboard', flush=True))
 
 
 def fim():
