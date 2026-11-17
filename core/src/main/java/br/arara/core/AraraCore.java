@@ -57,6 +57,7 @@ public final class AraraCore implements AutoCloseable {
         } catch (LinuxPaste.CopiedOnly e) {
             log.accept("NENHUMA estrategia funcionou: " + e.getMessage());
         }
+        Thread.sleep(2000); // no X11 o clipboard morre com o processo: dá tempo do app de destino pedir o texto
     }
 
     private final HistoryStore history;

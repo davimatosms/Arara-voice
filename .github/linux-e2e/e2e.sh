@@ -63,8 +63,7 @@ TG=$!
 sleep 6; WID=$(timeout 20 xdotool search --onlyvisible --name PasteTarget | head -1); echo "janela PasteTarget: [$WID]"; xdotool windowactivate --sync "$WID" 2>&1 || xdotool windowfocus "$WID" 2>&1; sleep 1; echo "foco: $(xdotool getwindowfocus getwindowname 2>&1)"
 timeout 60 "$APP" --diagnostico-colar >"$W/diag-x11.log" 2>&1; cat "$W/diag-x11.log"
 wait "$TG"; echo "colado: [$(cat "$W/colado-x11.txt" 2>/dev/null)]"; echo "--- log do alvo:"; cat "$W/target.log"
-[ "$(cat "$W/colado-x11.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] && ok "2c texto colado no X11 conferido" || bad "2c colagem X11" "recebido=[$(cat "$W/colado-x11.txt" 2>/dev/null)] $($(head -c 600 "$W/target.log" | tr "
-" "|"))"
+[ "$(cat "$W/colado-x11.txt" 2>/dev/null)" = "Teste de colagem do Arara. " ] && ok "2c texto colado no X11 conferido" || bad "2c colagem X11" "recebido=[$(cat "$W/colado-x11.txt" 2>/dev/null)] alvo: $(head -c 600 "$W/target.log" | tr '\n' '|')"
 
 # ---------------------------------------------------------------- 4. --alternar
 sec "4. --alternar: segunda instância alterna a primeira"
@@ -112,13 +111,15 @@ sleep 2
 if [ -z "$SOCK" ]; then bad "3 sway headless" "não subiu: $(tail -5 "$W/sway.log" | tr '\n' '|')"
 else
   export WAYLAND_DISPLAY=$SOCK XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=sway
+  export SWAYSOCK=$(ls "$XDG_RUNTIME_DIR"/sway-ipc.*.sock 2>/dev/null | head -1)
+  wtype -k shift 2>/dev/null; sleep 1 # cria o teclado virtual no seat antes de abrir o cliente
   XD=$(cat "$W/sway-display" 2>/dev/null); [ -n "$XD" ] && export DISPLAY=$XD
   echo "sway: $SOCK  DISPLAY(XWayland)=${XD:-<nenhum>}"
   env_item wl
 
   sec "3a0. Controle: wl-copy + wtype direto (sem o Arara) no cliente GTK"
   GDK_BACKEND=wayland python3 "$HERE/alvo_gtk.py" "$W/controle-wl.txt" 14 >"$W/gtk0.log" 2>&1 & GTK=$!
-  sleep 5; swaymsg -t get_seats | head -c 600; echo; swaymsg -t get_tree | grep -E '"(focused|app_id|name)"' | head -12
+  sleep 5; swaymsg -t get_seats | head -c 700; echo; swaymsg -t get_tree | grep -E '"(focused|app_id|name)"' | head -12; tail -5 "$W/sway.log"
   printf 'controle' | wl-copy; sleep 1; wtype -M ctrl v -m ctrl; wait "$GTK"; cat "$W/gtk0.log"
   echo "controle: [$(cat "$W/controle-wl.txt" 2>/dev/null)]"
   [ "$(cat "$W/controle-wl.txt" 2>/dev/null)" = controle ] && ok "3a-controle wtype direto cola no cliente GTK (harness ok)" || bad "3a-controle (harness)" "wtype direto não colou: [$(cat "$W/controle-wl.txt" 2>/dev/null)] $(head -c 300 "$W/gtk0.log" | tr '
@@ -128,7 +129,6 @@ else
   rm -f "$W/colado-wl.txt"
   GDK_BACKEND=wayland python3 "$HERE/alvo_gtk.py" "$W/colado-wl.txt" 30 >"$W/gtk.log" 2>&1 & GTK=$!
   sleep 5
-  wtype -k shift 2>/dev/null; sleep 1 # garante o "teclado" virtual no seat antes de colar
   timeout 60 "$APP" --diagnostico-colar >"$W/diag-wl.log" 2>&1; cat "$W/diag-wl.log"
   wait "$GTK"; echo "colado: [$(cat "$W/colado-wl.txt" 2>/dev/null)]"; cat "$W/gtk.log" | head -10
   grep -q '^Wayland=true' "$W/diag-wl.log" && ok "3a0 Wayland detectado" || bad "3a0 detecção Wayland" "$(head -2 "$W/diag-wl.log" | tr '\n' '|')"
