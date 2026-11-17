@@ -44,7 +44,12 @@ final class JsonSettingsStore implements SettingsStore {
                 enumOr(Settings.Macaw.class, m.get("macaw"), d.macaw()),
                 m.get("lightMode") instanceof Boolean b ? b : d.lightMode(),
                 m.get("macawIcon") instanceof Boolean b ? b : d.macawIcon(),
-                m.get("holdToTalk") instanceof Boolean b ? b : d.holdToTalk()); // ausente = apertar para ligar/desligar
+                m.get("holdToTalk") instanceof Boolean b ? b : d.holdToTalk(), // ausente = apertar para ligar/desligar
+                // ausentes (config de antes do som) = som ligado, arara, 50%, duração normal
+                m.get("soundOn") instanceof Boolean b ? b : d.soundOn(),
+                enumOr(Settings.Sound.class, m.get("sound"), d.sound()),
+                m.get("soundVolume") instanceof Number n ? Math.max(0, Math.min(100, n.intValue())) : d.soundVolume(),
+                enumOr(Settings.SoundLength.class, m.get("soundLength"), d.soundLength()));
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -70,7 +75,12 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"macaw\": " + Json.quote(s.macaw().name()) + ",\n"
                 + "  \"lightMode\": " + s.lightMode() + ",\n"
                 + "  \"macawIcon\": " + s.macawIcon() + ",\n"
-                + "  \"holdToTalk\": " + s.holdToTalk() + "\n"
+                + "  \"holdToTalk\": " + s.holdToTalk() + ",
+"
+                + "  \"soundOn\": " + s.soundOn() + ",\n"
+                + "  \"sound\": " + Json.quote(s.sound().name()) + ",\n"
+                + "  \"soundVolume\": " + s.soundVolume() + ",\n"
+                + "  \"soundLength\": " + Json.quote(s.soundLength().name()) + "\n"
                 + "}\n");
         cached = s;
     }

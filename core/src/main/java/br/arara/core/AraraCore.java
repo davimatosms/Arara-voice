@@ -146,6 +146,7 @@ public final class AraraCore implements AutoCloseable {
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
+        engine.setSoundSettings(settings);
         try {
             return new AraraCore(history, dictionary, settings, transcriber, preview, engine, GlobalHotkey.register(engine, settings));
         } catch (NativeHookException e) {

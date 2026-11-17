@@ -12,6 +12,8 @@ import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
+import br.arara.core.Sounds;
 import javax.swing.Timer;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
@@ -115,6 +117,8 @@ final class SettingsPage extends MainView.Page {
                 row("Aceleração", "Vulkan usa a placa de vídeo (NVIDIA, AMD ou Intel).",
                         Ui.segmented(new String[] {"CPU", "Vulkan"}, s.accel().ordinal(), "Aceleração",
                                 i -> update(x -> x.withAccel(accels[i]))))));
+
+        content.add(soundSection(s));
 
         if (AraraCore.LINUX) content.add(linuxCard(Onboarding.Linux.detect()));
 
@@ -227,6 +231,39 @@ final class SettingsPage extends MainView.Page {
         mic.getAccessibleContext().setAccessibleName("Microfone");
         mic.addActionListener(e -> onChange.accept(DEFAULT_MIC.equals(mic.getSelectedItem()) ? null : (String) mic.getSelectedItem()));
         return mic;
+    }
+
+    private JPanel soundSection(Settings s) {
+        Settings.Sound[] kinds = Settings.Sound.values();
+        Settings.SoundLength[] lengths = Settings.SoundLength.values();
+        JSlider volume = new JSlider(0, 100, s.soundVolume());
+        volume.setPreferredSize(new Dimension(220, 32));
+        volume.setOpaque(false);
+        volume.getAccessibleContext().setAccessibleName("Volume do som");
+        // grava ao soltar: arrastar não precisa regravar o config.json a cada pixel
+        volume.addChangeListener(e -> {
+            if (!volume.getValueIsAdjusting()) update(x -> x.withSoundVolume(volume.getValue()));
+        });
+        JButton listen = Ui.button("Ouvir", null, Ui.Kind.OUTLINE);
+        listen.getAccessibleContext().setAccessibleName("Ouvir o som");
+        listen.addActionListener(e -> {
+            Settings now = settings.load().withSoundOn(true).withSoundVolume(volume.getValue());
+            Sounds.play(now, true);
+            Timer t = new Timer(Sounds.millis(now) + 150, ev -> Sounds.play(now, false));
+            t.setRepeats(false);
+            t.start();
+        });
+        return section("Som", "Um toque curto ao começar e ao parar de ouvir.",
+                row("Tocar som", "Avisa que o Arara começou e parou de ouvir.",
+                        Ui.toggle(s.soundOn(), "Tocar som", on -> update(x -> x.withSoundOn(on)))),
+                row("Tipo", "Arara é um piado; Pixel, bipes de jogo; Suave, duas notas.",
+                        Ui.segmented(new String[] {"Arara", "Pixel", "Suave"}, s.sound().ordinal(), "Tipo de som",
+                                i -> update(x -> x.withSound(kinds[i])))),
+                row("Volume", "Só do som do Arara, não do computador.", volume),
+                row("Duração", "Mais curto ou mais longo que o normal.",
+                        Ui.segmented(new String[] {"Curta", "Normal", "Longa"}, s.soundLength().ordinal(), "Duração do som",
+                                i -> update(x -> x.withSoundLength(lengths[i])))),
+                row("Testar", "Toca o início e o fim com estes valores.", listen));
     }
 
     private void update(UnaryOperator<Settings> change) {
