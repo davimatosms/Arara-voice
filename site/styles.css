@@ -184,6 +184,9 @@ a { color: inherit; }
 .hero-fim { position: relative; z-index: 2; text-align: center; padding: 0 20px; }
 .hero-sub { max-width: 600px; margin: 0 auto 26px; font-size: 19px; line-height: 29px; font-weight: 600; }
 .hero-botoes { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.contador { display: inline-flex; gap: 6px; margin: 14px 0 0; padding: 6px 16px; border-radius: 999px; background: var(--escuro); color: #fff; font-size: 14px; font-weight: 700; }
+.contador[hidden] { display: none; }
+.contador span:first-child { color: var(--lima); font-weight: 900; }
 
 .enfeites { position: absolute; inset: 0; pointer-events: none; }
 .traco { position: absolute; color: #fff; opacity: .55; width: 156px; height: 72px; }

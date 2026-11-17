@@ -408,4 +408,15 @@
   addEventListener("resize", medir);
   new ResizeObserver(medir).observe(document.body);
   requestAnimationFrame(quadro);
+
+  // contador real de downloads (.exe e .dmg); some se a API falhar ou der 0
+  fetch("https://api.github.com/repos/davimatosms/Arara-voice/releases?per_page=100")
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((rels) => {
+      const n = rels.flatMap((r) => r.assets).filter((a) => /\.(exe|dmg)$/i.test(a.name)).reduce((t, a) => t + a.download_count, 0);
+      if (!n) return;
+      $("#contador-n").textContent = n.toLocaleString("pt-BR");
+      $("#contador").hidden = false;
+    })
+    .catch(() => {});
 })();
