@@ -6,14 +6,16 @@ import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
-/** O que muda entre Windows e macOS, com o sistema passado como parâmetro (roda igual nos dois). */
+/** O que muda entre Windows, macOS e Linux, com o sistema passado como parâmetro (roda igual nos três). */
 class PlatformTest {
     @Test
     void dataDirPerSystem() {
         assertEquals(Path.of("C:\\Users\\Ana\\AppData\\Roaming", "Arara"),
-                AraraCore.dataDir(false, "C:\\Users\\Ana\\AppData\\Roaming", "C:\\Users\\Ana"));
+                AraraCore.dataDir(false, false, "C:\\Users\\Ana\\AppData\\Roaming", "C:\\Users\\Ana"));
         assertEquals(Path.of("/Users/ana", "Library", "Application Support", "Arara"),
-                AraraCore.dataDir(true, null, "/Users/ana"));
+                AraraCore.dataDir(true, false, null, "/Users/ana"));
+        assertEquals(Path.of("/home/ana", ".local", "share", "Arara"),
+                AraraCore.dataDir(false, true, null, "/home/ana"));
     }
 
     @Test

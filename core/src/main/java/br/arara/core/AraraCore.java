@@ -12,8 +12,10 @@ import javax.sound.sampled.LineUnavailableException;
 
 /** Ponto de entrada do backend para o app: liga armazenamento, microfone, motor e atalho global. */
 public final class AraraCore implements AutoCloseable {
-    /** Rodando no macOS (o resto do código assume Windows). */
+    /** Rodando no macOS. */
     public static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
+    /** Rodando no Linux (nunca junto com {@link #MAC}). */
+    public static final boolean LINUX = System.getProperty("os.name", "").contains("Linux");
 
     private final HistoryStore history;
     private final DictionaryStore dictionary;
@@ -34,13 +36,15 @@ public final class AraraCore implements AutoCloseable {
         this.hotkey = hotkey;
     }
 
-    /** %APPDATA%\Arara no Windows; ~/Library/Application Support/Arara no macOS. */
+    /** %APPDATA%\Arara no Windows; ~/Library/Application Support/Arara no macOS; ~/.local/share/Arara no Linux. */
     public static Path defaultDataDir() {
-        return dataDir(MAC, System.getenv("APPDATA"), System.getProperty("user.home"));
+        return dataDir(MAC, LINUX, System.getenv("APPDATA"), System.getProperty("user.home"));
     }
 
-    static Path dataDir(boolean mac, String appData, String home) {
-        return mac ? Path.of(home, "Library", "Application Support", "Arara") : Path.of(appData, "Arara");
+    static Path dataDir(boolean mac, boolean linux, String appData, String home) {
+        if (mac) return Path.of(home, "Library", "Application Support", "Arara");
+        if (linux) return Path.of(home, ".local", "share", "Arara");
+        return Path.of(appData, "Arara");
     }
 
     /** Só lê o config.json (padrões se não existe), sem criar nada: o aviso da segunda cópia usa o tema escolhido. */

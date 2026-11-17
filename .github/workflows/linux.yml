@@ -1,0 +1,105 @@
+name: linux
+# Gera o Arara-<versão>-linux-<arq>.AppImage em runners do GitHub e roda testes de fumaça.
+# O anexo na release (nome com versão + cópia Arara-Linux-*.AppImage) é manual, como o .dmg.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'app/**'
+      - 'instalador/**'
+      - '*.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/linux.yml'
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '21.0.13+9.0.LTS'
+  APPIMAGETOOL_VERSION: '1.9.1'
+
+jobs:
+  appimage:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, arq: x64, tool_arch: x86_64, sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 }
+          - { runner: ubuntu-24.04-arm, arq: arm64, tool_arch: aarch64, sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Dependências do desktop (xvfb e libs do JDK)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libxtst6 libxi6 libxrender1 libx11-6 \
+            libasound2t64 espeak-ng ca-certificates curl
+
+      - name: appimagetool (versão fixa, hash conferido)
+        run: |
+          set -eu
+          url="https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-${{ matrix.tool_arch }}.AppImage"
+          curl -fsSL "$url" -o "$RUNNER_TEMP/appimagetool.AppImage"
+          echo "${{ matrix.sha256 }}  $RUNNER_TEMP/appimagetool.AppImage" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/appimagetool.AppImage"
+          # Runner sem FUSE: extrai e usa o AppRun de dentro
+          cd "$RUNNER_TEMP"
+          APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool.AppImage --appimage-extract
+          echo "APPIMAGETOOL=$RUNNER_TEMP/squashfs-root/AppRun" >> "$GITHUB_ENV"
+
+      - name: AppImage
+        run: ./gradlew :app:appimage --no-daemon
+
+      - name: Tamanho
+        run: |
+          ls -l build/linux/*.AppImage
+          echo "### ${{ matrix.arq }}: $(ls build/linux/*.AppImage | xargs basename), $(du -h build/linux/*.AppImage | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fumaça sem interface (Whisper + JNativeHook)
+        run: |
+          espeak-ng -v pt-br -w "$RUNNER_TEMP/fala.wav" \
+            "Olá! Eu estou testando o Arara, um aplicativo de ditado por voz em português do Brasil." || true
+          ./gradlew :core:smoke --no-daemon --args="$RUNNER_TEMP/smoke $RUNNER_TEMP/fala.wav" | tee "$RUNNER_TEMP/smoke.txt"
+          grep -q 'SMOKE OK' "$RUNNER_TEMP/smoke.txt"
+          { echo '```'; grep -E '^(os=|whisper|atalho|SMOKE)' "$RUNNER_TEMP/smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fumaça do AppImage (abre e fica de pé por 30 s)
+        run: |
+          set -u
+          img=$(ls build/linux/*.AppImage)
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a "$img" > "$RUNNER_TEMP/app.log" 2>&1 &
+          pid=$!
+          sleep 30
+          if kill -0 "$pid"; then vivo=sim; else vivo=nao; fi
+          kill "$pid" 2>/dev/null || true
+          sleep 2
+          cat "$RUNNER_TEMP/app.log"
+          ls -la "$HOME/.local/share/Arara" || true
+          echo "app de pé depois de 30 s: $vivo" >> "$GITHUB_STEP_SUMMARY"
+          test "$vivo" = sim
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arara-linux-${{ matrix.arq }}
+          path: build/linux/*.AppImage
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fumaca-linux-${{ matrix.arq }}
+          path: |
+            ${{ runner.temp }}/app.log
+            ${{ runner.temp }}/smoke.txt
+          if-no-files-found: ignore

@@ -114,3 +114,70 @@ tasks.register('instalador', Exec) {
     if (findProperty('signedUninstallerDir')) args "/DSignedUninstallerDir=${rootProject.file(findProperty('signedUninstallerDir'))}"
     args new File(instaladorDir, 'arara.iss')
 }
+
+// ---- Empacotamento para Linux: jpackage app-image + AppDir + appimagetool ----
+def linuxDir = layout.buildDirectory.dir('jpackage-linux')
+def linuxIcon = new File(instaladorDir, 'assets/arara-pequena-250.png')
+
+tasks.register('linuxAppImage', Exec) {
+    description = 'Só o jpackage da pasta Arara/; use appimage.'
+    dependsOn tasks.named('installDist')
+    def lib = layout.buildDirectory.dir('install/app/lib')
+    inputs.dir(lib)
+    inputs.file(linuxIcon)
+    outputs.dir(linuxDir)
+    doFirst {
+        delete linuxDir
+        executable jdk.get().metadata.installationPath.file('bin/jpackage').asFile
+        args '--type', 'app-image', '--dest', linuxDir.get().asFile,
+                '--name', 'Arara', '--app-version', versao, '--vendor', 'Arara',
+                '--description', 'Ditado por voz local em português',
+                '--icon', linuxIcon,
+                '--input', lib.get().asFile, '--main-jar', tasks.jar.archiveFileName.get(),
+                '--main-class', application.mainClass.get(),
+                '--add-modules', modulos, '--jlink-options', jlinkOpcoes
+    }
+}
+
+tasks.register('appimage', Exec) {
+    group = 'distribution'
+    description = 'Gera build/linux/Arara-<versão>-linux-<x64|arm64>.AppImage (jpackage + appimagetool).'
+    dependsOn 'linuxAppImage'
+    def arq = System.getProperty('os.arch') == 'aarch64' ? 'arm64' : 'x64'
+    def archTool = System.getProperty('os.arch') == 'aarch64' ? 'aarch64' : 'x86_64'
+    def saida = rootProject.layout.buildDirectory.file("linux/Arara-$versao-linux-${arq}.AppImage").get().asFile
+    def appDir = layout.buildDirectory.dir('AppDir').get().asFile
+    def jpackageApp = linuxDir.get().file('Arara').asFile
+    outputs.file(saida)
+    doFirst {
+        def tool = System.getenv('APPIMAGETOOL')
+        if (tool == null || tool.isBlank()) {
+            def which = ['bash', '-lc', 'command -v appimagetool'].execute()
+            which.waitFor()
+            tool = which.text.strip()
+        }
+        if (tool == null || tool.isBlank()) {
+            throw new GradleException('appimagetool não encontrado. Defina APPIMAGETOOL ou coloque no PATH (veja docs/desenvolvimento.md).')
+        }
+        executable 'sh'
+        args '-eu', '-c', '''
+            tool="$1"; app="$2"; icon="$3"; appdir="$4"; out="$5"; arch="$6"
+            rm -rf "$appdir" "$out"; mkdir -p "$appdir" "$(dirname "$out")"
+            cp -a "$app" "$appdir/Arara"
+            cp "$icon" "$appdir/arara.png"
+            cp "$icon" "$appdir/.DirIcon"
+            printf '%s\\n' '[Desktop Entry]' 'Type=Application' 'Name=Arara' 'Exec=Arara' 'Icon=arara' 'Categories=Utility;' > "$appdir/Arara.desktop"
+            # Cinnamon define GNOME_DESKTOP_SESSION_ID por compatibilidade. O OpenJDK trata isso
+            # como GNOME e desliga o SystemTray se não houver gnome-shell >= 45. Só na sessão Cinnamon.
+            printf '%s\\n' '#!/bin/sh' \
+                'case ":${XDG_CURRENT_DESKTOP:-}:${DESKTOP_SESSION:-}:" in' \
+                '  *[Cc]innamon*) unset GNOME_DESKTOP_SESSION_ID ;;' \
+                'esac' \
+                'HERE="$(dirname "$(readlink -f "$0")")"' \
+                'exec "$HERE/Arara/bin/Arara" "$@"' > "$appdir/AppRun"
+            chmod +x "$appdir/AppRun"
+            ARCH="$arch" "$tool" "$appdir" "$out"
+            chmod +x "$out"
+        ''', 'sh', tool, jpackageApp, linuxIcon, appDir, saida, archTool
+    }
+}

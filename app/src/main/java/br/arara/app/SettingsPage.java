@@ -121,7 +121,9 @@ final class SettingsPage extends MainView.Page {
         });
         content.add(section("Histórico e privacidade", "Seus ditados ficam só aqui, sem criptografia.",
                 row("Pasta do histórico",
-                        Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl" : "%APPDATA%\\Arara\\historico.jsonl", open),
+                        Ui.MAC ? "~/Library/Application Support/Arara/historico.jsonl"
+                                : Ui.LINUX ? "~/.local/share/Arara/historico.jsonl"
+                                : "%APPDATA%\\Arara\\historico.jsonl", open),
                 row("Apagar histórico", "Remove todos os ditados salvos. Não dá para desfazer.", clear)));
     }
 

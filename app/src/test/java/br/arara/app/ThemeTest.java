@@ -1,5 +1,6 @@
 package br.arara.app;
 
+import br.arara.core.AraraCore;
 import br.arara.core.Settings.Macaw;
 import com.formdev.flatlaf.FlatLaf;
 import org.junit.jupiter.api.AfterEach;
@@ -122,7 +123,14 @@ class ThemeTest {
     void iconOnlyChangesWithTheSwitchOn() {
         for (Macaw m : Macaw.values()) {
             assertEquals(List.of(Arara.CANINDE), Arara.windowIcons(m, false), "desligada: canindé de sempre");
-            assertSame(Arara.CANINDE, Arara.trayIcon(m, false));
+            if (AraraCore.LINUX) {
+                BufferedImage tray = (BufferedImage) Arara.trayIcon(m, false);
+                assertEquals(tray.getWidth(), tray.getHeight());
+                assertEquals(Arara.traySlot(), tray.getWidth());
+                assertNotSame(Arara.CANINDE, tray);
+            } else {
+                assertSame(Arara.CANINDE, Arara.trayIcon(m, false));
+            }
         }
         List<Image> on = Arara.windowIcons(Macaw.AZUL, true);
         assertEquals(4, on.size());

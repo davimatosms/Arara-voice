@@ -1,5 +1,6 @@
 package br.arara.app;
 
+import br.arara.core.AraraCore;
 import br.arara.core.DictationState;
 import br.arara.core.Settings.Macaw;
 
@@ -9,8 +10,10 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.SystemTray;
 import java.awt.image.BaseMultiResolutionImage;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -141,11 +144,35 @@ final class Arara extends JComponent {
         return List.of(read(dir + "16.png"), read(dir + "32.png"), read(dir + "48.png"), read(dir + "256.png"));
     }
 
-    /** Ícone da bandeja (e da barra de menus do Mac, colorido): a canindé de sempre, ou a cabeça da arara do tema. */
+    /**
+     * Ícone da bandeja (e da barra de menus do Mac, colorido): a canindé de sempre, ou a cabeça da arara do tema.
+     * No Linux o slot XEmbed é pequeno: usa a cabeça {@code bandeja-32.png} da espécie (canindé com a chave
+     * desligada), no tamanho do slot, com vizinho mais próximo. O peer não pode escalar de novo.
+     */
     static Image trayIcon(Macaw m, boolean macawIcon) {
+        if (AraraCore.LINUX) return linuxTray(macawIcon ? m : Macaw.CANINDE);
         if (!macawIcon) return CANINDE;
         String dir = "araras/" + Theme.id(m) + "/bandeja-";
         return new BaseMultiResolutionImage(read(dir + "16.png"), read(dir + "32.png"));
+    }
+
+    /** Lado do slot. Sem bandeja (teste headless) fica 24, o tamanho que o peer pede. */
+    static int traySlot() {
+        if (GraphicsEnvironment.isHeadless() || !SystemTray.isSupported()) return 24;
+        Dimension d = SystemTray.getSystemTray().getTrayIconSize();
+        int s = d == null ? 0 : Math.min(d.width, d.height);
+        return s > 0 ? s : 24;
+    }
+
+    static BufferedImage linuxTray(Macaw m) {
+        BufferedImage src = read("araras/" + Theme.id(m) + "/bandeja-32.png");
+        int s = traySlot();
+        BufferedImage out = new BufferedImage(s, s, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = out.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(src, 0, 0, s, s, null);
+        g.dispose();
+        return out;
     }
 
     /** Ícone do Dock no Mac (256 px). */

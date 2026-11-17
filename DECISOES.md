@@ -35,7 +35,7 @@ O FluidVoice erra muito no reconhecimento de PT-BR. A ideia é criar uma alterna
 
 - **Windows** desde a v0.1.0. **macOS** (Apple Silicon e Intel) a partir da v0.2.0: `.dmg` pelo GitHub Actions, sem Developer ID (assinatura ad-hoc). Detalhes em `docs/macos.md`.
 - No macOS: dados em `~/Library/Application Support/Arara`, colar com Cmd+V, "Abrir ao iniciar sessão" por LaunchAgent, barra de menus no lugar da bandeja. O atalho e o colar precisam da permissão de Acessibilidade; sem ela o app abre mesmo assim e orienta o usuário.
-- Linux fica para depois.
+- **Linux** (x64 e arm64): `.AppImage` (`jpackage` + `appimagetool`), dados em `~/.local/share/Arara`, "Iniciar com a sessão" por `.desktop` em `~/.config/autostart`, atualização troca o próprio AppImage. Atalho global e colar dependem de X11 ou XWayland.
 
 ## Linguagem e stack
 
@@ -187,8 +187,19 @@ Contraste: texto escuro sobre verde 9.0:1, branco sobre azul 4.8:1, texto sobre 
 ## Melhorias futuras
 
 - Aceleração via CUDA.
-- Suporte a Linux e macOS.
 - Testar o modelo Parakeet v3 (via sherpa-onnx) como alternativa ao Whisper.
+
+## Pendências técnicas
+
+Itens conhecidos, fora do escopo da porta Linux inicial:
+
+- [ ] Build e pacote do Linux numa imagem de CI mais leve que `ubuntu-latest` / `ubuntu-24.04-arm`.
+- [ ] Atalho global e Ctrl+V em Wayland sem XWayland (hoje: JNativeHook).
+- [ ] AppImage que não dependa de FUSE, libX11/libXtst e Pulse/ALSA na máquina do usuário.
+- [ ] Mixer que não aceite 16 kHz direto (ajuste mínimo no `Microphone` se aparecer na validação).
+- [ ] Vulkan no whisper-jni e CUDA (ver também melhorias futuras / pendências de produto).
+- [ ] Pacote `.deb` / `.rpm` além do AppImage.
+- [ ] Ícone da bandeja no Linux continua preto, sem desenho. Só Linux: no Mint Cinnamon com X11 o slot do `SystemTray` aparece, mas o ícone sai um quadrado preto. Mac e Windows desenham o ícone pelo mesmo caminho (`Main.tray` / `Arara.trayIcon`). Já tentado, e o AppImage foi gerado de novo depois: tirar `GNOME_DESKTOP_SESSION_ID` no `AppRun` (isso só fez `isSupported()` voltar verdadeiro) e, no Linux, pintar `bandeja-32.png` da espécie num quadrado do tamanho do slot com vizinho mais próximo e `setImageAutoSize(false)`. O quadrado preto permanece.
 
 ## Pendências
 

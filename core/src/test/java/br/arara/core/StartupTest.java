@@ -99,6 +99,8 @@ class StartupTest {
         store.save(withStart(store.load(), false)); // apagar o que não existe não é erro
     }
 
+    static final String APPIMAGE = "/home/ana/Downloads/Arara-0.4.0-linux-x64.AppImage";
+
     @Test
     void packagedPerSystem() {
         assertTrue(Startup.packaged(EXE, false));
@@ -107,6 +109,34 @@ class StartupTest {
         assertFalse(Startup.packaged(EXE, true));
         assertFalse(Startup.packaged("", true));
         assertFalse(Startup.packaged("", false));
+        assertTrue(Startup.packaged(APPIMAGE, false, true));
+        assertFalse(Startup.packaged(APPIMAGE, false, false));
+        assertFalse(Startup.packaged("/home/ana/Arara/bin/Arara", false, true));
+        assertFalse(Startup.packaged("", false, true));
+    }
+
+    @Test
+    void linuxWritesAutostartDesktopOnlyForAppImage(@TempDir Path home) throws IOException {
+        Path dir = home.resolve(".config/autostart");
+        Startup.Autostart as = new Startup.Autostart(dir);
+        Path desktop = as.file(Startup.Autostart.DESKTOP);
+
+        for (String cmd : List.of("/usr/bin/java", "/tmp/.mount_AraraXXXX/usr/bin/Arara")) {
+            SettingsStore store = new Startup(as, Startup.Autostart.DESKTOP, Optional.of(cmd), false, true)
+                    .wrap(new MemoryStore());
+            store.save(withStart(store.load(), true));
+        }
+        assertFalse(Files.exists(desktop));
+
+        SettingsStore store = new Startup(as, Startup.Autostart.DESKTOP, Optional.of(APPIMAGE), false, true)
+                .wrap(new MemoryStore());
+        String body = Files.readString(desktop);
+        assertTrue(body.contains("Name=Arara"), body);
+        assertTrue(body.contains("Exec=" + APPIMAGE.replace(" ", "\\ ")), body);
+
+        store.save(withStart(store.load(), false));
+        assertFalse(Files.exists(desktop));
+        store.save(withStart(store.load(), false));
     }
 
     /** Registro real, só com o valor de teste Arara-teste (nunca o Arara de verdade), apagado no fim. */

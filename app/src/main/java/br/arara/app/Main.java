@@ -333,7 +333,8 @@ public final class Main {
         menu.addSeparator();
         menu.add(quit);
         TrayIcon icon = new TrayIcon(image, "Arara", menu);
-        icon.setImageAutoSize(true);
+        // Linux: a imagem já está no tamanho do slot; o auto-size do peer borra o pixel art de novo.
+        icon.setImageAutoSize(!AraraCore.LINUX);
         // macOS: clicar no ícone do Dock com a janela escondida também abre
         if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_EVENT_REOPENED))
             Desktop.getDesktop().addAppEventListener((AppReopenedListener) e -> SwingUtilities.invokeLater(open));

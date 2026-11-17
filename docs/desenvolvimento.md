@@ -24,6 +24,28 @@ Requer JDK 21.
 
 Num Mac, gera `build/macos/Arara-0.1.0-macos-<arm64|x64>.dmg` (sem Developer ID, assinatura ad-hoc). O CI faz o mesmo no workflow `macos`. Como abrir o app sem assinatura, permissões e atalho: [macos.md](macos.md).
 
+## Linux
+
+```
+./gradlew :app:appimage
+```
+
+Num Linux com JDK 21, gera `build/linux/Arara-<versão>-linux-<x64|arm64>.AppImage`. Precisa do
+[appimagetool](https://github.com/AppImage/appimagetool/releases/tag/1.9.1) no `PATH` ou em `APPIMAGETOOL`.
+Exemplo x86_64 (hash fixo da 1.9.1):
+
+```
+curl -fsSL -o appimagetool \
+  https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+echo ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool | sha256sum -c -
+chmod +x appimagetool
+export APPIMAGETOOL="$PWD/appimagetool"
+```
+
+O CI faz o mesmo no workflow `linux` (x64 e arm64). Dados do app: `~/.local/share/Arara`. Atalho global e colar
+dependem de X11 ou XWayland. Ao publicar a release, anexe também as cópias `Arara-Linux-x64.AppImage` e
+`Arara-Linux-arm64.AppImage` (os botões do README usam esses nomes).
+
 ## Instalador (Windows)
 
 ```
@@ -39,7 +61,7 @@ Gera `build/instalador/Arara-Setup-0.1.0.exe` (~39 MB). Requer JDK 21 e [Inno Se
 - O desinstalador não apaga `%APPDATA%\Arara` (configurações, histórico e modelos).
 - A versão vem só de `gradle.properties` e vai para os jars, o `Arara.exe`, o Setup e o desinstalador.
 - Ao publicar uma release, anexe o instalador também com o nome fixo `Arara-Setup.exe`: os botões do site baixam direto de `releases/latest/download/Arara-Setup.exe`.
-- **Atualização no app:** o Arara consulta `site/versao.json` (publicado em `https://arara-voice.vercel.app/versao.json` a cada merge na `main`) e pergunta ao usuário se há versão nova. Regra a cada release, depois de anexar os arquivos com versão no nome (`Arara-Setup-<versão>.exe`, `Arara-<versão>-Mac-AppleSilicon.dmg`, `Arara-<versão>-Mac-Intel.dmg`): rode `python instalador/gerar_versao.py <versão> "<notas curtas>" <os 3 arquivos>` e abra um PR com o `site/versao.json` novo. Só faça o merge depois de a release estar publicada: o app baixa das URLs da release e confere o SHA-256.
+- **Atualização no app:** o Arara consulta `site/versao.json` (publicado em `https://arara-voice.vercel.app/versao.json` a cada merge na `main`) e pergunta ao usuário se há versão nova. Regra a cada release, depois de anexar os arquivos com versão no nome (`Arara-Setup-<versão>.exe`, `Arara-<versão>-Mac-AppleSilicon.dmg`, `Arara-<versão>-Mac-Intel.dmg`, `Arara-<versão>-linux-x64.AppImage`, `Arara-<versão>-linux-arm64.AppImage`): rode `python instalador/gerar_versao.py <versão> "<notas curtas>" <os 5 arquivos>` e abra um PR com o `site/versao.json` novo. Só faça o merge depois de a release estar publicada: o app baixa das URLs da release e confere o SHA-256.
 - No GitHub Actions, `.github/workflows/instalador.yml` gera o instalador (em tag `v*` ou à mão) e publica o Setup e o app-image como artefatos. A assinatura pela SignPath fica desligada até existir o secret `SIGNPATH_API_TOKEN` (e a variável `SIGNPATH_ORGANIZATION_ID`); as configurações de artefato estão em `instalador/signpath/`.
 
 ## Mídia do README

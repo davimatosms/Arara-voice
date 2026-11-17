@@ -638,11 +638,14 @@ final class Onboarding extends JPanel implements DictationListener {
         again.addActionListener(e -> startMic());
         JButton open = pill("Abrir configurações", Ui.Kind.PRIMARY, 14);
         open.addActionListener(e -> Ui.openSystemSettings(Ui.MAC
-                ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone" : "ms-settings:privacy-microphone"));
+                ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+                : Ui.LINUX ? "" : "ms-settings:privacy-microphone"));
         micError = put(p, new ErrorBox(again, 140, open, 180), MX, 456, MW, 112);
         micError.set("O " + Ui.SYSTEM + " está bloqueando o microfone", Ui.MAC
                 ? "Em Ajustes do Sistema › Privacidade e Segurança › Microfone, ligue o Arara."
-                : "Em Privacidade e segurança › Microfone, ligue “Permitir que aplicativos da área de trabalho acessem o microfone”.");
+                : Ui.LINUX
+                        ? "Confira se o microfone está liberado nas configurações de privacidade do seu desktop."
+                        : "Em Privacidade e segurança › Microfone, ligue “Permitir que aplicativos da área de trabalho acessem o microfone”.");
     }
 
     private void hotkey(JPanel p) {

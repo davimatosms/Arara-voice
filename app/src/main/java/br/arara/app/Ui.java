@@ -49,16 +49,19 @@ final class Ui {
 
     private Ui() {}
 
-    /** Textos que mudam entre Windows e macOS. */
+    /** Textos que mudam entre Windows, macOS e Linux. */
     static final boolean MAC = AraraCore.MAC;
-    static final String STARTUP = MAC ? "Abrir ao iniciar sessão" : "Iniciar com o Windows";
+    static final boolean LINUX = AraraCore.LINUX;
+    static final String STARTUP = MAC ? "Abrir ao iniciar sessão" : LINUX ? "Iniciar com a sessão" : "Iniciar com o Windows";
     static final String TRAY = MAC ? "barra de menus" : "bandeja";
-    static final String SYSTEM = MAC ? "macOS" : "Windows";
+    static final String SYSTEM = MAC ? "macOS" : LINUX ? "Linux" : "Windows";
 
     /** Abre um painel dos ajustes do sistema (ms-settings: no Windows, x-apple.systempreferences: no macOS). */
     static void openSystemSettings(String uri) {
         try {
-            new ProcessBuilder(MAC ? "open" : "explorer.exe", uri).start();
+            if (MAC) new ProcessBuilder("open", uri).start();
+            else if (!LINUX) new ProcessBuilder("explorer.exe", uri).start();
+            // Linux: sem URI de ajustes; o texto da tela diz onde ir
         } catch (Exception ignored) {
             // sem o app de ajustes: o texto da tela diz onde ir
         }

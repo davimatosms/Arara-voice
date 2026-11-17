@@ -78,8 +78,13 @@ class UpdateCheckerTest {
     }
 
     UpdateChecker checker(String allowed, String exe, boolean mac) {
+        return checker(allowed, exe, "windows", mac, false);
+    }
+
+    UpdateChecker checker(String allowed, String exe, String platform, boolean mac, boolean linux) {
         return new UpdateChecker(URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/versao.json"),
-                "0.2.0", "windows", settings, allowed, Optional.ofNullable(exe), mac, new UpdateChecker.Runner() {
+                "0.2.0", platform, settings, allowed, Optional.ofNullable(exe), mac, linux,
+                new UpdateChecker.Runner() {
                     public int run(List<String> cmd) {
                         ran.add(cmd);
                         return 0;
@@ -93,6 +98,12 @@ class UpdateCheckerTest {
 
     UpdateChecker windows() {
         return checker(base, "C:\\Users\\a\\AppData\\Local\\Programs\\Arara\\Arara.exe", false);
+    }
+
+    static String linuxManifest(String version, String url, String sha) {
+        return """
+                {"versao": "%s", "data": "2026-12-01", "notas": "Correções.",
+                 "arquivos": {"linux-x64": {"url": "%s", "sha256": "%s"}}}""".formatted(version, url, sha);
     }
 
     @Test
@@ -286,11 +297,38 @@ class UpdateCheckerTest {
     @Test
     void publishedManifestIsValidForEveryPlatform() throws Exception {
         String json = Files.readString(Path.of("../site/versao.json"));
+        // site/versao.json da 0.4.0 ainda não tem linux-*: só as plataformas publicadas
         for (String platform : List.of("windows", "mac-arm64", "mac-x64")) {
             Update u = UpdateChecker.parse(json, platform, UpdateChecker.RELEASES);
             assertTrue(u.url().toString().contains("/v" + u.version() + "/"), platform);
             String url = u.url().toString();
             assertTrue(url.substring(url.lastIndexOf('/')).contains(u.version()), "arquivo com a versão no nome");
         }
+    }
+
+    @Test
+    void linuxSwapsAppImageAfterExit() throws Exception {
+        Path app = dir.resolve("Arara-0.3.0-linux-x64.AppImage");
+        Files.writeString(app, "appimage atual");
+        String file = "v0.3.0/Arara-0.3.0-linux-x64.AppImage";
+        manifest.set(linuxManifest("0.3.0", base + file, sha(SETUP)));
+        UpdateChecker c = checker(base, app.toString(), "linux-x64", false, true);
+        Update u = c.check().orElseThrow();
+        assertTrue(c.install(u, (d, t) -> {}));
+        Path staged = app.resolveSibling(".Arara-nova.AppImage");
+        Path old = app.resolveSibling(".Arara-velha.AppImage");
+        assertTrue(Files.exists(staged));
+        assertEquals(List.of(), ran);
+        assertEquals(List.of(List.of("/bin/sh", "-c", UpdateChecker.LINUX_SWAP, "sh", "4242", staged.toString(),
+                app.toString(), old.toString())), started);
+    }
+
+    @Test
+    void linuxNonAppImageDoesNothing() throws Exception {
+        manifest.set(linuxManifest("0.3.0", base + "v0.3.0/Arara-0.3.0-linux-x64.AppImage", sha(SETUP)));
+        UpdateChecker c = checker(base, "/usr/bin/java", "linux-x64", false, true);
+        Update u = c.check().orElseThrow();
+        assertFalse(c.install(u, (d, t) -> {}));
+        assertEquals(List.of(), started);
     }
 }

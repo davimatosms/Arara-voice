@@ -10,12 +10,14 @@ Aperte <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Espaço</kbd>, fale, e o texto 
 [![Baixar para Windows](https://img.shields.io/badge/Baixar_para-Windows_10_e_11-1C72CF?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Setup.exe)
 [![Baixar para Mac Apple Silicon](https://img.shields.io/badge/Baixar_para-Mac_(M1_a_M4)-6CC93A?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-AppleSilicon.dmg)
 [![Baixar para Mac Intel](https://img.shields.io/badge/Baixar_para-Mac_Intel-6CC93A?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Mac-Intel.dmg)
+[![Baixar para Linux x64](https://img.shields.io/badge/Baixar_para-Linux_x64-E95420?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Linux-x64.AppImage)
+[![Baixar para Linux arm64](https://img.shields.io/badge/Baixar_para-Linux_arm64-E95420?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/davimatosms/Arara-voice/releases/latest/download/Arara-Linux-arm64.AppImage)
 
 [Site](https://arara-voice.vercel.app) · [Todas as versões](https://github.com/davimatosms/Arara-voice/releases) · [Licença MIT](LICENSE)
 
 </div>
 
-> **In English:** Arara is a free, open-source (MIT) voice dictation app for Windows and macOS, built for Brazilian
+> **In English:** Arara is a free, open-source (MIT) voice dictation app for Windows, macOS and Linux, built for Brazilian
 > Portuguese. It runs OpenAI's Whisper locally through whisper.cpp: no cloud, no account, no telemetry. Press
 > <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd>, speak, and the text is pasted wherever your cursor is, with a live
 > preview while you talk. Made for dictating prompts to AI coding agents (Claude Code, Codex, Cursor...), but it
@@ -70,7 +72,8 @@ Ele só usa a internet para duas coisas:
 - consultar o `versao.json` do site para saber se há versão nova (dá para desligar em Configurações; o instalador só
   é baixado se você aceitar).
 
-Configurações, histórico e modelos ficam em `%APPDATA%\Arara` no Windows. Detalhes na
+Configurações, histórico e modelos ficam em `%APPDATA%\Arara` no Windows, em
+`~/Library/Application Support/Arara` no macOS e em `~/.local/share/Arara` no Linux. Detalhes na
 [política de privacidade e de assinatura de código](https://arara-voice.vercel.app/politica.html).
 
 ## Perguntas frequentes
@@ -85,6 +88,11 @@ O projeto ainda não tem o Developer ID da Apple, então o macOS bloqueia a prim
 Aplicativos, tente abrir uma vez e depois vá em **Ajustes do Sistema › Privacidade e Segurança › Abrir Mesmo Assim**.
 O passo a passo, as permissões (Microfone e Acessibilidade) e a alternativa pelo Terminal estão em
 [docs/macos.md](docs/macos.md).
+
+**E no Linux?**<br>
+Baixe o `.AppImage` (x64 ou arm64), dê `chmod +x` e abra. Dados em `~/.local/share/Arara`. O atalho global e o colar
+funcionam em X11 ou XWayland. Se o sistema não tiver FUSE/`libfuse2`, rode com
+`APPIMAGE_EXTRACT_AND_RUN=1 ./Arara-Linux-x64.AppImage`.
 
 **Precisa de internet?**<br>
 Só para baixar o modelo de voz na primeira vez. Depois disso, o ditado funciona offline.
@@ -107,6 +115,7 @@ Requer JDK 21.
 ./gradlew :app:run          # roda o app
 ./gradlew :app:instalador   # instalador do Windows (precisa do Inno Setup 6.7+)
 ./gradlew :app:dmg          # .dmg do macOS (num Mac)
+./gradlew :app:appimage     # .AppImage do Linux (precisa do appimagetool; veja docs/desenvolvimento.md)
 ```
 
 Módulos `core` (backend: microfone, Whisper, atalho, colar, histórico, dicionário) e `app` (Swing + FlatLaf).

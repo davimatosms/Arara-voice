@@ -218,6 +218,7 @@ final class UpdateDialog extends JPanel {
         label(this, "Instalando a versão " + update.version(), Theme.extrabold(23), Theme.TEXT, PX, 192);
         label(this, "O Arara vai fechar e abrir de novo.", Theme.bold(16), Theme.TEXT, PX, 230);
         para(this, Ui.MAC ? "Trocando o Arara em Aplicativos. Seus ditados, dicionário e configurações ficam."
+                : Ui.LINUX ? "Trocando o arquivo AppImage. Seus ditados, dicionário e configurações ficam."
                 : "O instalador roda sozinho, sem perguntas. Seus ditados, dicionário e configurações ficam.",
                 Theme.regular(14), Theme.TEXT_SOFT, PX, 258, CW, 20);
         put(this, new JComponent() { // indeterminada: o tamanho final do instalador não é conhecido
@@ -249,8 +250,10 @@ final class UpdateDialog extends JPanel {
             }
             case PERMISSION -> {
                 reason = "sem permissão";
-                title = "O macOS não deixou trocar o app";
-                body = "Baixe a versão nova pelo site, abra o arquivo e arraste o Arara para a pasta Aplicativos.";
+                title = Ui.LINUX ? "Sem permissão para trocar o AppImage" : "O macOS não deixou trocar o app";
+                body = Ui.LINUX
+                        ? "Baixe a versão nova pelo site e substitua o arquivo .AppImage."
+                        : "Baixe a versão nova pelo site, abra o arquivo e arraste o Arara para a pasta Aplicativos.";
             }
             default -> {
                 reason = "sem internet…";
@@ -327,8 +330,8 @@ final class UpdateDialog extends JPanel {
         FontMetrics big = g.getFontMetrics(Theme.display(22)), small = g.getFontMetrics(Theme.extrabold(10));
         int top = 38 + (72 - big.getHeight() - small.getHeight()) / 2;
         Onboarding.centered(g, Ui.MAC ? "MAC" : "PC", Theme.display(22), Theme.LIME, x + 36, top);
-        Onboarding.centered(g, Ui.MAC ? "Aplicativos" : "seu PC", Theme.extrabold(10), Theme.SKY_SOFT, x + 36,
-                top + big.getHeight());
+        Onboarding.centered(g, Ui.MAC ? "Aplicativos" : Ui.LINUX ? "AppImage" : "seu PC", Theme.extrabold(10),
+                Theme.SKY_SOFT, x + 36, top + big.getHeight());
     }
 
     private static Onboarding.Chip chip(JComponent parent, String s, Color bg, Color fg, int h, int size, Color dot, int x, int y) {

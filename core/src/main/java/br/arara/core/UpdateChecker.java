@@ -42,6 +42,15 @@ public final class UpdateChecker implements AutoCloseable {
             rm -rf "$4"
             open "$3"
             """;
+    // Espera o Arara antigo sair, troca o .AppImage (guardando o antigo até o novo estar no lugar) e abre o novo.
+    static final String LINUX_SWAP = """
+            while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+            rm -f "$4"
+            chmod +x "$2"
+            mv "$3" "$4" && { mv "$2" "$3" || mv "$4" "$3"; }
+            rm -f "$4"
+            "$3" &
+            """;
 
     /**
      * Versão nova do manifesto, já com o arquivo desta plataforma.
@@ -81,6 +90,7 @@ public final class UpdateChecker implements AutoCloseable {
     private final String allowed;
     private final Optional<String> exe;
     private final boolean mac;
+    private final boolean linux;
     private final Runner runner;
     private final Path tmp;
     private final long pid;
@@ -90,6 +100,11 @@ public final class UpdateChecker implements AutoCloseable {
 
     UpdateChecker(URI manifest, String current, String platform, SettingsStore settings, String allowed,
             Optional<String> exe, boolean mac, Runner runner, Path tmp, long pid) {
+        this(manifest, current, platform, settings, allowed, exe, mac, false, runner, tmp, pid);
+    }
+
+    UpdateChecker(URI manifest, String current, String platform, SettingsStore settings, String allowed,
+            Optional<String> exe, boolean mac, boolean linux, Runner runner, Path tmp, long pid) {
         this.manifest = manifest;
         this.current = current;
         this.platform = platform;
@@ -97,6 +112,7 @@ public final class UpdateChecker implements AutoCloseable {
         this.allowed = allowed;
         this.exe = exe;
         this.mac = mac;
+        this.linux = linux;
         this.runner = runner;
         this.tmp = tmp;
         this.pid = pid;
@@ -104,10 +120,15 @@ public final class UpdateChecker implements AutoCloseable {
 
     /** Para o app: versão do jar (gradle.properties), plataforma e executável atuais. */
     public static UpdateChecker system(SettingsStore settings) {
-        String platform = !AraraCore.MAC ? "windows"
-                : System.getProperty("os.arch").equals("aarch64") ? "mac-arm64" : "mac-x64";
+        String arch = System.getProperty("os.arch").equals("aarch64") ? "arm64" : "x64";
+        String platform = AraraCore.LINUX ? "linux-" + arch
+                : AraraCore.MAC ? "mac-" + arch
+                : "windows";
+        Optional<String> exe = AraraCore.LINUX && System.getenv("APPIMAGE") != null
+                ? Optional.of(System.getenv("APPIMAGE"))
+                : ProcessHandle.current().info().command();
         return new UpdateChecker(MANIFEST, UpdateChecker.class.getPackage().getImplementationVersion(), platform,
-                settings, RELEASES, ProcessHandle.current().info().command(), AraraCore.MAC, new Processes(),
+                settings, RELEASES, exe, AraraCore.MAC, AraraCore.LINUX, new Processes(),
                 Path.of(System.getProperty("java.io.tmpdir"), "arara-atualizacao"), ProcessHandle.current().pid());
     }
 
@@ -188,7 +209,7 @@ public final class UpdateChecker implements AutoCloseable {
      * substitui os arquivos e reabre o app; no macOS um script espera o Arara sair, troca o .app e o reabre.
      *
      * @return false fora do app instalado (rodando pelo Gradle): nada é baixado nem executado
-     * @throws ManualInstallNeeded se o Arara.app está numa pasta sem permissão de escrita
+     * @throws ManualInstallNeeded se o Arara.app ou o .AppImage está numa pasta sem permissão de escrita
      * @throws Corrupted           SHA-256 diferente: o arquivo é apagado e nunca executado
      * @throws IOException         sem internet ou URL fora das releases do Arara; a mensagem serve para o usuário
      */
@@ -203,12 +224,13 @@ public final class UpdateChecker implements AutoCloseable {
     public boolean install(Update u, AraraCore.DownloadProgress progress, BooleanSupplier cancelled) throws IOException {
         checkUrl(u.url().toString(), allowed);
         String path = exe.orElse("");
-        if (!Startup.packaged(path, mac)) {
+        if (!Startup.packaged(path, mac, linux)) {
             LOG.info("Instalar a atualização " + u.version() + " ignorado fora do app instalado: " + path);
             return false;
         }
-        Path app = mac ? Path.of(path.substring(0, path.length() - "/Contents/MacOS/Arara".length())) : null;
-        if (mac && !(Files.isWritable(app.getParent()) && Files.isWritable(app))) {
+        Path app = mac ? Path.of(path.substring(0, path.length() - "/Contents/MacOS/Arara".length()))
+                : linux ? Path.of(path) : null;
+        if ((mac || linux) && !(Files.isWritable(app.getParent()) && (linux || Files.isWritable(app)))) {
             throw new ManualInstallNeeded("Sem permissão para substituir o Arara em " + app.getParent()
                     + ". Baixe a versão " + u.version() + " em arara-voice.vercel.app.");
         }
@@ -218,6 +240,13 @@ public final class UpdateChecker implements AutoCloseable {
             if (!WhisperTranscriber.download(u.url(), u.sha256(), file, progress, cancelled)) return false;
         } catch (WhisperTranscriber.ChecksumMismatch e) { // o download já apagou o arquivo
             throw new Corrupted(e.getMessage());
+        }
+        if (linux) {
+            Path staged = app.resolveSibling(".Arara-nova.AppImage");
+            Files.move(file, staged, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            runner.start(List.of("/bin/sh", "-c", LINUX_SWAP, "sh", Long.toString(pid), staged.toString(),
+                    app.toString(), app.resolveSibling(".Arara-velha.AppImage").toString()));
+            return true;
         }
         if (!mac) {
             runner.start(windowsCommand(file));
