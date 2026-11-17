@@ -160,6 +160,7 @@ public final class Main {
             }
             frame.setLocationRelativeTo(null);
             if (instance != null) instance.onToggle = () -> {
+                java.util.logging.Logger.getLogger("br.arara").info("alternar: pedido recebido (--alternar)");
                 Onboarding o = onb[0];
                 if (o == null || !o.toggleProbe()) engine.toggle(); // o teste do passo do atalho no Linux não grava
             };
