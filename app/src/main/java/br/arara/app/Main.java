@@ -48,6 +48,7 @@ public final class Main {
         if (List.of(args).contains("--diagnostico-colar")) { // roda e sai, sem abrir janela
             try {
                 AraraCore.diagnosticoColar(System.out::println);
+                Thread.sleep(1500); // X11: sair já derruba o dono do clipboard antes de o destino ler o texto
             } catch (Exception e) {
                 e.printStackTrace();
             }

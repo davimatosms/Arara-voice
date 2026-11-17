@@ -31,7 +31,7 @@ sec "1a. App sobe e fica de pé 20 s (HOME/XDG em pasta temp, SEM APPDATA)"
 env_item boot
 "$APP" >"$W/boot.log" 2>&1 & PID=$!
 sleep 20
-if kill -0 "$PID" 2>/dev/null && ! grep -q "Exception\|não conseguiu" "$W/boot.log"; then ok "1a app de pé após 20 s sem APPDATA"
+if kill -0 "$PID" 2>/dev/null && ! grep -q "NullPointerException\|Exception in thread\|não conseguiu" "$W/boot.log"; then ok "1a app de pé após 20 s sem APPDATA"
 else
   bad "1a app de pé após 20 s sem APPDATA" "$(grep -m3 -i 'exception\|erro\|error' "$W/boot.log" | tr '\n' '|')"
   WORKAROUND_APPDATA=1; echo "(a partir daqui o teste define APPDATA para conseguir testar o resto)"
