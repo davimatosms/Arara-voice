@@ -1,19 +1,19 @@
 {
-  "versao": "0.4.4",
-  "data": "2026-11-17",
-  "notas": "Desinstalar o Arara pelo próprio app (Configurações).",
+  "versao": "0.4.5",
+  "data": "2026-11-18",
+  "notas": "Ditados longos mais claros, Esc na transcrição e permissão do Mac.",
   "arquivos": {
     "windows": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.4/Arara-Setup-0.4.4.exe",
-      "sha256": "3459c0f359a2512a0344b855f0be378e2a489865f8dc95a920bf969bc72258c4"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-Setup-0.4.5.exe",
+      "sha256": "3e4df7573ae0ac1692f433cb20e7095aa837e6e25065cf9d1112c99c489e0005"
     },
     "mac-arm64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.4/Arara-0.4.4-Mac-AppleSilicon.dmg",
-      "sha256": "5aaa9f9d039a93fe8b696e57bcc7356b9c5635a23298591b54c369eabd3a4bac"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-0.4.5-Mac-AppleSilicon.dmg",
+      "sha256": "0eba10052c282d85a826d00a4b6569914a316b6a2668373c35b870287556255c"
     },
     "mac-x64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.4/Arara-0.4.4-Mac-Intel.dmg",
-      "sha256": "91271ed7ecbe57514b55564102af8be0ee441cdc92800050c1c3f7b9a837c5d9"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-0.4.5-Mac-Intel.dmg",
+      "sha256": "cee6c9b72d1d37fe52e5a582a49a8ff2ed4fe76c6fd00a9e80686c86397275f5"
     }
   }
 }
