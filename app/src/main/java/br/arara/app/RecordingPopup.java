@@ -24,7 +24,7 @@ import java.util.function.LongSupplier;
 
 /** Pop-up de gravação: sempre por cima, sem roubar o foco, perto do pé da tela. */
 final class RecordingPopup implements DictationListener {
-    private static final int WIDTH = 500, HEIGHT = 150;
+    static final int WIDTH = 500, HEIGHT = 150;
 
     private final SettingsStore settings;
     final Arara arara = new Arara(2);

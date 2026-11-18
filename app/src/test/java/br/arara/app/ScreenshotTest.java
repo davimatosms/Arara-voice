@@ -777,10 +777,9 @@ class ScreenshotTest {
             write(paint(pop, p.view), "fila/popup-sem-texto");
             p.onLiveText(ate(14), "");
             write(paint(pop, p.view), "fila/popup-com-texto");
-            javax.swing.JOptionPane pane = SlowModelTip.pane(br.arara.core.Settings.Model.PRECISO);
-            JFrame f = offscreen(pane, 460, 190);
-            pane.setSize(pane.getPreferredSize());
-            write(paint(f, pane), "fila/dica");
+            JPanel tip = SlowModelTip.panel(br.arara.core.Settings.Model.PRECISO, x -> {});
+            JFrame f = offscreen(tip, tip.getPreferredSize().width, tip.getPreferredSize().height);
+            write(paint(f, tip), "fila/dica");
         });
     }
 }
