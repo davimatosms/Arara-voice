@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windows bloqueou o Arara? Veja como liberar</title>
+  <meta name="description" content="O antivírus ou o SmartScreen bloqueou o Arara no Windows? Passo a passo simples para liberar o instalador com segurança: SmartScreen, Microsoft Defender, Avast, Kaspersky e outros.">
+  <link rel="canonical" href="https://arara-voice.vercel.app/windows.html">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Arara">
+  <meta property="og:title" content="Windows bloqueou o Arara? Veja como liberar">
+  <meta property="og:description" content="O antivírus ou o SmartScreen bloqueou o Arara no Windows? Passo a passo simples para liberar o instalador com segurança: SmartScreen, Microsoft Defender, Avast, Kaspersky e outros.">
+  <meta property="og:url" content="https://arara-voice.vercel.app/windows.html">
+  <meta property="og:image" content="https://arara-voice.vercel.app/assets/telas/1-inicio.png">
+  <meta property="og:image:alt" content="Tela Início do Arara, app de ditado por voz">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Windows bloqueou o Arara? Veja como liberar">
+  <meta name="twitter:description" content="O antivírus ou o SmartScreen bloqueou o Arara no Windows? Passo a passo simples para liberar o instalador com segurança: SmartScreen, Microsoft Defender, Avast, Kaspersky e outros.">
+  <meta name="twitter:image" content="https://arara-voice.vercel.app/assets/telas/1-inicio.png">
+  <meta name="theme-color" content="#0F1712">
+  <link rel="icon" type="image/png" href="assets/img/arara-pousada.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Só desta página: texto corrido sobre a base da landing (styles.css). */
+    .topo { background: var(--fundo-2); border-bottom: 1px solid var(--borda); }
+    .topo .nav { padding: 22px 20px; }
+    .topo .nav a.voltar { color: #fff; font-weight: 700; text-decoration: none; }
+    .topo .nav a.voltar:hover { text-decoration: underline; }
+    .doc { max-width: 820px; padding-top: 56px; padding-bottom: 80px; }
+    .doc h1 { font-family: var(--display); text-transform: uppercase; font-size: clamp(40px, 7vw, 72px); line-height: 1.02; }
+    .doc h2 { font-size: clamp(30px, 4.4vw, 44px); margin-top: 64px; }
+    .doc h3 { font-size: 20px; font-weight: 800; margin-top: 32px; }
+    .doc p, .doc li { font-size: 17px; line-height: 28px; }
+    .doc p { margin: 14px 0 0; }
+    .doc ul { padding-left: 22px; margin: 14px 0 0; }
+    .doc li + li { margin-top: 8px; }
+    .doc a { color: var(--verde-claro); }
+    .doc ol { padding-left: 22px; margin: 14px 0 0; }
+    .doc code { font-family: var(--mono); font-size: .88em; background: var(--sup); border: 1px solid var(--borda); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+    .doc .cartao { padding: 24px 26px; margin-top: 24px; }
+    .doc .cartao p:first-child { margin-top: 0; }
+    .frase { font-size: 19px; font-weight: 700; }
+    .papeis { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 16px; }
+    .papeis th, .papeis td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+    .papeis th { color: var(--suave); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    @media (max-width: 760px) {
+      .doc { padding-top: 36px; padding-bottom: 56px; }
+      .doc h2 { margin-top: 48px; }
+      .doc p, .doc li { font-size: 16px; line-height: 26px; }
+      .doc .cartao { padding: 18px; }
+      .papeis th, .papeis td { padding: 10px 6px; }
+    }
+  </style>
+  <!-- Vercel Web Analytics: conta visitas sem cookies; só funciona com o Analytics ligado no projeto. -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <nav class="nav" aria-label="Principal">
+      <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+      <a class="voltar" href="index.html">Voltar ao site</a>
+    </nav>
+  </header>
+
+  <main id="conteudo" class="wrap doc">
+    <p class="chip">Windows</p>
+    <h1>Windows bloqueou o Arara?</h1>
+    <p class="sub">Calma, o problema não é com você. O instalador do Arara ainda não tem assinatura digital, então o Windows e alguns antivírus desconfiam dele por engano (é o chamado falso positivo). Veja como liberar com segurança.</p>
+
+    <section aria-labelledby="regra">
+      <h2 id="regra">Antes de tudo</h2>
+      <div class="cartao">
+        <p>Libere apenas o arquivo baixado do <a href="https://arara-voice.vercel.app">site oficial</a> ou da página de <a href="https://github.com/davimatosms/Arara-voice/releases">Releases no GitHub</a>. Se veio de outro lugar, apague e baixe de novo. Nunca desligue o antivírus nem exclua o disco inteiro: os passos abaixo liberam só o Arara.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="smartscreen">
+      <h2 id="smartscreen">1. Aviso “O Windows protegeu o computador”</h2>
+      <p>Esse é o SmartScreen. Ele aparece para programas novos ou sem assinatura.</p>
+      <ol>
+        <li>Na janela azul, clique em <strong>Mais informações</strong>.</li>
+        <li>Clique em <strong>Executar assim mesmo</strong>.</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="conferir">
+      <h2 id="conferir">2. Conferir que o arquivo é o oficial (opcional)</h2>
+      <p>Cada versão tem uma “impressão digital” (SHA-256) publicada em <a href="https://arara-voice.vercel.app/versao.json">versao.json</a>. Se a do seu arquivo for igual, ele não foi alterado.</p>
+      <p>No PowerShell, na pasta do arquivo, rode (troque pela sua versão): <code>Get-FileHash .\Arara-Setup-0.0.0.exe</code>. Compare o resultado com o campo <code>sha256</code> do Windows no <code>versao.json</code>.</p>
+    </section>
+
+    <section aria-labelledby="defender">
+      <h2 id="defender">3. Microsoft Defender (Segurança do Windows)</h2>
+      <h3>Restaurar da quarentena</h3>
+      <ol>
+        <li>Abra <strong>Segurança do Windows › Proteção contra vírus e ameaças</strong>.</li>
+        <li>Clique em <strong>Histórico de proteção</strong> e ache o aviso do Arara.</li>
+        <li>Abra <strong>Ações</strong> e escolha <strong>Restaurar</strong>.</li>
+      </ol>
+      <h3>Adicionar exclusão só do Arara</h3>
+      <ol>
+        <li>Em <strong>Proteção contra vírus e ameaças</strong>, abra <strong>Gerenciar configurações</strong> e desça até <strong>Exclusões</strong>.</li>
+        <li>Clique em <strong>Adicionar ou remover exclusões › Adicionar uma exclusão › Pasta</strong>.</li>
+        <li>Escolha a pasta de instalação do Arara: <code>%LOCALAPPDATA%\Programs\Arara</code> (cole no seletor; geralmente é <code>C:\Users\SeuNome\AppData\Local\Programs\Arara</code>).</li>
+        <li>Se o instalador ainda estiver sendo bloqueado, adicione também o arquivo <code>Arara-Setup-….exe</code> como exclusão de <strong>Arquivo</strong>.</li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="outros">
+      <h2 id="outros">4. Outros antivírus</h2>
+      <p>O nome dos menus pode mudar conforme a versão. Em todos, a ideia é a mesma: restaurar o arquivo da quarentena e adicionar uma exceção só para a pasta do Arara (<code>%LOCALAPPDATA%\Programs\Arara</code>).</p>
+      <ul>
+        <li><strong>Avast / AVG:</strong> abra a Quarentena (em Proteção ou Vírus e ameaças), marque o arquivo e escolha Restaurar e adicionar exceção. Depois, em Configurações › Exceções, confirme a pasta.</li>
+        <li><strong>Kaspersky:</strong> em Proteção › Quarentena, escolha Restaurar. Em Configurações › Ameaças e exclusões › Gerenciar exclusões, adicione a pasta.</li>
+        <li><strong>Norton:</strong> em Segurança › Histórico, filtre por Quarentena e escolha Restaurar. Em Configurações › Antivírus › Verificações e riscos, ajuste as exclusões.</li>
+        <li><strong>McAfee:</strong> em Verificação de vírus, abra os arquivos em quarentena e restaure. Nas configurações de verificação, adicione a pasta às exclusões.</li>
+        <li><strong>Bitdefender:</strong> em Proteção › Antivírus, abra a Quarentena e restaure. Em Gerenciar exceções, adicione a pasta.</li>
+        <li><strong>ESET:</strong> em Ferramentas › Quarentena, escolha Restaurar. Em Configurações avançadas › Exclusões, adicione a pasta.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="corrigir">
+      <h2 id="corrigir">5. Ajude a corrigir de vez</h2>
+      <p>Você pode avisar a Microsoft de que é um falso positivo em <a href="https://www.microsoft.com/wdsi/filesubmission">microsoft.com/wdsi/filesubmission</a>: envie o instalador e marque que é um software seguro.</p>
+      <p>A assinatura digital do instalador está a caminho. Quando ela chegar, esses avisos devem sumir. Veja a <a href="politica.html">política de assinatura</a>.</p>
+    </section>
+
+    <section aria-labelledby="ainda">
+      <h2 id="ainda">Ainda não deu?</h2>
+      <p><a href="https://github.com/davimatosms/Arara-voice/issues">Abra uma issue no GitHub</a> contando qual antivírus e qual mensagem apareceu. Não precisa saber nada técnico.</p>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap rodape-grid">
+      <div>
+        <a class="marca" href="index.html"><span class="pixels" aria-hidden="true"><i></i><i></i><i></i></span>Arara</a>
+        <p class="suave">Ditado por voz em PT-BR, 100% local, para Windows e Mac.</p>
+      </div>
+      <div>
+        <ul class="rodape-links">
+          <li><a href="https://github.com/davimatosms/Arara-voice">GitHub</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/releases">Releases</a></li>
+          <li><a href="https://github.com/davimatosms/Arara-voice/issues">Contato</a></li>
+          <li><a href="mac.html">Arara no Mac</a></li>
+          <li><a href="windows.html" aria-current="page">Windows bloqueou o Arara?</a></li>
+          <li><a href="politica.html" lang="en">Code signing policy</a></li>
+        </ul>
+        <p class="marcas">Marcas e logos pertencem aos respectivos donos.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

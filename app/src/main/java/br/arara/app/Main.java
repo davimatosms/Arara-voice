@@ -43,17 +43,31 @@ import java.util.Optional;
 public final class Main {
     /** Lock de cópia única; campo estático para não ser coletado enquanto o app roda. */
     private static SingleInstance instance;
+    /** Modo demo: o "Desinstalar" não mexe em nada. */
+    static boolean demo;
+    private static AraraCore active;
+
+    /** Solta o atalho global e o lock de instância única (o desinstalador chama antes de apagar ou mover algo). */
+    static void release() {
+        try {
+            if (active != null) active.close();
+            if (instance != null) instance.close();
+        } catch (Exception ignored) {
+            // já está saindo
+        }
+    }
 
     public static void main(String[] args) {
         if (List.of(args).contains("--diagnostico-colar")) { // roda e sai, sem abrir janela
             try {
                 AraraCore.diagnosticoColar(System.out::println);
+                Thread.sleep(1500); // X11: sair já derruba o dono do clipboard antes de o destino ler o texto
             } catch (Exception e) {
                 e.printStackTrace();
             }
             System.exit(0); // JNativeHook e AWT deixam threads vivas
         }
-        boolean demo = List.of(args).contains("--demo");
+        demo = List.of(args).contains("--demo");
         // Antes do atalho global e do core: duas cópias na mesma pasta colavam cada ditado duas vezes.
         if (!demo) {
             Path dir = AraraCore.defaultDataDir();
@@ -114,6 +128,7 @@ public final class Main {
             }));
 
             AraraCore core = real;
+            active = real;
             Settings look = settings.load();
             Theme.use(look.macaw(), look.lightMode());
             Theme.install();
@@ -125,6 +140,7 @@ public final class Main {
             RecordingPopup popup = new RecordingPopup(settings);
             engine.addListener(Ui.onEdt(view));
             engine.addListener(Ui.onEdt(popup));
+            engine.addListener(new SlowModelTip(settings));
             Thread motion = new Thread(() -> popup.live.reduceMotion = Ui.reducedMotion(), "arara-movimento");
             motion.setDaemon(true);
             motion.start();
@@ -160,6 +176,7 @@ public final class Main {
             }
             frame.setLocationRelativeTo(null);
             if (instance != null) instance.onToggle = () -> {
+                java.util.logging.Logger.getLogger("br.arara").info("alternar: pedido recebido (--alternar)");
                 Onboarding o = onb[0];
                 if (o == null || !o.toggleProbe()) engine.toggle(); // o teste do passo do atalho no Linux não grava
             };

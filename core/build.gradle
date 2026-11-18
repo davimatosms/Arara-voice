@@ -27,3 +27,9 @@ tasks.register('smoke', JavaExec) {
     mainClass = 'br.arara.core.Smoke'
     jvmArgs '-Dstdout.encoding=UTF-8'
 }
+
+// Usado pelo linux-e2e.yml: imprime o classpath do e2e para rodar PasteTarget/UpdateE2E/Smoke sem o Gradle.
+tasks.register('e2eCp') {
+    dependsOn tasks.named('e2eClasses')
+    doLast { println 'CP=' + sourceSets.e2e.runtimeClasspath.asPath }
+}

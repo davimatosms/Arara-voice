@@ -288,6 +288,35 @@ class ScreenshotTest {
     }
 
     /** Diálogo de atualização (design 13): 1a, 1d, 2, 3, 4a-4c, Configurações (5) e os estados do "Procurar agora" (5b). */
+    /** Desinstalar (design 22): seção das Configurações, diálogo no Mac e no Windows e a despedida. */
+    @Test
+    void desenhaDesinstalar() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        String dir = "desinstalar/";
+        new File(DIR, dir).mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            for (boolean light : new boolean[] {false, true}) {
+                Theme.use(Settings.Macaw.CANINDE, light);
+                Theme.install();
+                String t = light ? "-claro" : "";
+                DemoCore core = new DemoCore();
+                MainView view = new MainView(core.engine(), core.history(), core.dictionary(), core.settings());
+                view.show(3);
+                save(view, 1100, 2900, dir + "1-configuracoes" + t);
+                if (light) break;
+                UninstallDialog mac = new UninstallDialog(br.arara.core.Uninstaller.Os.MAC, "~/Library/Application Support/Arara");
+                mac.size(java.util.OptionalLong.of(1_400_000_000L));
+                save(mac, UninstallDialog.WIDTH, mac.getPreferredSize().height, dir + "2a-dialogo-mac");
+                UninstallDialog win = new UninstallDialog(br.arara.core.Uninstaller.Os.WINDOWS, "%APPDATA%\\Arara");
+                win.size(java.util.OptionalLong.of(1_400_000_000L));
+                save(win, UninstallDialog.WIDTH, win.getPreferredSize().height, dir + "2b-dialogo-windows");
+                JPanel f = UninstallDialog.farewell(true, null, () -> {});
+                save(f, UninstallDialog.WIDTH, f.getPreferredSize().height, dir + "3-despedida-mac");
+            }
+            Theme.use(Settings.Macaw.CANINDE, false);
+        });
+    }
+
     @Test
     void desenhaAtualizacao() throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
@@ -732,5 +761,25 @@ class ScreenshotTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Pop-up com "faltam ~X s" (com e sem texto ao vivo) e a dica de modelo lento. */
+    @Test
+    void desenhaFilaLenta() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        new File(DIR, "fila").mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            RecordingPopup p = new RecordingPopup(new DemoCore().settings());
+            JFrame pop = offscreen(p.view, p.view.getWidth(), p.view.getHeight());
+            p.show(DictationState.TRANSCRIBING);
+            p.onPending(14);
+            write(paint(pop, p.view), "fila/popup-sem-texto");
+            p.onLiveText(ate(14), "");
+            write(paint(pop, p.view), "fila/popup-com-texto");
+            JPanel tip = SlowModelTip.panel(br.arara.core.Settings.Model.PRECISO, x -> {});
+            JFrame f = offscreen(tip, tip.getPreferredSize().width, tip.getPreferredSize().height);
+            write(paint(f, tip), "fila/dica");
+        });
     }
 }

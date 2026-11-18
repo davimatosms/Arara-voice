@@ -145,6 +145,13 @@ class StartupTest {
         }
     }
 
+    @Test
+    void disableApagaMesmoForaDoAppInstalado() {
+        FakeRegistry reg = new FakeRegistry();
+        new Startup(reg, "Arara", Optional.of("C:\\java\\bin\\java.exe"), false).disable();
+        assertEquals(List.of("delete Arara"), reg.calls);
+    }
+
     private static String query(String name) throws IOException, InterruptedException {
         Process p = new ProcessBuilder("reg.exe", "query", Startup.RUN_KEY, "/v", name).redirectErrorStream(true).start();
         String out = new String(p.getInputStream().readAllBytes(), Charset.defaultCharset());

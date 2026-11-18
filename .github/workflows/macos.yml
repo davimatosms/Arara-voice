@@ -4,7 +4,7 @@ name: macos
 # Com os secrets APPLE_* (ainda não existem), o passo desligado abaixo assina com Developer ID e notariza.
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '!v*-beta*'] # beta é só Linux
   workflow_dispatch:
   # Enquanto este arquivo não está na main, o workflow_dispatch não aparece: o PR prova que o .dmg sai.
   pull_request:

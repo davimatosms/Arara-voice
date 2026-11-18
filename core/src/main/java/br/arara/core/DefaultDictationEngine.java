@@ -10,6 +10,10 @@ import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -96,6 +100,17 @@ final class DefaultDictationEngine implements DictationEngine {
     private int prevLiveEnd = -1; // idem, do último trecho cortado que teve prévia
     private volatile double rtf = 1; // segundos de Whisper por segundo de áudio no último trecho; começa pessimista
     Consumer<String> trace = s -> {}; // diagnóstico de latência (o e2e liga)
+    LongSupplier nanos = System::nanoTime; // relógio do Whisper (os testes controlam)
+    /** Atraso acumulado (fila passa disto, em s de áudio) ou RTF médio do ditado acima disto: o modelo é lento demais. */
+    static final double SLOW_BACKLOG = 10;
+    static final double SLOW_RTF = 0.9;
+    static final double SHOW_PENDING = 2; // só mostra "faltam ~X s" acima disto
+    private static final int RTF_MIN_AUDIO = Vad.RATE * 8; // média de menos áudio que isto é ruído
+    private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "arara-estimativa");
+        t.setDaemon(true);
+        return t;
+    });
 
     /** Um ditado: os trechos rodam em ordem na thread de transcrição e juntam o texto aqui. */
     private static final class Take {
@@ -103,6 +118,9 @@ final class DefaultDictationEngine implements DictationEngine {
         boolean failed; // idem
         volatile boolean cancelled;
         boolean delivering; // já passou da checagem de cancelled e vai colar; muda com o lock do engine
+        final AtomicLong pending = new AtomicLong(); // amostras na fila ou no Whisper
+        volatile double whisperSec, audioSec; // soma dos trechos já transcritos: RTF médio do ditado
+        volatile boolean slow; // fila passou de SLOW_BACKLOG ou RTF médio passou de SLOW_RTF
         int confirmed; // fim (amostra) do último trecho já transcrito; muda com o lock do engine
         volatile String confirmedText = "";
         final TreeMap<Integer, String> drafts = new TreeMap<>(); // prévia por início de trecho ainda não confirmado; idem
@@ -153,6 +171,7 @@ final class DefaultDictationEngine implements DictationEngine {
         if (state == DictationState.TRANSCRIBING) { // Esc na transcrição: a thread de fundo vê cancelled e não cola
             if (take.delivering) return; // já está colando: tarde demais para cancelar
             take.cancelled = true;
+            for (DictationListener l : listeners) l.onPending(0); // a estimativa some já, sem esperar o Whisper
             setState(DictationState.IDLE);
             return;
         }
@@ -184,6 +203,7 @@ final class DefaultDictationEngine implements DictationEngine {
     public synchronized void close() {
         cancel();
         worker.shutdown();
+        ticker.shutdownNow();
         previewer.shutdown();
     }
 
@@ -282,9 +302,13 @@ final class DefaultDictationEngine implements DictationEngine {
         short[] rest = cutPart(size);
         audio = null;
         Take t = take;
+        if (rest != null) addPending(t, rest.length);
         setState(DictationState.TRANSCRIBING);
+        var tick = ticker.scheduleAtFixedRate(() -> emitPending(t), 0, 500, TimeUnit.MILLISECONDS);
         worker.execute(() -> {
             if (rest != null) transcribePart(t, rest, Integer.MAX_VALUE);
+            tick.cancel(false);
+            for (DictationListener l : listeners) l.onPending(0);
             deliver(t);
         });
     }
@@ -296,7 +320,23 @@ final class DefaultDictationEngine implements DictationEngine {
     private void submit(short[] pcm, int to) {
         if (pcm == null) return;
         Take t = take;
+        addPending(t, pcm.length);
         worker.execute(() -> transcribePart(t, pcm, to));
+    }
+
+    private void addPending(Take t, int samples) {
+        if (t.pending.addAndGet(samples) > SLOW_BACKLOG * Vad.RATE) t.slow = true;
+    }
+
+    /** Segundos que faltam: áudio pendente x RTF médio do ditado; 0 sem RTF ainda (não dá para estimar). */
+    static double estimate(long pendingSamples, double whisperSec, double audioSec) {
+        return audioSec <= 0 ? 0 : pendingSamples / (double) Vad.RATE * whisperSec / audioSec;
+    }
+
+    private void emitPending(Take t) {
+        if (t.cancelled) return;
+        double s = estimate(t.pending.get(), t.whisperSec, t.audioSec);
+        for (DictationListener l : listeners) l.onPending(s > SHOW_PENDING ? s : 0);
     }
 
     /**
@@ -387,13 +427,19 @@ final class DefaultDictationEngine implements DictationEngine {
         if (t.cancelled || t.failed) return;
         try {
             // O texto anterior vai de contexto: mantém pontuação e continuidade entre os trechos.
-            long start = System.nanoTime();
+            long start = nanos.getAsLong();
             String part = transcriber.transcribe(pcm, t.text.toString());
-            rtf = (System.nanoTime() - start) / 1e9 / (pcm.length / (double) Vad.RATE);
+            double took = (nanos.getAsLong() - start) / 1e9, secs = pcm.length / (double) Vad.RATE;
+            rtf = took / secs;
+            t.whisperSec += took;
+            t.audioSec += secs;
+            if (t.audioSec * Vad.RATE >= RTF_MIN_AUDIO && t.whisperSec / t.audioSec > SLOW_RTF) t.slow = true;
             join(t.text, part);
         } catch (RuntimeException e) {
             t.failed = true;
             return;
+        } finally {
+            t.pending.addAndGet(-pcm.length);
         }
         String soFar = t.text.toString();
         t.confirmedText = soFar;
@@ -502,8 +548,10 @@ final class DefaultDictationEngine implements DictationEngine {
             fail(saved ? "Não consegui colar. O texto está no histórico." : "Não consegui salvar nem colar o texto.");
             return;
         }
-        if (saved) setState(DictationState.PASTED);
-        else fail("Não consegui salvar no histórico.");
+        if (saved) {
+            setState(DictationState.PASTED);
+            if (t.slow) for (DictationListener l : listeners) l.onSlowModel();
+        } else fail("Não consegui salvar no histórico.");
     }
 
     private synchronized void fail(String message) {

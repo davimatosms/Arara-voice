@@ -90,6 +90,15 @@ final class Startup {
         }
     }
 
+    /** Desliga sempre, até fora do app instalado (o desinstalador não pode deixar entrada para trás). */
+    void disable() {
+        try {
+            registry.delete(name);
+        } catch (IOException e) {
+            LOG.warning("Não consegui desligar o abrir com o sistema: " + e.getMessage());
+        }
+    }
+
     /** Sincroniza agora e a cada save que mudar startWithWindows. */
     SettingsStore wrap(SettingsStore store) {
         sync(store.load().startWithWindows());
