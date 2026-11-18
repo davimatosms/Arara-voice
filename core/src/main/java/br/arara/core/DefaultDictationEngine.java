@@ -555,8 +555,8 @@ final class DefaultDictationEngine implements DictationEngine {
     }
 
     private synchronized void fail(String message) {
-        setState(DictationState.ERROR);
         for (DictationListener l : listeners) l.onError(message);
+        setState(DictationState.ERROR);
     }
 
     private synchronized void setState(DictationState s) {

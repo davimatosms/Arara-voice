@@ -40,6 +40,15 @@ Se negar sem querer: Ajustes do Sistema › Privacidade e Segurança › Microfo
 Arara. O botão "Abrir Ajustes" do app abre o painel certo. Depois de uma atualização do app, pode ser preciso
 desligar e ligar o Arara de novo na lista (a assinatura ad-hoc muda a cada versão).
 
+Se depois de atualizar o Arara aparece ligado em Acessibilidade mas o atalho não funciona, a entrada é da
+assinatura antiga. Use "Zerar e reabrir" no aviso do app, ou no Terminal (sem sudo):
+
+```sh
+tccutil reset Accessibility br.arara.Arara
+```
+
+Reabra o Arara e ligue de novo em Acessibilidade.
+
 ## Atalho
 
 O padrão é **Ctrl+Shift+Espaço**, igual ao Windows. No macOS ele não é atalho do sistema e não digita

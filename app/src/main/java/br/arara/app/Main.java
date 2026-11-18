@@ -263,11 +263,15 @@ public final class Main {
 
     /** macOS sem Acessibilidade (a primeira execução tem um passo próprio): explica uma vez; a permissão só vale ao reabrir. */
     private static void askAccessibility(JFrame frame, AraraCore core) {
-        Object[] options = {"Abrir Ajustes", "Reabrir o Arara", "Agora não"};
+        Object[] options = {"Abrir Ajustes", "Reabrir o Arara", "Zerar e reabrir", "Agora não"};
         int choice = JOptionPane.showOptionDialog(frame, MacApp.accessHelp(),
                 "Arara", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
         if (choice == 0) Ui.openSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
         if (choice == 1) MacApp.relaunch();
+        if (choice == 2) {
+            if (MacApp.resetAccess()) MacApp.relaunch();
+            else JOptionPane.showMessageDialog(frame, MacApp.resetFailedHelp(), "Arara", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     /** Estado do modelo no cartão da barra lateral da tela principal. */
