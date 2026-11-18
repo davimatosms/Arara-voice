@@ -5,7 +5,8 @@
 set -u
 APP=$(readlink -f "$1"); W=$(readlink -f "$2"); HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$W"; RES="$W/resultados.txt"; : > "$RES"; FAIL=0
-export APPIMAGE_EXTRACT_AND_RUN=1
+# O AppImage roda MONTADO (FUSE, squashfs somente leitura) como no uso real; extract-and-run escondeu o bug do JNativeHook.
+unset APPIMAGE_EXTRACT_AND_RUN
 REAL_PATH=$PATH
 
 ok()  { echo "PASSOU  $1" | tee -a "$RES"; }
@@ -31,7 +32,10 @@ sec "1a. App sobe e fica de pé 20 s (HOME/XDG em pasta temp, SEM APPDATA)"
 env_item boot
 "$APP" >"$W/boot.log" 2>&1 & PID=$!
 sleep 20
-if kill -0 "$PID" 2>/dev/null && ! grep -q "NullPointerException\|Exception in thread\|não conseguiu" "$W/boot.log"; then ok "1a app de pé após 20 s sem APPDATA"
+MOUNTED=0; mount | grep -q 'Arara.*fuse\|fuse.*Arara' && MOUNTED=1
+if [ "$MOUNTED" = 0 ]; then bad "1a AppImage montado via FUSE" "nenhum mount FUSE do AppImage (teste não reproduz o uso real): $(mount | grep -i fuse | head -3 | tr '
+' '|')"; fi
+if kill -0 "$PID" 2>/dev/null && ! grep -q "NullPointerException\|UnsatisfiedLinkError\|Exception in thread\|não conseguiu" "$W/boot.log"; then ok "1a app de pé após 20 s sem APPDATA, AppImage montado, atalho registrado"
 else
   bad "1a app de pé após 20 s sem APPDATA" "$(grep -m3 -i 'exception\|erro\|error' "$W/boot.log" | tr '\n' '|')"
   WORKAROUND_APPDATA=1; echo "(a partir daqui o teste define APPDATA para conseguir testar o resto)"

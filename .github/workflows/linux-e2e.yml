@@ -38,6 +38,7 @@ jobs:
           sudo apt-get install -y -qq desktop-file-utils xvfb openbox xdotool libasound2-dev libxtst6 libxi6 libxrender1 \
             libxkbcommon-x11-0 libxkbcommon0 libx11-xcb1 libxt6 libxinerama1 \
             sway xwayland wtype wl-clipboard espeak-ng python3-gi gir1.2-gtk-3.0
+          sudo apt-get install -y -qq libfuse2 || sudo apt-get install -y -qq libfuse2t64 # AppImage montado de verdade
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" "$APPIMAGETOOL_URL"
           echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/appimagetool"
