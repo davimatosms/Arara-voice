@@ -58,7 +58,7 @@ class DefaultDictationEngineTest {
 
     final FakeMic mic = new FakeMic();
     final BlockingQueue<DictationState> states = new LinkedBlockingQueue<>();
-    final List<String> errors = new ArrayList<>();
+    final BlockingQueue<String> errors = new LinkedBlockingQueue<>(); // onError chega da thread de transcrição, depois do onState
     HistoryStore history;
     DictionaryStore dictionary;
     Transcriber preview; // prévia com o modelo leve; null: sem prévia
@@ -134,7 +134,8 @@ class DefaultDictationEngineTest {
         assertEquals(DictationState.TRANSCRIBING, next());
         assertEquals(DictationState.ERROR, next());
         assertEquals("texto", history.all().get(0).texto());
-        assertEquals(1, errors.size());
+        assertEquals("Não consegui colar. O texto está no histórico.", errors.poll(5, TimeUnit.SECONDS));
+        assertTrue(errors.isEmpty());
     }
 
     @Test
@@ -311,6 +312,59 @@ class DefaultDictationEngineTest {
         for (int i = 0; i < a.length; i++) a[i] = (short) (i >= 6000 && i < 9000 ? 0 : (i % 2 == 0 ? 3000 : -3000));
         int cut = DefaultDictationEngine.quietest(a, 0, a.length);
         assertTrue(cut - DefaultDictationEngine.GAP / 2 >= 6000 && cut + DefaultDictationEngine.GAP / 2 <= 9000, "corte " + cut);
+    }
+
+    @Test
+    void cancelWhileTranscribingSkipsPasteAndHistory() throws Exception {
+        CountDownLatch busy = new CountDownLatch(1), release = new CountDownLatch(1);
+        Transcriber t = pcm16k -> {
+            busy.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                throw new IllegalStateException(ex);
+            }
+            return "não pode colar";
+        };
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(t, pasted::add);
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertTrue(busy.await(5, TimeUnit.SECONDS), "Whisper em andamento");
+        e.cancel();
+        assertEquals(DictationState.IDLE, next());
+        release.countDown();
+        assertNull(states.poll(500, TimeUnit.MILLISECONDS), "nada depois do cancelamento");
+        assertEquals(DictationState.IDLE, e.state());
+        assertTrue(pasted.isEmpty());
+        assertTrue(history.all().isEmpty());
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    void cancelDuringPasteIsTooLateAndDoesNotBlock() throws Exception {
+        CountDownLatch pasting = new CountDownLatch(1), release = new CountDownLatch(1);
+        List<String> pasted = new ArrayList<>();
+        DefaultDictationEngine e = engine(pcm16k -> "já está colando", text -> {
+            pasting.countDown();
+            release.await();
+            pasted.add(text);
+        });
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 4; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertTrue(pasting.await(5, TimeUnit.SECONDS), "colagem em andamento");
+        e.cancel(); // volta na hora: a colagem não segura o lock do motor
+        assertEquals(DictationState.TRANSCRIBING, e.state());
+        release.countDown();
+        assertEquals(DictationState.PASTED, next());
+        assertEquals(List.of("já está colando"), pasted);
+        assertEquals(1, history.all().size());
     }
 
     @Test
@@ -596,6 +650,48 @@ class DefaultDictationEngineTest {
         e.release();
         while (next() != DictationState.PASTED) {}
         assertEquals(List.of("oi"), pasted);
+    }
+
+    @Test
+    void cancelWhileTranscribingZeroesPendingAndSkipsSlowHint() throws Exception {
+        CountDownLatch busy = new CountDownLatch(1), release = new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong();
+        DefaultDictationEngine e = engine(pcm16k -> {
+            busy.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                throw new IllegalStateException(ex);
+            }
+            clock.addAndGet((long) 30e9); // RTF alto: sem cancelar, avisaria modelo lento
+            return "oi";
+        }, text -> {});
+        e.nanos = clock::get;
+        List<Double> pending = new java.util.concurrent.CopyOnWriteArrayList<>();
+        int[] slow = {0};
+        e.addListener(new DictationListener() {
+            @Override
+            public void onPending(double seconds) {
+                pending.add(seconds);
+            }
+
+            @Override
+            public void onSlowModel() {
+                slow[0]++;
+            }
+        });
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 9 * Vad.RATE / VadTest.CHUNK; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertTrue(busy.await(5, TimeUnit.SECONDS));
+        e.cancel();
+        assertEquals(DictationState.IDLE, next());
+        assertEquals(0.0, pending.get(pending.size() - 1), "estimativa zerada no cancelamento");
+        release.countDown();
+        assertNull(states.poll(500, TimeUnit.MILLISECONDS));
+        assertEquals(0, slow[0], "ditado cancelado não avisa modelo lento");
     }
 
     @Test
