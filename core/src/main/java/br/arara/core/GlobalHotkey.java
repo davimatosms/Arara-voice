@@ -60,10 +60,14 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     static GlobalHotkey register(DictationEngine engine, SettingsStore settings) throws NativeHookException {
-        // macOS: o padrão extrai a .dylib ao lado do jar, dentro do Arara.app (somente leitura no .dmg e quebraria a
-        // assinatura). Vai para a pasta temporária do usuário. Antes de qualquer uso do GlobalScreen.
-        if (AraraCore.MAC && System.getProperty("jnativehook.lib.path") == null)
-            System.setProperty("jnativehook.lib.path", System.getProperty("java.io.tmpdir"));
+        // O padrão extrai a lib nativa ao lado do jar: no macOS fica dentro do Arara.app (somente leitura no .dmg e
+        // quebraria a assinatura); no Linux, dentro do AppImage montado (squashfs somente leitura, UnsatisfiedLinkError).
+        // macOS usa o tmp do usuário; Linux usa pasta própria 700 (nunca /tmp compartilhado: outro usuário plantaria a .so).
+        // Antes de qualquer uso do GlobalScreen.
+        if (System.getProperty("jnativehook.lib.path") == null) {
+            if (AraraCore.MAC) System.setProperty("jnativehook.lib.path", System.getProperty("java.io.tmpdir"));
+            else if (AraraCore.LINUX) System.setProperty("jnativehook.lib.path", privateNativeDir().toString());
+        }
         HOOK_LOG.setLevel(Level.OFF);
         HOOK_LOG.setUseParentHandlers(false);
         GlobalHotkey h = new GlobalHotkey(engine, settings);
@@ -71,6 +75,17 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
         GlobalScreen.addNativeKeyListener(h);
         GlobalScreen.addNativeMouseListener(h);
         return h;
+    }
+
+    private static java.nio.file.Path privateNativeDir() throws NativeHookException {
+        java.nio.file.Path dir = AraraCore.defaultDataDir().resolve("native");
+        try {
+            java.nio.file.Files.createDirectories(dir);
+            java.nio.file.Files.setPosixFilePermissions(dir, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        } catch (java.io.IOException e) {
+            throw new NativeHookException("Sem pasta para a lib nativa do atalho: " + dir, e);
+        }
+        return dir;
     }
 
     void close() {
