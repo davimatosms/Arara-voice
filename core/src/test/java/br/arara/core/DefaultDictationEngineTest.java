@@ -611,4 +611,44 @@ class DefaultDictationEngineTest {
         assertTrue(errors.isEmpty());
         e.release(); // solta sem ter apertado: nada
     }
+
+    /** Fala de ~9 s (sem corte no meio), transcrita em {@code whisperSec} segundos de relógio controlado. */
+    private int slowFlags(double whisperSec) throws Exception {
+        java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong();
+        int[] slow = {0};
+        DefaultDictationEngine e = engine(new Transcriber() {
+            @Override
+            public String transcribe(short[] pcm16k) {
+                clock.addAndGet((long) (whisperSec * 1e9));
+                return "oi";
+            }
+        }, text -> {});
+        e.nanos = clock::get;
+        e.addListener(new DictationListener() {
+            @Override
+            public void onSlowModel() {
+                slow[0]++;
+            }
+        });
+        e.toggle();
+        assertEquals(DictationState.LISTENING, next());
+        for (int i = 0; i < 9 * Vad.RATE / VadTest.CHUNK; i++) mic.push(VadTest.SPEECH);
+        e.toggle();
+        assertEquals(DictationState.TRANSCRIBING, next());
+        assertEquals(DictationState.PASTED, next());
+        return slow[0];
+    }
+
+    @Test
+    void avisaModeloLentoSoComRtfAlto() throws Exception {
+        assertEquals(0, slowFlags(3), "RTF 0,33: sem aviso");
+        assertEquals(1, slowFlags(9.5), "RTF 1,05: avisa uma vez");
+    }
+
+    @Test
+    void estimaSegundosQueFaltam() {
+        assertEquals(0, DefaultDictationEngine.estimate(5 * Vad.RATE, 0, 0), "sem RTF ainda: sem número");
+        assertEquals(8, DefaultDictationEngine.estimate(10 * Vad.RATE, 4, 5), 1e-9); // 10 s pendentes x RTF 0,8
+        assertEquals(0, DefaultDictationEngine.estimate(0, 4, 5), 1e-9);
+    }
 }

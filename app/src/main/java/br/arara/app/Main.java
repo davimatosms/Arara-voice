@@ -140,6 +140,7 @@ public final class Main {
             RecordingPopup popup = new RecordingPopup(settings);
             engine.addListener(Ui.onEdt(view));
             engine.addListener(Ui.onEdt(popup));
+            engine.addListener(new SlowModelTip(settings));
             Thread motion = new Thread(() -> popup.live.reduceMotion = Ui.reducedMotion(), "arara-movimento");
             motion.setDaemon(true);
             motion.start();

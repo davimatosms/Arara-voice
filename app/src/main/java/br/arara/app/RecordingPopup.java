@@ -51,6 +51,7 @@ final class RecordingPopup implements DictationListener {
     LongSupplier clock = () -> System.nanoTime() / 1_000_000;
     private JWindow window;
     private DictationState state = DictationState.IDLE;
+    private double pending; // segundos estimados que faltam na transcrição; 0: sem número
     private float level;
     private int frame;
     private String lastError = "Algo deu errado.";
@@ -125,6 +126,14 @@ final class RecordingPopup implements DictationListener {
         if (!had && state != DictationState.PASTED && state != DictationState.ERROR && state != DictationState.IDLE) show(state);
     }
 
+    /** Estimativa do que falta depois da parada (0: sem número). */
+    @Override
+    public void onPending(double seconds) {
+        if (state != DictationState.TRANSCRIBING || Math.round(seconds) == Math.round(pending)) return;
+        pending = seconds;
+        show(state);
+    }
+
     @Override
     public void onResult(HistoryEntry entry) {
         String t = entry.texto().strip();
@@ -143,6 +152,7 @@ final class RecordingPopup implements DictationListener {
     void show(DictationState s) {
         boolean changed = s != state;
         if (changed) {
+            pending = 0;
             frame = 0;
             arara.reset();
         }
@@ -162,7 +172,9 @@ final class RecordingPopup implements DictationListener {
             case SILENCE -> set(has ? "Pausa" : "Silêncio", Theme.TEXT_SOFT, false, has ? null : "Não ouvi nada", "waves");
             case TRANSCRIBING -> {
                 if (changed) progress.setValue(0);
-                set("Transcrevendo", Theme.SUPPORT, false, has ? null : "Transcrevendo", "progress");
+                String faltam = pending > 0 ? "Faltam ~" + Math.round(pending) + " s" : null;
+                set(faltam != null ? faltam : "Transcrevendo", Theme.SUPPORT, false,
+                        has ? null : faltam != null ? "Transcrevendo… faltam ~" + Math.round(pending) + " s" : "Transcrevendo", "progress");
             }
             case PASTED -> {
                 if (has) set("Colado!", Theme.READY, false, null, "pasted");

@@ -22,6 +22,15 @@ public interface DictationListener {
      */
     default void onLiveText(String confirmed, String provisional) {}
 
+    /**
+     * Depois da parada, a cada ~0,5 s: segundos que faltam para a transcrição acabar (áudio pendente x velocidade do
+     * modelo neste ditado). 0: não mostrar (falta pouco ou ainda não dá para estimar).
+     */
+    default void onPending(double seconds) {}
+
+    /** Depois de colar: o modelo ficou atrás da fala neste ditado (fila de mais de 10 s ou mais lento que a fala). */
+    default void onSlowModel() {}
+
     /** Transcrição pronta e já salva no histórico. */
     default void onResult(HistoryEntry entry) {}
 

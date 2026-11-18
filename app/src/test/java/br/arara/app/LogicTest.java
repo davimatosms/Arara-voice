@@ -1,6 +1,7 @@
 package br.arara.app;
 
 import br.arara.core.DictationState;
+import br.arara.core.Settings;
 import org.junit.jupiter.api.Test;
 
 import org.junit.jupiter.api.io.TempDir;
@@ -213,5 +214,20 @@ class LogicTest {
         org.junit.jupiter.api.Assertions.assertNotNull(SettingsPage.soloWarning("F9"));
         assertEquals("RShift", SettingsPage.soloModifier(KeyEvent.VK_SHIFT, KeyEvent.KEY_LOCATION_RIGHT));
         assertEquals("F20", SettingsPage.hotkey(0, KeyEvent.VK_F20, false));
+    }
+
+    @org.junit.jupiter.api.Test
+    void dicaDeModeloLentoUmaVezPorModeloENuncaNoLeve() {
+        Settings[] cur = {Settings.defaults().withModel(Settings.Model.PRECISO)};
+        SlowModelTip tip = new SlowModelTip(new br.arara.core.SettingsStore() {
+            public Settings load() { return cur[0]; }
+            public void save(Settings s) { cur[0] = s; }
+        });
+        org.junit.jupiter.api.Assertions.assertEquals(Settings.Model.PRECISO, tip.offer());
+        org.junit.jupiter.api.Assertions.assertNull(tip.offer(), "1x por modelo");
+        cur[0] = cur[0].withModel(Settings.Model.EQUILIBRADO);
+        org.junit.jupiter.api.Assertions.assertEquals(Settings.Model.EQUILIBRADO, tip.offer());
+        cur[0] = cur[0].withModel(Settings.Model.LEVE);
+        org.junit.jupiter.api.Assertions.assertNull(tip.offer(), "nunca no Leve");
     }
 }
