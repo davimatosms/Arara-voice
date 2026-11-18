@@ -762,4 +762,24 @@ class ScreenshotTest {
             throw new RuntimeException(e);
         }
     }
+
+    /** Pop-up com "faltam ~X s" (com e sem texto ao vivo) e a dica de modelo lento. */
+    @Test
+    void desenhaFilaLenta() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        new File(DIR, "fila").mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            RecordingPopup p = new RecordingPopup(new DemoCore().settings());
+            JFrame pop = offscreen(p.view, p.view.getWidth(), p.view.getHeight());
+            p.show(DictationState.TRANSCRIBING);
+            p.onPending(14);
+            write(paint(pop, p.view), "fila/popup-sem-texto");
+            p.onLiveText(ate(14), "");
+            write(paint(pop, p.view), "fila/popup-com-texto");
+            JPanel tip = SlowModelTip.panel(br.arara.core.Settings.Model.PRECISO, x -> {});
+            JFrame f = offscreen(tip, tip.getPreferredSize().width, tip.getPreferredSize().height);
+            write(paint(f, tip), "fila/dica");
+        });
+    }
 }
