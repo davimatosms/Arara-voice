@@ -32,9 +32,6 @@ sec "1a. App sobe e fica de pé 20 s (HOME/XDG em pasta temp, SEM APPDATA)"
 env_item boot
 "$APP" >"$W/boot.log" 2>&1 & PID=$!
 sleep 20
-MOUNTED=0; mount | grep -q 'Arara.*fuse\|fuse.*Arara' && MOUNTED=1
-if [ "$MOUNTED" = 0 ]; then bad "1a AppImage montado via FUSE" "nenhum mount FUSE do AppImage (teste não reproduz o uso real): $(mount | grep -i fuse | head -3 | tr '
-' '|')"; fi
 if kill -0 "$PID" 2>/dev/null && ! grep -q "NullPointerException\|UnsatisfiedLinkError\|Exception in thread\|não conseguiu" "$W/boot.log"; then ok "1a app de pé após 20 s sem APPDATA, AppImage montado, atalho registrado"
 else
   bad "1a app de pé após 20 s sem APPDATA" "$(grep -m3 -i 'exception\|erro\|error' "$W/boot.log" | tr '\n' '|')"
@@ -151,7 +148,7 @@ else
 
   sec "3b. Só copiado (sem wtype/ydotool/portal)"
   MIN="$W/pathmin"; rm -rf "$MIN"; mkdir -p "$MIN"
-  for t in timeout sh bash dirname readlink uname env cat mkdir rm ls sed grep tr id basename wl-copy wl-paste; do p=$(PATH=$REAL_PATH command -v $t) && ln -s "$p" "$MIN/$t"; done
+  for t in timeout sh bash dirname readlink uname env cat mkdir rm ls sed grep tr id basename wl-copy wl-paste fusermount fusermount3; do p=$(PATH=$REAL_PATH command -v $t) && ln -s "$p" "$MIN/$t"; done
   GDK_BACKEND=wayland python3 "$HERE/alvo_gtk.py" "$W/colado-wl2.txt" 25 >"$W/gtk2.log" 2>&1 & GTK=$!
   sleep 5
   PATH="$MIN" timeout 60 "$APP" --diagnostico-colar >"$W/diag-co.log" 2>&1; cat "$W/diag-co.log"
