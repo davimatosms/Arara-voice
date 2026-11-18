@@ -58,7 +58,7 @@ class DefaultDictationEngineTest {
 
     final FakeMic mic = new FakeMic();
     final BlockingQueue<DictationState> states = new LinkedBlockingQueue<>();
-    final List<String> errors = new ArrayList<>();
+    final BlockingQueue<String> errors = new LinkedBlockingQueue<>(); // onError chega da thread de transcrição, depois do onState
     HistoryStore history;
     DictionaryStore dictionary;
     Transcriber preview; // prévia com o modelo leve; null: sem prévia
@@ -134,7 +134,8 @@ class DefaultDictationEngineTest {
         assertEquals(DictationState.TRANSCRIBING, next());
         assertEquals(DictationState.ERROR, next());
         assertEquals("texto", history.all().get(0).texto());
-        assertEquals(1, errors.size());
+        assertEquals("Não consegui colar. O texto está no histórico.", errors.poll(5, TimeUnit.SECONDS));
+        assertTrue(errors.isEmpty());
     }
 
     @Test
