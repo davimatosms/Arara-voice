@@ -1,19 +1,19 @@
 {
-  "versao": "0.4.5",
-  "data": "2026-11-18",
-  "notas": "Ditados longos mais claros, Esc na transcrição e permissão do Mac.",
+  "versao": "0.4.6",
+  "data": "2026-11-19",
+  "notas": "Preciso mais preciso (modelo q8) e correção no Windows com whisper.cpp no PATH.",
   "arquivos": {
     "windows": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-Setup-0.4.5.exe",
-      "sha256": "3e4df7573ae0ac1692f433cb20e7095aa837e6e25065cf9d1112c99c489e0005"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-Setup-0.4.6.exe",
+      "sha256": "cc3e0a00e1cdf24cf205241f6b70a9ffd3891c801c3af8e7d6b37a4c460e3262"
     },
     "mac-arm64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-0.4.5-Mac-AppleSilicon.dmg",
-      "sha256": "0eba10052c282d85a826d00a4b6569914a316b6a2668373c35b870287556255c"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-0.4.6-Mac-AppleSilicon.dmg",
+      "sha256": "0a4101999eeca2efd9f8c835ebfd45ca4f448737ffca42a566090046ca3a4d80"
     },
     "mac-x64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.5/Arara-0.4.5-Mac-Intel.dmg",
-      "sha256": "cee6c9b72d1d37fe52e5a582a49a8ff2ed4fe76c6fd00a9e80686c86397275f5"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-0.4.6-Mac-Intel.dmg",
+      "sha256": "07e2cd7dcba1a4bb8b22a2e128a64cddec4bb90f358e2d373f0bf86a39a15d8d"
     }
   }
 }
