@@ -139,15 +139,61 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         return switch (m) {
             case LEVE -> "ggml-base.bin";
             case EQUILIBRADO -> "ggml-small.bin";
-            case PRECISO -> "ggml-large-v3-turbo-q5_0.bin";
+            case PRECISO -> "ggml-large-v3-turbo-q8_0.bin";
         };
+    }
+
+    // PRECISO era o q5_0 até a v0.4.5: quem já o tem segue nele até o q8_0 baixar e ser conferido.
+    static final String OLD_PRECISO = "ggml-large-v3-turbo-q5_0.bin";
+    static final String UPGRADE_NOTICE = "Baixando a versão mais precisa do modelo Preciso…";
+
+    /** Baixador e executor trocáveis nos testes. */
+    interface Downloader {
+        boolean get(URI url, String sha256, Path target, AraraCore.DownloadProgress progress, BooleanSupplier cancelled)
+                throws IOException;
+    }
+
+    Downloader downloader = WhisperTranscriber::download;
+    java.util.concurrent.Executor background = r -> {
+        Thread t = new Thread(r, "arara-modelo");
+        t.setDaemon(true);
+        t.start();
+    };
+    private Path loadedFile;
+    private boolean upgrading;
+
+    /** Arquivo a carregar: o PRECISO novo se existe; senão o antigo, se existe; senão o novo (a baixar). */
+    Path fileFor(Settings.Model m) {
+        Path file = modelsDir.resolve(fileName(m));
+        Path old = modelsDir.resolve(OLD_PRECISO);
+        return m == Settings.Model.PRECISO && !Files.exists(file) && Files.exists(old) ? old : file;
+    }
+
+    /** Baixa o q8_0 em segundo plano; falhou ou foi cancelado, o q5_0 segue valendo (o .part continua depois). */
+    private void upgradeInBackground() {
+        if (upgrading) return;
+        upgrading = true;
+        System.err.println(UPGRADE_NOTICE);
+        Settings.Model m = Settings.Model.PRECISO;
+        background.execute(() -> {
+            try {
+                downloader.get(URI.create(MODELS_URL + fileName(m)), sha256(m), modelsDir.resolve(fileName(m)),
+                        (done, total) -> {}, () -> model.get() != m);
+            } catch (IOException | RuntimeException e) {
+                // segue no q5_0; tenta de novo na próxima abertura
+            } finally {
+                synchronized (this) {
+                    upgrading = false;
+                }
+            }
+        });
     }
 
     private static String sha256(Settings.Model m) {
         return switch (m) {
             case LEVE -> "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe";
             case EQUILIBRADO -> "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b";
-            case PRECISO -> "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2";
+            case PRECISO -> "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1";
         };
     }
 
@@ -155,11 +201,11 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     synchronized void prepare(AraraCore.DownloadProgress progress) throws IOException {
         for (;;) {
             Settings.Model m = model.get();
-            if (m == loaded) return;
-            Path file = modelsDir.resolve(fileName(m));
+            Path file = fileFor(m);
+            if (m == loaded && file.equals(loadedFile)) return;
             // Trocou de modelo no meio do download: o .part fica para continuar depois e o novo modelo é baixado já.
             if (!Files.exists(file)
-                    && !download(URI.create(MODELS_URL + fileName(m)), sha256(m), file, progress, () -> model.get() != m)) {
+                    && !downloader.get(URI.create(MODELS_URL + fileName(m)), sha256(m), file, progress, () -> model.get() != m)) {
                 continue;
             }
             if (whisper == null) {
@@ -179,6 +225,11 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             if (context != null) context.close();
             context = next;
             loaded = m;
+            loadedFile = file;
+            if (m == Settings.Model.PRECISO) {
+                if (file.getFileName().toString().equals(OLD_PRECISO)) upgradeInBackground();
+                else Files.deleteIfExists(modelsDir.resolve(OLD_PRECISO)); // q8_0 verificado e carregado: libera ~550 MB
+            }
             return;
         }
     }
@@ -262,6 +313,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         if (context != null) context.close();
         context = null;
         loaded = null;
+        loadedFile = null;
     }
 
     /**
