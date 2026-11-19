@@ -42,7 +42,7 @@
   // iPad no Safari se diz "Macintosh": o toque separa ele de um Mac de verdade
   const so = /Windows/.test(ua) ? "win" : /Macintosh/.test(ua) && navigator.maxTouchPoints < 2 ? "mac" : /Linux/.test(ua) && !/Android/.test(ua) ? "linux" : "outro";
   // beta é pré-release: /releases/latest/ a ignora, então a URL fixa da tag fica só aqui (trocar na release estável)
-  const LINUX_URL = "https://github.com/davimatosms/Arara-voice/releases/download/v0.5.0-beta.1/Arara-x86_64.AppImage";
+  const LINUX_URL = "https://github.com/davimatosms/Arara-voice/releases/download/v0.5.0-beta.2/Arara-x86_64.AppImage";
   for (const el of $$("[data-linux]")) el.href = LINUX_URL;
   for (const el of $$(`[data-so="${so === "outro" ? "win" : so}"]`)) el.classList.add("destaque");
   const topo = $("[data-baixar]");
@@ -417,10 +417,13 @@
   requestAnimationFrame(quadro);
 
   // contador real de downloads (.exe, .dmg e .AppImage); some se a API falhar ou der 0
-  fetch("https://api.github.com/repos/davimatosms/Arara-voice/releases?per_page=100")
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((rels) => {
-      const n = rels.flatMap((r) => r.assets).filter((a) => /\.(exe|dmg|AppImage)$/i.test(a.name)).reduce((t, a) => t + a.download_count, 0);
+  const soma = (rels) => rels.flatMap((r) => r.assets).filter((a) => /\.(exe|dmg|AppImage)$/i.test(a.name)).reduce((t, a) => t + a.download_count, 0);
+  const ok = (r) => (r.ok ? r.json() : Promise.reject());
+  fetch("/api/downloads")
+    .then(ok)
+    .then((d) => d.total)
+    .catch(() => fetch("https://api.github.com/repos/davimatosms/Arara-voice/releases?per_page=100").then(ok).then(soma))
+    .then((n) => {
       if (!n) return;
       $("#contador-n").textContent = n.toLocaleString("pt-BR");
       $("#contador").hidden = false;
