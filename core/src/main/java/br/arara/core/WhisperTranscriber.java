@@ -163,8 +163,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
                 continue;
             }
             if (whisper == null) {
-                preloadVcomp();
-                WhisperJNI.loadLibrary();
+                loadNative();
                 WhisperJNI.setLibraryLogger(null); // sem log do whisper.cpp no console
                 whisper = new WhisperJNI();
             }
@@ -183,6 +182,31 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             return;
         }
     }
+
+    /**
+     * Carrega o whisper-jni. No Windows o whisper-jni usa a versão "fina" (que depende de whisper.dll/ggml*.dll soltas)
+     * quando acha um whisper.dll no PATH, e o ggml do usuário aborta o processo (#83). Aqui extraímos sempre a versão
+     * "full" (tudo embutido) e apontamos a libdir do whisper-jni para ela, sem olhar o PATH.
+     */
+    static synchronized void loadNative() throws IOException {
+        preloadVcomp();
+        if (System.getProperty("os.name", "").toLowerCase().contains("win")
+                && System.getProperty("os.arch", "").contains("64") && System.getProperty(LIBDIR) == null) {
+            try (InputStream in = WhisperJNI.class.getResourceAsStream("/win-amd64/whisper-jni_full.dll")) {
+                if (in != null) {
+                    Path dir = Files.createTempDirectory("arara-whisper-");
+                    Path dll = dir.resolve("whisper-jni.dll");
+                    Files.copy(in, dll);
+                    dll.toFile().deleteOnExit();
+                    dir.toFile().deleteOnExit();
+                    System.setProperty(LIBDIR, dir.toString());
+                }
+            }
+        }
+        WhisperJNI.loadLibrary();
+    }
+
+    private static final String LIBDIR = "io.github.givimad.whisperjni.libdir";
 
     /** Windows: carrega o vcomp140.dll empacotado em runtime/bin; sem ele o whisper-jni dá UnsatisfiedLinkError num PC limpo. */
     private static void preloadVcomp() {
