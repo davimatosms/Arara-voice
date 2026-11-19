@@ -24,6 +24,9 @@ final class HomePage extends MainView.Page {
     private final JLabel spaceHint = Ui.label(SPACE_TEXT,
             Theme.regular(13), Theme.SUPPORT);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
+    /** "Ou diga Arara": só com o chamado por voz ligado nas Configurações. */
+    final JLabel voiceHint = Ui.label("Ou diga “Arara” para ditar sem as mãos. Termine com “Pronto”.",
+            Theme.regular(13), Theme.TEXT_SOFT);
 
     HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings, JLabel modelState) {
         this.settings = settings;
@@ -46,7 +49,7 @@ final class HomePage extends MainView.Page {
                 Ui.label("Pronto para ditar", Theme.bold(22), Theme.TEXT), Ui.gap(8),
                 Ui.label("Aperte uma vez para começar a ouvir e de novo para colar. Esc cancela.",
                         Theme.regular(15), Theme.TEXT_SOFT),
-                Ui.gap(22), Ui.caption("ATALHO"), Ui.gap(8), keys, Ui.gap(8), spaceHint, Ui.gap(16),
+                Ui.gap(22), Ui.caption("ATALHO"), Ui.gap(8), keys, Ui.gap(8), spaceHint, voiceHint, Ui.gap(16),
                 Ui.row(16, test, change));
 
         Ui.Round hero = Ui.card(new BorderLayout(32, 0));
@@ -79,6 +82,7 @@ final class HomePage extends MainView.Page {
         if (solo != null) spaceHint.setText(solo);
         else spaceHint.setText(SPACE_TEXT);
         spaceHint.setVisible(solo != null || s.hotkey().endsWith("+Space"));
+        voiceHint.setVisible(s.voiceWake());
         boolean cpu = Ui.MAC ? !br.arara.core.AraraCore.gpuOn(s) : s.accel() != Settings.Accel.VULKAN;
         grid.removeAll();
         grid.add(status("cpu", "Modelo de voz", Ui.modelName(s.model()) + " · 100% local",

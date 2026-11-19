@@ -113,20 +113,31 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
 
         @Override
         public synchronized String transcribe(short[] pcm16k, String previous) {
-            if (chosen.get() == Settings.Model.LEVE) return null; // o próprio modelo escolhido já é rápido
-            if (light.loaded == null) {
-                if (System.nanoTime() < retryAt) return null;
-                boolean have = Files.exists(modelsDir.resolve(fileName(Settings.Model.LEVE)));
-                if (!have && modelsDir.toFile().getUsableSpace() < MIN_FREE) return null;
-                try {
-                    light.prepare((done, total) -> {});
-                } catch (IOException | RuntimeException e) {
-                    retryAt = System.nanoTime() + Duration.ofMinutes(5).toNanos();
-                    return null;
-                }
-                return null; // só a partir da próxima rodada: esta já está velha
-            }
+            boolean wasLoaded = light.loaded != null;
+            if (!ready() || !wasLoaded) return null; // acabou de carregar: só a partir da próxima rodada (esta já está velha)
             return light.transcribe(pcm16k, previous);
+        }
+
+        /** Comando de voz com o modelo leve; null quando o escolhido já é o Leve ou o modelo não carregou. */
+        @Override
+        public synchronized String transcribeCommand(short[] pcm16k) {
+            return ready() ? light.transcribeCommand(pcm16k) : null; // comando não envelhece: usa logo depois de carregar
+        }
+
+        /** Modelo leve carregado (carrega, e baixa se faltar, na primeira vez); false se não deve ou não deu. */
+        private boolean ready() {
+            if (chosen.get() == Settings.Model.LEVE) return false; // o próprio modelo escolhido já é rápido
+            if (light.loaded != null) return true;
+            if (System.nanoTime() < retryAt) return false;
+            boolean have = Files.exists(modelsDir.resolve(fileName(Settings.Model.LEVE)));
+            if (!have && modelsDir.toFile().getUsableSpace() < MIN_FREE) return false;
+            try {
+                light.prepare((done, total) -> {});
+                return true;
+            } catch (IOException | RuntimeException e) {
+                retryAt = System.nanoTime() + Duration.ofMinutes(5).toNanos();
+                return false;
+            }
         }
 
         @Override
@@ -272,6 +283,44 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
 
     @Override
     public synchronized String transcribe(short[] pcm16k, String previous) {
+        // O prompt do Whisper aceita ~224 tokens; o fim do texto anterior basta para a continuidade.
+        String tail = previous.length() > 300 ? previous.substring(previous.length() - 300) : previous;
+        return run(pcm16k, p -> p.initialPrompt = tail.isBlank() ? PROMPT : PROMPT + " " + tail.strip());
+    }
+
+    /**
+     * Vocabulário dos comandos no prompt, sem pontuação. Sem prompt, o Whisper leve escrevia "Há nada" e "Concela"; com
+     * "Arara. Pronto. Aprovado. Cancela." ele acertava, mas continuava a lista e repetia a palavra por até 5 s.
+     * Medido (e2e "voz", voz sintética, 22 casos): 21 certos, nenhum falso positivo, 0,27 s em média e 0,40 s no pior.
+     */
+    static final String COMMAND_PROMPT = "Arara Pronto Aprovado Cancela";
+    /** O whisper.cpp exige 1 s; o trecho de comando vai com 1,5 s. */
+    static final int COMMAND_SAMPLES = Vad.RATE * 3 / 2;
+
+    /**
+     * Comando de voz: completado com o ruído de fundo (não com silêncio digital, que fazia o Whisper alucinar e repetir),
+     * um segmento só, sem contexto e sem a segunda tentativa com temperatura maior (que multiplicava o tempo).
+     */
+    @Override
+    public synchronized String transcribeCommand(short[] pcm16k) {
+        return run(padWithBackground(pcm16k), p -> {
+            p.initialPrompt = COMMAND_PROMPT;
+            p.singleSegment = true;
+            p.noContext = true;
+            p.temperatureInc = 0;
+        });
+    }
+
+    /** Completa até {@link #COMMAND_SAMPLES} repetindo o primeiro 0,1 s do trecho (a folga antes da fala: só fundo). */
+    static short[] padWithBackground(short[] pcm) {
+        int background = Math.min(pcm.length, Vad.RATE / 10);
+        if (pcm.length >= COMMAND_SAMPLES || background == 0) return pcm;
+        short[] out = java.util.Arrays.copyOf(pcm, COMMAND_SAMPLES);
+        for (int i = pcm.length; i < out.length; i++) out[i] = pcm[(i - pcm.length) % background];
+        return out;
+    }
+
+    private String run(short[] pcm16k, java.util.function.Consumer<WhisperFullParams> tune) {
         try {
             prepare((done, total) -> {}); // a UI deveria ter chamado antes; aqui só garante
         } catch (IOException e) {
@@ -288,12 +337,10 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         // shortcut: whisper.cpp avisa que pode perder precisão; voltar ao padrão (0) se aparecer erro em frase curta.
         params.audioCtx = Math.min(1500, samples.length / 320 + 64);
         params.language = "pt";
-        // O prompt do Whisper aceita ~224 tokens; o fim do texto anterior basta para a continuidade.
-        String tail = previous.length() > 300 ? previous.substring(previous.length() - 300) : previous;
-        params.initialPrompt = tail.isBlank() ? PROMPT : PROMPT + " " + tail.strip();
         params.printProgress = false;
         params.printTimestamps = false;
         params.suppressNonSpeechTokens = true;
+        tune.accept(params);
         boolean testing = useGpu() && !gpuProved;
         if (testing) mark(true);
         int result = whisper.full(context, params, samples, samples.length);

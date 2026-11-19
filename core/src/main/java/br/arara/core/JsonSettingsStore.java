@@ -49,7 +49,10 @@ final class JsonSettingsStore implements SettingsStore {
                 m.get("soundOn") instanceof Boolean b ? b : d.soundOn(),
                 enumOr(Settings.Sound.class, m.get("sound"), d.sound()),
                 m.get("soundVolume") instanceof Number n ? Math.max(0, Math.min(100, n.intValue())) : d.soundVolume(),
-                enumOr(Settings.SoundLength.class, m.get("soundLength"), d.soundLength()));
+                enumOr(Settings.SoundLength.class, m.get("soundLength"), d.soundLength()),
+                // ausentes (config de antes da voz) = chamado desligado, aprovação ligada
+                m.get("voiceWake") instanceof Boolean b ? b : d.voiceWake(),
+                m.get("voiceApproval") instanceof Boolean b ? b : d.voiceApproval());
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -79,7 +82,9 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"soundOn\": " + s.soundOn() + ",\n"
                 + "  \"sound\": " + Json.quote(s.sound().name()) + ",\n"
                 + "  \"soundVolume\": " + s.soundVolume() + ",\n"
-                + "  \"soundLength\": " + Json.quote(s.soundLength().name()) + "\n"
+                + "  \"soundLength\": " + Json.quote(s.soundLength().name()) + ",\n"
+                + "  \"voiceWake\": " + s.voiceWake() + ",\n"
+                + "  \"voiceApproval\": " + s.voiceApproval() + "\n"
                 + "}\n");
         cached = s;
     }

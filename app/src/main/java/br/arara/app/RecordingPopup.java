@@ -52,6 +52,7 @@ final class RecordingPopup implements DictationListener {
     private JWindow window;
     private DictationState state = DictationState.IDLE;
     private double pending; // segundos estimados que faltam na transcrição; 0: sem número
+    private long awaitingSince; // quando começou a espera do "Aprovado" (relógio das animações)
     private float level;
     private int frame;
     private String lastError = "Algo deu errado.";
@@ -176,6 +177,14 @@ final class RecordingPopup implements DictationListener {
                 set(faltam != null ? faltam : "Transcrevendo", Theme.SUPPORT, false,
                         has ? null : faltam != null ? "Transcrevendo… faltam ~" + Math.round(pending) + " s" : "Transcrevendo", "progress");
             }
+            case AWAITING_APPROVAL -> {
+                // Ditado chamado por voz: o texto fica na tela e a barra mostra o prazo para dizer "Aprovado".
+                if (changed) {
+                    awaitingSince = now();
+                    progress.setValue(1000);
+                }
+                set("Diga “Aprovado”", Theme.ACCENT, true, has ? null : "Diga “Aprovado”", "progress");
+            }
             case PASTED -> {
                 if (has) set("Colado!", Theme.READY, false, null, "pasted");
                 else set("Pronto", Theme.READY, false, "Colado!", "quote");
@@ -187,7 +196,7 @@ final class RecordingPopup implements DictationListener {
             case IDLE -> { }
         }
         Settings cfg = settings.load();
-        esc.setVisible(cfg.escCancels() && (recording || s == DictationState.TRANSCRIBING));
+        esc.setVisible(cfg.escCancels() && (recording || s == DictationState.TRANSCRIBING || s == DictationState.AWAITING_APPROVAL));
         if (s == DictationState.PASTED || s == DictationState.ERROR) {
             hide.setInitialDelay(s == DictationState.PASTED ? 1500 : 3000);
             hide.restart();
@@ -213,7 +222,16 @@ final class RecordingPopup implements DictationListener {
         live.tick(now());
         // Sem progresso real do Whisper: a barra anda rápido no começo e vai freando perto do fim.
         if (state == DictationState.TRANSCRIBING) progress.setValue(progress.getValue() + (950 - progress.getValue()) / 40);
+        if (state == DictationState.AWAITING_APPROVAL) { // contagem regressiva do prazo da aprovação
+            long left = br.arara.core.DictationEngine.APPROVAL_TIMEOUT_MS - (now() - awaitingSince);
+            progress.setValue((int) Math.max(0, left * 1000 / br.arara.core.DictationEngine.APPROVAL_TIMEOUT_MS));
+        }
         arara.repaint();
+    }
+
+    /** Barra do prazo da aprovação, de 1000 (cheia) a 0. */
+    int countdown() {
+        return progress.getValue();
     }
 
     private long now() {

@@ -13,6 +13,8 @@ final class Vad {
     private static final double MIN_SPEECH_DB = -50;
     private static final double MARGIN_DB = 12;
     static final int SPEECH_CHUNKS = 3; // ~100 ms seguidos: um clique não conta como fala
+    /** Pausa que separa um trecho de fala do anterior (entre palavras da mesma frase fica abaixo disto). */
+    static final int BURST_GAP = RATE * 4 / 10;
 
     private double floorDb = -60;
     private int loudRun;
@@ -22,6 +24,7 @@ final class Vad {
     private long fed;
     private long speechStart = -1;
     private long speechEnd;
+    private long burstStart = -1;
 
     Result feed(short[] chunk) {
         fed += chunk.length;
@@ -30,6 +33,11 @@ final class Vad {
         // Piso desce na hora e sobe devagar (~16 s), para acompanhar ruído de fundo sem engolir a fala.
         floorDb = db < floorDb ? db : floorDb + 0.002 * (db - floorDb);
         loudRun = loud ? loudRun + 1 : 0;
+        if (loudRun == SPEECH_CHUNKS) {
+            // Começo de uma sequência de fala: é trecho novo se veio depois de uma pausa de verdade.
+            long runStart = Math.max(0, fed - (long) SPEECH_CHUNKS * chunk.length);
+            if (burstStart < 0 || runStart - speechEnd >= BURST_GAP) burstStart = runStart;
+        }
         if (loudRun >= SPEECH_CHUNKS) {
             heardSpeech = true;
             if (speechStart < 0) speechStart = Math.max(0, fed - (long) SPEECH_CHUNKS * chunk.length);
@@ -53,6 +61,11 @@ final class Vad {
     /** Amostra onde a primeira fala começou, ou -1 se não houve fala. */
     long speechStart() {
         return speechStart;
+    }
+
+    /** Amostra onde começou o último trecho de fala (depois de pausa de {@link #BURST_GAP}), ou -1. */
+    long burstStart() {
+        return burstStart;
     }
 
     /** Amostra logo depois do último bloco com fala. */

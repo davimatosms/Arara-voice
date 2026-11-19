@@ -34,6 +34,7 @@ import javax.sound.sampled.AudioSystem;
  * ./gradlew e2e --args="whisper LEVE"  # só um modelo
  * ./gradlew e2e --args="fluxo"      # 4 e 5: AraraCore + atalho + Notepad, Esc, gravação sem fala
  * ./gradlew e2e --args="colar"      # só o ClipboardPaster no Notepad, 5 vezes (diagnóstico)
+ * ./gradlew e2e --args="voz"        # comandos de voz com o modelo LEVE: acertos, falsos positivos e latência
  * ./gradlew e2e --args="longo"      # ditado de ~30 s: tudo no fim (antes) contra incremental (depois), LEVE e PRECISO
  * ./gradlew e2e --args="latencia [MODELO|-] [respira|corrido|-] [s] [previa]"  # ditado de ~90 s em WAV sintético,
  *                                   # parada s segundos depois da última palavra (padrão 0,5): tempos por trecho;
@@ -70,6 +71,7 @@ public final class E2E {
             if (what.equals("whisper") || what.equals("tudo")) whisper(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("fluxo") || what.equals("tudo")) fluxo();
             if (what.equals("colar")) colar();
+            if (what.equals("voz")) voz();
             if (what.equals("colar-linux")) colarLinux();
             if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("bench")) bench(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
@@ -484,6 +486,100 @@ public final class E2E {
             }
             w.close();
         }
+    }
+
+    /**
+     * Comandos de voz de ponta a ponta: frase sintetizada com ruído de fundo -> CommandListener (VAD, corte do trecho
+     * curto) -> Whisper LEVE -> VoiceCommand. Positivos têm que virar o comando certo; negativos (frase longa com a
+     * palavra, palavra solta comum, silêncio) não podem virar comando nenhum. Duas velocidades de fala.
+     */
+    static void voz() throws Exception {
+        log("== Comandos de voz ==");
+        Object[][] casos = {
+                {"Arara.", VoiceCommand.ARARA}, {"Oi, Arara!", VoiceCommand.ARARA}, {"Pronto.", VoiceCommand.PRONTO},
+                {"Aprovado!", VoiceCommand.APROVADO}, {"Cancela.", VoiceCommand.CANCELA},
+                {"A arara azul voou longe hoje de manhã.", null}, {"O orçamento foi aprovado ontem à tarde.", null},
+                {"Obrigado.", null}, {"Tá bom.", null}, {"Sim.", null}, {"", null}};
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        {
+        int ok = 0, total = 0, falsos = 0;
+        List<Double> latencias = new ArrayList<>();
+        for (int rate : new int[] {0, 2}) {
+            for (Object[] caso : casos) {
+                String frase = (String) caso[0];
+                VoiceCommand esperado = (VoiceCommand) caso[1];
+                short[] voice = new short[0];
+                if (!frase.isEmpty()) {
+                    Path wav = OUT.resolve("voz.wav");
+                    synth(frase, rate, wav);
+                    voice = readWav(wav);
+                }
+                List<String> ouvidos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                List<Double> tempos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                List<String> textos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                VoiceCommandRecognizer medido = pcm -> {
+                    long t0 = System.nanoTime();
+                    String texto;
+                    try {
+                        texto = w.transcribeCommand(pcm); // o mesmo caminho do app
+                    } catch (RuntimeException e) {
+                        log("    exceção no Whisper: %s", e);
+                        throw e;
+                    }
+                    textos.add(texto);
+                    VoiceCommand c = VoiceCommand.match(texto);
+                    tempos.add((System.nanoTime() - t0) / 1e9);
+                    ouvidos.add(java.util.Optional.ofNullable(c).map(Enum::name).orElse("-"));
+                    return c;
+                };
+                java.util.function.Consumer<short[]>[] alvo = new java.util.function.Consumer[1];
+                DefaultDictationEngine.AudioSource fake = new DefaultDictationEngine.AudioSource() {
+                    public void start(java.util.function.Consumer<short[]> onChunk) { alvo[0] = onChunk; }
+                    public void stop() { alvo[0] = null; }
+                };
+                DictationEngine parado = new DictationEngine() { // só para o ouvinte ver o motor parado
+                    public void toggle() {}
+                    public void cancel() {}
+                    public DictationState state() { return DictationState.IDLE; }
+                    public void addListener(DictationListener l) {}
+                    public void removeListener(DictationListener l) {}
+                    public void close() {}
+                };
+                CommandListener ouvinte = new CommandListener(parado, fake, medido, () -> true);
+                ouvinte.sync();
+                short[] pcm = withNoise(voice, 1.0);
+                Vad diag = new Vad();
+                long primeiro = -1;
+                for (int i = 0; i + 512 <= pcm.length; i += 512) {
+                    diag.feed(Arrays.copyOfRange(pcm, i, i + 512));
+                    if (primeiro < 0 && diag.burstStart() >= 0) primeiro = diag.burstStart();
+                }
+                log("    vad: fala %.2f-%.2f s, último trecho em %.2f s, total %.2f s, limiar %.0f dBFS", diag.speechStart() / 16000.0,
+                        diag.speechEnd() / 16000.0, diag.burstStart() / 16000.0, pcm.length / 16000.0, diag.threshold());
+                for (int i = 0; i + 512 <= pcm.length && alvo[0] != null; i += 512) alvo[0].accept(Arrays.copyOfRange(pcm, i, i + 512));
+                Thread.sleep(100);
+                for (int i = 0; i < 200 && ouvinte.recognizing(); i++) Thread.sleep(50); // espera o Whisper (até 10 s)
+                ouvinte.close();
+                VoiceCommand ouvido = ouvidos.stream().filter(n -> !n.equals("-")).map(VoiceCommand::valueOf).findFirst().orElse(null);
+                boolean certo = ouvido == esperado;
+                total++;
+                if (certo) ok++;
+                if (esperado == null && ouvido != null) falsos++;
+                latencias.addAll(tempos);
+                log("  [%s] velocidade %d, \"%s\": esperado %s, ouvido %s, %d trecho(s) ao Whisper%s", certo ? "ok" : "ERRO", rate,
+                        frase.isEmpty() ? "(silêncio)" : frase, esperado, ouvido, tempos.size(),
+                        tempos.isEmpty() ? "" : String.format(" em %.2f s: %s", tempos.get(0), textos));
+            }
+        }
+        double media = latencias.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        double pior = latencias.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        String resumo = String.format("%d/%d certos, %d falso(s) positivo(s), Whisper %.2f s em média (pior %.2f s)",
+                ok, total, falsos, media, pior);
+        result("Comandos de voz", ok == total && falsos == 0,
+                "%s", resumo);
+        }
+        w.close();
     }
 
     /** Fala o texto com a voz pt-BR direto num WAV de 16 kHz mono. */

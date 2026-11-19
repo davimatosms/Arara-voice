@@ -103,6 +103,13 @@ final class SettingsPage extends MainView.Page {
                 row("Esc cancela", "Para de ouvir e não cola nada.",
                         Ui.toggle(s.escCancels(), "Esc cancela", on -> update(x -> x.withEscCancels(on))))));
 
+        content.add(section("Voz", "Diga “Arara” para ditar sem as mãos. O microfone fica aberto, tudo é processado"
+                        + " neste computador e nada é gravado.",
+                row("Chamar o Arara pela voz", "Com o Arara parado, diga “Arara”. Termine com “Pronto” ou 4 s de silêncio.",
+                        Ui.toggle(s.voiceWake(), "Chamar o Arara pela voz", on -> update(x -> x.withVoiceWake(on)))),
+                row("Pedir “Aprovado” antes de colar", "Só no ditado chamado por voz. “Cancela” ou Esc desistem; sem resposta em 15 s, não cola.",
+                        Ui.toggle(s.voiceApproval(), "Pedir Aprovado antes de colar", on -> update(x -> x.withVoiceApproval(on))))));
+
         JComboBox<String> mic = micChoice(s, m -> update(x -> x.withMicrophone(m)));
         mic.setPreferredSize(new Dimension(280, 40));
         Settings.Model[] models = Settings.Model.values();

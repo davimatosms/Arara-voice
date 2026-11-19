@@ -10,4 +10,9 @@ public interface Transcriber {
     default String transcribe(short[] pcm16k, String previous) {
         return transcribe(pcm16k);
     }
+
+    /** Trecho curto que pode ser um comando de voz ("Arara", "Aprovado"): o Whisper ajusta a decodificação para isso. */
+    default String transcribeCommand(short[] pcm16k) {
+        return transcribe(pcm16k);
+    }
 }

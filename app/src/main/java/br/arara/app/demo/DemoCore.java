@@ -119,7 +119,7 @@ public final class DemoCore {
             switch (state) {
                 case IDLE, PASTED, ERROR -> start();
                 case LISTENING, SILENCE -> stop();
-                case TRANSCRIBING -> { }
+                case TRANSCRIBING, AWAITING_APPROVAL -> { }
             }
         }
 

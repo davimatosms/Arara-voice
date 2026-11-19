@@ -47,6 +47,25 @@ class ScreenshotTest {
         });
     }
 
+    /** Ditado chamado por voz esperando o "Aprovado": texto na tela e a barra do prazo pela metade. */
+    @Test
+    void desenhaAprovacao() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            RecordingPopup popup = new RecordingPopup(new DemoCore().settings());
+            long[] t = {0};
+            popup.clock = () -> t[0];
+            popup.show(DictationState.LISTENING);
+            popup.onResult(new HistoryEntry(LocalDateTime.now(), "Manda o relatório para a equipe até sexta, por favor."));
+            popup.show(DictationState.AWAITING_APPROVAL);
+            t[0] = br.arara.core.DictationEngine.APPROVAL_TIMEOUT_MS / 2;
+            for (int i = 0; i < 10; i++) popup.tick();
+            save(popup.view, popup.view.getWidth(), popup.view.getHeight(), "popup-aprovacao");
+        });
+    }
+
     /** Quadros da arara viva no pop-up: bico fechado, aberto com notinhas, piscando e o voo do "Colado!". */
     @Test
     void desenhaAraraViva() throws Exception {
