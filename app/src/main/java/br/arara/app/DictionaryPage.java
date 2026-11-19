@@ -1,6 +1,8 @@
 package br.arara.app;
 
 import br.arara.core.DictionaryStore;
+import br.arara.core.HistoryStore;
+import br.arara.core.NewTerms;
 import br.arara.core.Term;
 
 import javax.swing.JButton;
@@ -16,19 +18,28 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Dicionário: "quando ouvir X, escrever Y". */
 final class DictionaryPage extends MainView.Page {
+    /** Sugestões do histórico inteiro; mais que isto vira lista, e a ideia é revisar aos poucos. */
+    static final int MAX_SUGGESTIONS = 10;
     private final DictionaryStore dictionary;
+    private final HistoryStore history;
     private final Runnable onChange;
+    /** Termos dos ditados que ainda não estão no dicionário, do mais frequente para o menos. */
+    final TermChips suggestions = new TermChips(this::prefill);
+    private final JPanel suggestionsBox;
     private final JTextField hear = Ui.field("ex.: uísper");
     private final JTextField write = Ui.field("ex.: Whisper");
     private final JLabel count = Ui.label("", Theme.semibold(12), Theme.TEXT_SOFT);
     private final JPanel rows = Ui.column();
 
-    DictionaryPage(DictionaryStore dictionary, Runnable onChange) {
+    DictionaryPage(DictionaryStore dictionary, HistoryStore history, Runnable onChange) {
         this.dictionary = dictionary;
+        this.history = history;
         this.onChange = onChange;
         hear.getAccessibleContext().setAccessibleName("Quando ouvir");
         write.getAccessibleContext().setAccessibleName("Escrever");
@@ -69,9 +80,19 @@ final class DictionaryPage extends MainView.Page {
         table.add(line(Ui.caption("QUANDO OUVIR"), Ui.caption("ESCREVER"), count, false), BorderLayout.NORTH);
         table.add(Ui.scroll(rows));
 
+        Ui.Round suggestionsCard = Ui.card(new BorderLayout());
+        suggestionsCard.setBorder(new EmptyBorder(14, 20, 10, 20));
+        suggestionsCard.add(Ui.column(Ui.caption("SUGESTÕES DOS SEUS DITADOS"), Ui.gap(4),
+                Ui.label("Termos que ainda não estão no dicionário. Clique para conferir como o Arara escreveu.",
+                        Theme.regular(13), Theme.TEXT_SOFT), Ui.gap(2), suggestions));
+        suggestionsBox = new JPanel(new BorderLayout());
+        suggestionsBox.setOpaque(false);
+        suggestionsBox.setBorder(new EmptyBorder(16, 0, 0, 0));
+        suggestionsBox.add(suggestionsCard);
+
         JPanel content = new JPanel(new BorderLayout(0, 20));
         content.setOpaque(false);
-        content.add(form, BorderLayout.NORTH);
+        content.add(Ui.column(form, suggestionsBox), BorderLayout.NORTH);
         content.add(table);
         add(content);
     }
@@ -107,6 +128,32 @@ final class DictionaryPage extends MainView.Page {
         }
         rows.revalidate();
         rows.repaint();
+
+        Map<String, String> found = new LinkedHashMap<>();
+        for (NewTerms.Suggestion s : NewTerms.across(history.all(), terms, MAX_SUGGESTIONS)) {
+            found.put(s.term(), s.count() > 1 ? s.term() + " · " + s.count() + "x" : s.term());
+        }
+        suggestions.set(found);
+        suggestionsBox.setVisible(!found.isEmpty());
+    }
+
+    /**
+     * Preenche o formulário com o termo como o Arara escreveu: "Quando ouvir" fica igual e "Escrever" vem
+     * selecionado para a pessoa corrigir (ou só confirmar, se estava certo).
+     */
+    void prefill(String term) {
+        hear.setText(term);
+        write.setText(term);
+        write.requestFocusInWindow();
+        write.selectAll();
+    }
+
+    String hearText() {
+        return hear.getText();
+    }
+
+    String writeText() {
+        return write.getText();
     }
 
     private void add() {

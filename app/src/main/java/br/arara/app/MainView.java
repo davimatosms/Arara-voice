@@ -64,8 +64,8 @@ final class MainView extends JPanel implements DictationListener {
         setBackground(Theme.BG);
         pages = new Page[] {
                 new HomePage(engine, settings, () -> show(3), modelBadge),
-                new HistoryPage(history, this::refresh),
-                new DictionaryPage(dictionary, this::refresh),
+                new HistoryPage(history, dictionary, this::refresh, this::addToDictionary),
+                new DictionaryPage(dictionary, history, this::refresh),
                 new SettingsPage(settings, history, this::refresh)};
 
         add(sidebar(), BorderLayout.WEST);
@@ -105,6 +105,12 @@ final class MainView extends JPanel implements DictationListener {
         Settings s = settings.load();
         modelName.setText(Ui.modelName(s.model()));
         modelInfo.setText((Ui.MAC ? (br.arara.core.AraraCore.gpuOn(s) ? "Metal" : "CPU") : s.accel() == Settings.Accel.VULKAN ? "Vulkan" : "CPU") + " · 100% local");
+    }
+
+    /** Termo clicado no Histórico: abre o Dicionário com ele já no formulário. */
+    private void addToDictionary(String term) {
+        show(2);
+        ((DictionaryPage) pages[2]).prefill(term);
     }
 
     SettingsPage settingsPage() {
