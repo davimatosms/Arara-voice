@@ -43,6 +43,8 @@ final class Arara extends JComponent {
     private final int scale;
     /** Deslocamento vertical em pixels do sprite (negativo = pulinho), para manter a grade. */
     int hop;
+    /** Deslocamento horizontal em pixels da tela (o mascote voa de um lado para o outro); 0 = centralizada. */
+    int dx;
     /** "?" (silêncio), "..." (transcrevendo) ou null. */
     String mark;
     /** Quadro desenhado agora; os maiores que o pousado (voo) ficam centralizados. */
@@ -103,6 +105,13 @@ final class Arara extends JComponent {
         sprite = blinkLeft > 0 ? PISCAR : FALA[beak];
     }
 
+    /** Voo sem parar (mascote transcrevendo): bate as asas e sobe e desce 1 px do sprite a cada batida. */
+    void fly(int tick) {
+        notes.clear();
+        sprite = VOO[(tick / FLY_TICKS) % VOO.length];
+        hop = (tick / (FLY_TICKS * VOO.length / 2)) % 2 == 0 ? -1 : 0;
+    }
+
     /** Notinhas sobem 1 px a cada 2 ticks, se afastam do bico 1 px a cada 3 e somem no fim da vida. */
     void stepNotes() {
         notes.removeIf(n -> ++n[2] >= NOTE_LIFE);
@@ -118,6 +127,7 @@ final class Arara extends JComponent {
         beak = 0;
         voice = 0;
         hop = 0;
+        dx = 0;
         notes.clear();
     }
 
@@ -172,7 +182,7 @@ final class Arara extends JComponent {
         g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(alpha));
         if (!current(sprite)) sprite = IMAGE;
         int w = IMAGE.getWidth() * scale, h = IMAGE.getHeight() * scale;
-        int x = (getWidth() - w) / 2, y = (getHeight() - h) / 2 + hop * scale;
+        int x = (getWidth() - w) / 2 + dx, y = (getHeight() - h) / 2 + hop * scale;
         int sw = sprite.getWidth() * scale, sh = sprite.getHeight() * scale;
         // Quadros de voo são maiores: centralizados no lugar do pousado, deslocados em pixels inteiros do sprite.
         g2.drawImage(sprite, x - (sprite.getWidth() - IMAGE.getWidth()) / 2 * scale,

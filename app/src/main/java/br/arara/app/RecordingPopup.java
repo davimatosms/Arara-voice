@@ -6,6 +6,7 @@ import br.arara.core.HistoryEntry;
 import br.arara.core.Settings;
 import br.arara.core.SettingsStore;
 
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
@@ -22,7 +23,10 @@ import java.awt.Rectangle;
 import java.awt.Window;
 import java.util.function.LongSupplier;
 
-/** Pop-up de gravação: sempre por cima, sem roubar o foco, perto do pé da tela. */
+/**
+ * Pop-up de gravação: sempre por cima, sem roubar o foco. Completo (cartão com texto ao vivo, no pé da tela) ou só a
+ * arara, sem fundo, no canto inferior direito ({@link Settings.PopupStyle}).
+ */
 final class RecordingPopup implements DictationListener {
     static final int WIDTH = 500, HEIGHT = 150;
 
@@ -46,6 +50,8 @@ final class RecordingPopup implements DictationListener {
     private final Timer hide = new Timer(1500, e -> hideNow());
     /** Conteúdo do pop-up; fica separado da janela para poder ser desenhado em teste sem tela. */
     final Ui.Round view = new Ui.Round(new BorderLayout(20, 0), Theme.SURFACE, Theme.BORDER, 32);
+    /** Estilo "Só a arara". */
+    final Mascot mascot = new Mascot();
 
     /** Relógio das animações em ms; o teste troca para desenhar quadros exatos. */
     LongSupplier clock = () -> System.nanoTime() / 1_000_000;
@@ -186,6 +192,8 @@ final class RecordingPopup implements DictationListener {
             }
             case IDLE -> { }
         }
+        mascot.show(s, s == DictationState.ERROR ? lastError
+                : s == DictationState.TRANSCRIBING && pending > 0 ? "Faltam ~" + Math.round(pending) + " s" : null);
         Settings cfg = settings.load();
         esc.setVisible(cfg.escCancels() && (recording || s == DictationState.TRANSCRIBING));
         if (s == DictationState.PASTED || s == DictationState.ERROR) {
@@ -206,9 +214,19 @@ final class RecordingPopup implements DictationListener {
         view.getAccessibleContext().setAccessibleName(titleText != null ? titleText : badgeText);
     }
 
+    /** O que a janela mostra, conforme Configurações › "Estilo do pop-up". */
+    JComponent content() {
+        return settings.load().popupStyle() == Settings.PopupStyle.ARARA ? mascot : view;
+    }
+
     /** Arara viva: bico segue a voz, notinhas, piscar e voo no "Colado!". Só roda com o pop-up aberto. */
     void tick() {
         frame++;
+        if (content() == mascot) {
+            mascot.animate(state, level, frame);
+            mascot.repaint();
+            return;
+        }
         arara.animate(state, level, frame);
         live.tick(now());
         // Sem progresso real do Whisper: a barra anda rápido no começo e vai freando perto do fim.
@@ -233,11 +251,18 @@ final class RecordingPopup implements DictationListener {
                 window.setBackground(new Color(0, 0, 0, 0));
             }
             window.getRootPane().setOpaque(false);
-            window.setContentPane(view);
-            window.setSize(WIDTH, HEIGHT);
+        }
+        // O estilo pode mudar entre um ditado e outro: troca o conteúdo, o tamanho e o canto da tela.
+        JComponent c = content();
+        boolean macaw = c == mascot;
+        int w = macaw ? Mascot.WIDTH : WIDTH, h = macaw ? Mascot.HEIGHT : HEIGHT;
+        if (window.getContentPane() != c) {
+            window.setContentPane(c);
+            window.setSize(w, h);
         }
         Rectangle area = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        window.setLocation(area.x + (area.width - WIDTH) / 2, area.y + area.height - HEIGHT - 40);
+        if (macaw) window.setLocation(area.x + area.width - w - 24, area.y + area.height - h - 16);
+        else window.setLocation(area.x + (area.width - w) / 2, area.y + area.height - h - 40);
         if (!window.isVisible()) window.setVisible(true);
         anim.start();
     }
@@ -247,6 +272,7 @@ final class RecordingPopup implements DictationListener {
         hide.stop();
         state = DictationState.IDLE;
         arara.reset();
+        mascot.arara.reset();
         if (window != null) window.setVisible(false);
     }
 }
