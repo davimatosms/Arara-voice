@@ -47,6 +47,22 @@ class ScreenshotTest {
         });
     }
 
+    /** Histórico com a faixa "Fora do dicionário" (ditado com sigla, nome e termo técnico). */
+    @Test
+    void desenhaTermosForaDoDicionario() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        DIR.mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            DemoCore core = new DemoCore();
+            core.history().append(new HistoryEntry(LocalDateTime.now(),
+                    "Abre o PRD no GitHub, pede para o Claude revisar e faz o deploy depois."));
+            MainView view = new MainView(core.engine(), core.history(), core.dictionary(), core.settings());
+            view.show(1);
+            save(view, 1100, 720, "2b-historico-termos");
+        });
+    }
+
     /** Quadros da arara viva no pop-up: bico fechado, aberto com notinhas, piscando e o voo do "Colado!". */
     @Test
     void desenhaAraraViva() throws Exception {
