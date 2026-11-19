@@ -947,7 +947,7 @@ final class Onboarding extends JPanel implements DictationListener {
         return switch (m) {
             case LEVE -> "148 MB";
             case EQUILIBRADO -> "488 MB";
-            case PRECISO -> "574 MB";
+            case PRECISO -> "874 MB";
         };
     }
 

@@ -58,7 +58,7 @@ O FluidVoice erra muito no reconhecimento de PT-BR. A ideia é criar uma alterna
 
 ## Modelo e qualidade em PT-BR
 
-- Modelo principal: Whisper `large-v3-turbo` quantizado (~550 MB). Para máquinas fracas: `small` ou `base`.
+- Modelo principal: Whisper `large-v3-turbo` quantizado (q8_0, ~874 MB). Para máquinas fracas: `small` ou `base`.
 - Forçar `language="pt"`, porque a detecção automática erra em áudio curto.
 - Usar um *initial prompt* em PT-BR com pontuação para orientar o estilo da saída.
 - Dicionário de termos do usuário (nomes, jargões) aplicado no pós-processamento.

@@ -29,7 +29,7 @@ Só para testes, fora do app distribuído: JUnit 5 (BOM 5.11.4), EPL-2.0, https:
 |---|---|---|---|
 | Whisper base (OpenAI), convertido para ggml | `ggml-base.bin` | MIT | https://huggingface.co/ggerganov/whisper.cpp |
 | Whisper small (OpenAI), convertido para ggml | `ggml-small.bin` | MIT | https://huggingface.co/ggerganov/whisper.cpp |
-| Whisper large-v3-turbo (OpenAI), quantizado q5_0 | `ggml-large-v3-turbo-q5_0.bin` | MIT | https://huggingface.co/ggerganov/whisper.cpp |
+| Whisper large-v3-turbo (OpenAI), quantizado q8_0 | `ggml-large-v3-turbo-q8_0.bin` | MIT | https://huggingface.co/ggerganov/whisper.cpp |
 
 Os pesos originais são da OpenAI, sob MIT (https://github.com/openai/whisper/blob/main/LICENSE). O repositório `ggerganov/whisper.cpp` na Hugging Face também declara MIT. O app baixa os arquivos de um commit fixo (`5359861c739e955e79d9a303bcbc70fb988958b1`) e confere o SHA-256.
 
