@@ -1,0 +1,39 @@
+# Todo dia às 10h (Brasília): se houver PR aberto ou issue nova de outra pessoa, abre uma issue de resumo
+# mencionando o dono, e o GitHub manda o e-mail. Sem novidade, não faz nada.
+name: relatorio-contribuicoes
+
+on:
+  schedule:
+    - cron: '0 13 * * *' # 10:00 em Brasília (UTC-3)
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  resumo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Montar e publicar o resumo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DONO: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          desde=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          prs=$(gh pr list -R "$REPO" --state open --json number,title,author,url,createdAt \
+            --jq ".[] | select(.author.login != \"$DONO\") | \"- PR #\(.number) por @\(.author.login): \(.title) (\(.url))\"")
+          issues=$(gh issue list -R "$REPO" --state open --json number,title,author,url,createdAt \
+            --jq ".[] | select(.author.login != \"$DONO\" and .createdAt >= \"$desde\") | \"- Issue #\(.number) por @\(.author.login): \(.title) (\(.url))\"")
+          if [ -z "$prs$issues" ]; then echo "Nada novo."; exit 0; fi
+          hoje=$(TZ=America/Sao_Paulo date +%d/%m/%Y)
+          {
+            echo "@$DONO, contribuições para revisar ($hoje):"
+            echo
+            if [ -n "$prs" ]; then echo "### PRs abertos de outras pessoas"; echo "$prs"; echo; fi
+            if [ -n "$issues" ]; then echo "### Issues novas nas últimas 24 h"; echo "$issues"; echo; fi
+            echo "Nada entra sem o seu ok. Peça a avaliação ao Claude e responda se pode fazer o merge."
+          } > corpo.md
+          gh issue create -R "$REPO" --title "Contribuições para revisar · $hoje" --body-file corpo.md
