@@ -150,7 +150,6 @@ final class DefaultDictationEngine implements DictationEngine {
         volatile boolean noPreview; // prévia lenta demais neste ditado
         int slowPreviews; // seguidas; só a thread da prévia mexe
         boolean byVoice; // começou com "Arara"; muda com o lock do engine
-        volatile boolean endedByPronto; // terminou com "Pronto": a palavra sai do fim do texto
     }
 
     DefaultDictationEngine(HistoryStore history, DictionaryStore dictionary, Transcriber transcriber,
@@ -392,7 +391,6 @@ final class DefaultDictationEngine implements DictationEngine {
     /** "Pronto" reconhecido: encerra, se ninguém falou de novo nem parou o ditado enquanto o Whisper ouvia. */
     private synchronized void prontoHeard(Take t, long end) {
         if (t != take || !recording() || vad.speechEnd() != end) return;
-        t.endedByPronto = true;
         finish();
     }
 
@@ -635,7 +633,8 @@ final class DefaultDictationEngine implements DictationEngine {
         try {
             if (t.failed) throw new IllegalStateException("trecho falhou");
             text = dictionary.apply(t.text.toString());
-            if (t.endedByPronto) text = stripPronto(text);
+            // No ditado por voz, "Pronto" no fim é o comando, mesmo quando o silêncio encerrou antes do Whisper confirmar.
+            if (t.byVoice) text = stripPronto(text);
         } catch (RuntimeException e) {
             fail("Falha ao transcrever o áudio.");
             return;

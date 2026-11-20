@@ -90,6 +90,17 @@ class VoiceDictationTest {
     }
 
     @Test
+    void prontoReconhecidoTardeAindaSaiDoTexto() throws Exception {
+        // O "Pronto" às vezes demora no Whisper e os 4 s de silêncio encerram antes: a palavra sai do texto mesmo assim.
+        DefaultDictationEngine e = engine("Oi, Davi. Pronto?", false);
+        e.startByVoice();
+        push(VadTest.SPEECH, 2);
+        push(VadTest.QUIET, 4.5);
+        waitFor(DictationState.PASTED);
+        assertEquals(List.of("Oi, Davi."), pasted);
+    }
+
+    @Test
     void quatroSegundosDeSilencioEncerramOChamadoPorVoz() throws Exception {
         DefaultDictationEngine e = engine("oi", false);
         e.startByVoice();

@@ -303,11 +303,12 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     }
 
     /**
-     * Vocabulário dos comandos no prompt, sem pontuação. Sem prompt, o Whisper leve escrevia "Há nada" e "Concela"; com
-     * "Arara. Pronto. Aprovado. Cancela." ele acertava, mas continuava a lista e repetia a palavra por até 5 s.
-     * Medido (e2e "voz", voz sintética, 22 casos): 21 certos, nenhum falso positivo, 0,27 s em média e 0,40 s no pior.
+     * Vocabulário dos comandos no prompt, sem pontuação e com "Arara" por último. Sem prompt, o Whisper leve escrevia
+     * "Há nada" e "Concela"; com pontos ("Arara. Pronto.") ou em outra ordem, ele continuava a lista e repetia a palavra
+     * por até 5 s. Medido com voz real (e2e "bancada", 8 trechos x 6 recortes): "Arara Pronto Aprovado Cancela"
+     * repetia em 17 de 48; esta ordem, em 1 de 48, com 48 reconhecidos e 0,37 s em média.
      */
-    static final String COMMAND_PROMPT = "Arara Pronto Aprovado Cancela";
+    static final String COMMAND_PROMPT = "Aprovado Cancela Pronto Arara";
     /** O whisper.cpp exige 1 s; o trecho de comando vai com 1,5 s. */
     static final int COMMAND_SAMPLES = Vad.RATE * 3 / 2;
 
@@ -316,12 +317,18 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
      * um segmento só, sem contexto e sem a segunda tentativa com temperatura maior (que multiplicava o tempo).
      */
     @Override
-    public synchronized String transcribeCommand(short[] pcm16k) {
+    public String transcribeCommand(short[] pcm16k) {
+        return transcribeCommand(pcm16k, p -> {});
+    }
+
+    /** Com ajustes extras por cima dos de comando (o e2e "bancada" compara alternativas). */
+    synchronized String transcribeCommand(short[] pcm16k, java.util.function.Consumer<WhisperFullParams> extra) {
         return run(padWithBackground(pcm16k), p -> {
             p.initialPrompt = COMMAND_PROMPT;
             p.singleSegment = true;
             p.noContext = true;
             p.temperatureInc = 0;
+            extra.accept(p);
         });
     }
 

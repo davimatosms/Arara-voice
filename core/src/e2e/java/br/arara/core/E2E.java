@@ -76,6 +76,7 @@ public final class E2E {
             if (what.equals("colar")) colar();
             if (what.equals("voz")) voz();
             if (what.equals("fluxo-voz")) fluxoVoz();
+            if (what.equals("bancada")) bancada();
             if (what.equals("ouvir")) ouvir(args.length > 1 ? Integer.parseInt(args[1]) : 45,
                     args.length > 2 ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)) : null);
             if (what.equals("colar-linux")) colarLinux();
@@ -702,6 +703,7 @@ public final class E2E {
         Thread.sleep(500);
         ar.fala("frase", withNoise(readWav(frase), 0), t0);
         Thread.sleep(1200);
+        ar.fala("pausa de 1 s", ruido(1.0), t0); // a fila toca em sequência: a pausa entra como ruído
         ar.fala("Pronto", readWav(dir.resolve("08.wav")), t0);
         boolean espera = esperar(estados, DictationState.AWAITING_APPROVAL, 20);
         Thread.sleep(800); // a pessoa lê o texto e responde
@@ -711,7 +713,48 @@ public final class E2E {
         engine.close();
         w.close();
         leve.close();
-        result("Fluxo de voz", espera && colou && colados.size() == 1, "colado: %s", colados);
+        boolean semPronto = colados.size() == 1 && !colados.get(0).toLowerCase().contains("pronto");
+        result("Fluxo de voz", espera && colou && semPronto, "colado: %s", colados);
+    }
+
+    /** Trechos gravados pelo "ouvir" contra ajustes do Whisper, cada um 6 vezes com o recorte deslocado. */
+    static void bancada() throws Exception {
+        Path dir = OUT.resolve("comandos");
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        java.util.Map<String, java.util.function.Consumer<io.github.givimad.whisperjni.WhisperFullParams>> v = new java.util.LinkedHashMap<>();
+        v.put("ordem-ACPA", p -> p.initialPrompt = "Aprovado Cancela Pronto Arara");
+        v.put("ordem-ACPA+semts", p -> { p.initialPrompt = "Aprovado Cancela Pronto Arara"; p.noTimestamps = true; });
+        v.put("ordem-CAAP", p -> p.initialPrompt = "Cancela Aprovado Arara Pronto");
+        v.put("ordem-PACA", p -> p.initialPrompt = "Pronto Aprovado Cancela Arara");
+        v.put("ordem-ACPA.", p -> p.initialPrompt = "Aprovado Cancela Pronto Arara.");
+        v.put("frase-natural", p -> p.initialPrompt = "Comandos: Arara, Pronto, Aprovado e Cancela.");
+        v.put("frase-natural+semts", p -> { p.initialPrompt = "Comandos: Arara, Pronto, Aprovado e Cancela."; p.noTimestamps = true; });
+        java.util.Random rnd = new java.util.Random(3);
+        File[] wavs = dir.toFile().listFiles((d, n) -> n.endsWith(".wav"));
+        Arrays.sort(wavs);
+        for (var e : v.entrySet()) {
+            int certos = 0, total = 0, lacos = 0;
+            double soma = 0, pior = 0;
+            for (File f : wavs) {
+                short[] base = readWav(f.toPath());
+                for (int k = 0; k < 6; k++) {
+                    int desloca = rnd.nextInt(Vad.RATE / 10); // tira até 0,1 s do começo: muda o recorte
+                    short[] pcm = Arrays.copyOfRange(base, desloca, base.length);
+                    long t0 = System.nanoTime();
+                    String texto = w.transcribeCommand(pcm, e.getValue());
+                    double t = (System.nanoTime() - t0) / 1e9;
+                    soma += t;
+                    pior = Math.max(pior, t);
+                    total++;
+                    if (texto.length() > 30) lacos++;
+                    if (VoiceCommand.match(texto) != null) certos++;
+                }
+            }
+            log("  %-20s %2d/%d reconhecidos, %d laço(s), %.2f s em média, pior %.2f s", e.getKey(), certos, total, lacos,
+                    soma / total, pior);
+        }
+        w.close();
     }
 
     static boolean esperar(BlockingQueue<DictationState> q, DictationState alvo, int segundos) throws InterruptedException {

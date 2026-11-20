@@ -11,17 +11,23 @@ import java.util.Set;
  */
 public enum VoiceCommand {
     /** Chama o Arara: começa um ditado. */
-    ARARA("arara", "a rara", "ara ra", "oi arara", "ei arara", "ola arara", "ok arara", "hey arara", "e ai arara"),
+    ARARA(false, "arara", "a rara", "ara ra", "oi arara", "ei arara", "ola arara", "ok arara", "hey arara", "e ai arara"),
     /** Termina o ditado chamado por voz. */
-    PRONTO("pronto", "pronta", "bronto", "ta pronto", "esta pronto"), // "bronto": o Whisper leve troca o P pelo B
+    PRONTO(false, "pronto", "pronta", "bronto", "ta pronto", "esta pronto"), // "bronto": o Whisper leve troca o P pelo B
     /** Cola o texto que espera aprovação. */
-    APROVADO("aprovado", "aprovada", "aprovo"),
+    APROVADO(true, "aprovado", "aprovada", "aprovo"),
     /** Desiste do texto que espera aprovação (ele fica no histórico). */
-    CANCELA("cancela", "cancelar", "cancelado", "cancelada", "cancele");
+    CANCELA(true, "cancela", "cancelar", "cancelado", "cancelada", "cancele");
 
     private final Set<String> aliases;
+    /**
+     * Aceita uma letra de diferença ("Aprovadu", "Concela"). Só "Aprovado" e "Cancela": eles só valem na espera da
+     * aprovação. "Arara" fica sempre ouvindo e "Pronto" vale no meio do ditado ("ponto"), então pedem a palavra certa.
+     */
+    private final boolean tolerant;
 
-    VoiceCommand(String... aliases) {
+    VoiceCommand(boolean tolerant, String... aliases) {
+        this.tolerant = tolerant;
         this.aliases = Set.of(aliases);
     }
 
@@ -38,7 +44,37 @@ public enum VoiceCommand {
             VoiceCommand c = byAlias(String.join(" ", java.util.Arrays.copyOf(words, unit)));
             if (c != null) return c;
         }
+        // Palavra separada pelo Whisper ("A provado") e, nos tolerantes, uma letra de diferença.
+        String joined = plain.replace(" ", "");
+        for (VoiceCommand c : values()) {
+            for (String alias : c.aliases) {
+                String a = alias.replace(" ", "");
+                if (a.equals(joined)) return c;
+                if (c.tolerant && joined.length() >= 6 && oneEditAway(a, joined)) return c;
+            }
+        }
         return null;
+    }
+
+    /** As duas palavras diferem em no máximo uma letra (troca, falta ou sobra). */
+    static boolean oneEditAway(String a, String b) {
+        if (Math.abs(a.length() - b.length()) > 1) return false;
+        int i = 0, j = 0, edits = 0;
+        while (i < a.length() && j < b.length()) {
+            if (a.charAt(i) == b.charAt(j)) {
+                i++;
+                j++;
+                continue;
+            }
+            if (++edits > 1) return false;
+            if (a.length() > b.length()) i++;
+            else if (a.length() < b.length()) j++;
+            else {
+                i++;
+                j++;
+            }
+        }
+        return edits + (a.length() - i) + (b.length() - j) <= 1;
     }
 
     private static VoiceCommand byAlias(String plain) {

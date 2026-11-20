@@ -49,6 +49,13 @@ class CommandAudioTest {
     }
 
     @Test
+    void promptComAraraPorUltimo() {
+        // Medido com a voz do Mário (8 trechos x 6 recortes): "Arara Pronto Aprovado Cancela" repetia em 17 de 48;
+        // "Aprovado Cancela Pronto Arara", em 1 de 48 (0,37 s em média).
+        assertEquals("Aprovado Cancela Pronto Arara", WhisperTranscriber.COMMAND_PROMPT);
+    }
+
+    @Test
     void promptSemPontuacao() {
         // Com pontos ("Arara. Pronto.") o Whisper leve continuava a lista e repetia a palavra por até 5 s.
         assertEquals(-1, WhisperTranscriber.COMMAND_PROMPT.indexOf('.'));

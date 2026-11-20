@@ -33,6 +33,22 @@ class VoiceCommandTest {
     }
 
     @Test
+    void palavraSeparadaEUmaLetraDeDiferencaNaAprovacao() {
+        // Medido com a voz do Mário: o mesmo "Aprovado" às vezes vinha "A provado", e a aprovação não acontecia.
+        assertEquals(VoiceCommand.APROVADO, VoiceCommand.match("A provado."));
+        assertEquals(VoiceCommand.APROVADO, VoiceCommand.match("Aprovadu"));
+        assertEquals(VoiceCommand.APROVADO, VoiceCommand.match("Provado!"));
+        assertEquals(VoiceCommand.CANCELA, VoiceCommand.match("Concela."));
+        assertEquals(VoiceCommand.CANCELA, VoiceCommand.match("Can cela"));
+        // "Arara" fica sempre ouvindo e "Pronto" vale no meio do ditado: só a palavra certa (ou separada).
+        assertNull(VoiceCommand.match("Arata."));
+        assertNull(VoiceCommand.match("Ponto."));
+        assertEquals(VoiceCommand.ARARA, VoiceCommand.match("Ara ra"));
+        assertNull(VoiceCommand.match("Cancelou."), "duas letras de diferença: outra palavra");
+        assertNull(VoiceCommand.match("Provou."), "duas letras de diferença de \"aprovo\": outra palavra");
+    }
+
+    @Test
     void fraseComAPalavraNoMeioNaoEComando() {
         assertNull(VoiceCommand.match("A arara azul voou longe hoje."));
         assertNull(VoiceCommand.match("O orçamento foi aprovado ontem."));
