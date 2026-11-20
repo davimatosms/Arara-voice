@@ -105,7 +105,7 @@ final class SettingsPage extends MainView.Page {
 
         content.add(section("Voz", "Diga “Arara” para ditar sem as mãos. O microfone fica aberto, tudo é processado"
                         + " neste computador e nada é gravado.",
-                row("Chamar o Arara pela voz", "Com o Arara parado, diga “Arara”. Termine com “Pronto” ou 4 s de silêncio.",
+                row("Chamar o Arara pela voz", "Com o Arara parado, diga “Arara”. Termine com “Pronto”, “Aprovado” ou 4 s de silêncio.",
                         Ui.toggle(s.voiceWake(), "Chamar o Arara pela voz", on -> update(x -> x.withVoiceWake(on)))),
                 row("Pedir “Aprovado” antes de colar", "Só no ditado chamado por voz. “Cancela” ou Esc desistem; sem resposta em 15 s, não cola.",
                         Ui.toggle(s.voiceApproval(), "Pedir Aprovado antes de colar", on -> update(x -> x.withVoiceApproval(on))))));
