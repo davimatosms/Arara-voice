@@ -88,7 +88,8 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA);
+                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA,
+                true, false);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -111,6 +112,22 @@ class StoresTest {
         assertEquals(Settings.Sound.ARARA, s.sound());
         assertEquals(50, s.soundVolume());
         assertEquals(Settings.SoundLength.NORMAL, s.soundLength());
+    }
+
+    @Test
+    void oldConfigWithoutVoiceFieldsKeepsWakeOffAndApprovalOn() throws Exception {
+        Path file = dir.resolve("config.json");
+        Files.writeString(file, "{\"hotkey\":\"Ctrl+Shift+Space\"}");
+        Settings s = new JsonSettingsStore(file).load();
+        assertFalse(s.voiceWake(), "chamar por voz deixa o microfone aberto: só ligado de propósito");
+        assertTrue(s.voiceApproval());
+
+        Settings on = Settings.defaults().withVoiceWake(true).withVoiceApproval(false);
+        new JsonSettingsStore(file).save(on);
+        Settings back = new JsonSettingsStore(file).load();
+        assertTrue(back.voiceWake());
+        assertFalse(back.voiceApproval());
+        assertTrue(back.withHotkey("Mouse4").voiceWake(), "os outros with mantêm a voz");
     }
 
     @Test

@@ -101,7 +101,8 @@ final class UpdateUi implements DictationListener {
 
         /** Estado do ditado: ao terminar, devolve a versão que esperava (ou null). */
         Update state(DictationState s, LocalDate today) {
-            dictating = s == DictationState.LISTENING || s == DictationState.SILENCE || s == DictationState.TRANSCRIBING;
+            dictating = s == DictationState.LISTENING || s == DictationState.SILENCE || s == DictationState.TRANSCRIBING
+                    || s == DictationState.AWAITING_APPROVAL;
             if (dictating || waiting == null) return null;
             Update u = waiting;
             waiting = null;

@@ -34,6 +34,10 @@ import javax.sound.sampled.AudioSystem;
  * ./gradlew e2e --args="whisper LEVE"  # só um modelo
  * ./gradlew e2e --args="fluxo"      # 4 e 5: AraraCore + atalho + Notepad, Esc, gravação sem fala
  * ./gradlew e2e --args="colar"      # só o ClipboardPaster no Notepad, 5 vezes (diagnóstico)
+ * ./gradlew e2e --args="voz"        # comandos de voz com o modelo LEVE: acertos, falsos positivos e latência
+ * ./gradlew e2e --args="ouvir 45 [mixer]"  # diagnóstico com a voz da pessoa: bipe, 45 s ouvindo comandos no microfone
+ *                                   # (padrão do sistema ou o mixer dado); mostra o que o Whisper escreveu em cada
+ *                                   # trecho e salva os trechos em build/e2e/comandos/ (só neste computador)
  * ./gradlew e2e --args="longo"      # ditado de ~30 s: tudo no fim (antes) contra incremental (depois), LEVE e PRECISO
  * ./gradlew e2e --args="latencia [MODELO|-] [respira|corrido|-] [s] [previa]"  # ditado de ~90 s em WAV sintético,
  *                                   # parada s segundos depois da última palavra (padrão 0,5): tempos por trecho;
@@ -70,6 +74,11 @@ public final class E2E {
             if (what.equals("whisper") || what.equals("tudo")) whisper(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("fluxo") || what.equals("tudo")) fluxo();
             if (what.equals("colar")) colar();
+            if (what.equals("voz")) voz();
+            if (what.equals("fluxo-voz")) fluxoVoz();
+            if (what.equals("bancada")) bancada();
+            if (what.equals("ouvir")) ouvir(args.length > 1 ? Integer.parseInt(args[1]) : 45,
+                    args.length > 2 ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)) : null);
             if (what.equals("colar-linux")) colarLinux();
             if (what.equals("longo")) longo(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
             if (what.equals("bench")) bench(args.length > 1 ? Settings.Model.valueOf(args[1]) : null);
@@ -483,6 +492,363 @@ public final class E2E {
                 log("| %s | %d s | %.2f s | %.2f s |", m, len, t[0], t[1]);
             }
             w.close();
+        }
+    }
+
+    /**
+     * Comandos de voz de ponta a ponta: frase sintetizada com ruído de fundo -> CommandListener (VAD, corte do trecho
+     * curto) -> Whisper LEVE -> VoiceCommand. Positivos têm que virar o comando certo; negativos (frase longa com a
+     * palavra, palavra solta comum, silêncio) não podem virar comando nenhum. Duas velocidades de fala.
+     */
+    static void voz() throws Exception {
+        log("== Comandos de voz ==");
+        Object[][] casos = {
+                {"Arara.", VoiceCommand.ARARA}, {"Oi, Arara!", VoiceCommand.ARARA}, {"Pronto.", VoiceCommand.PRONTO},
+                {"Aprovado!", VoiceCommand.APROVADO}, {"Cancela.", VoiceCommand.CANCELA},
+                {"A arara azul voou longe hoje de manhã.", null}, {"O orçamento foi aprovado ontem à tarde.", null},
+                {"Obrigado.", null}, {"Tá bom.", null}, {"Sim.", null}, {"", null}};
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        {
+        int ok = 0, total = 0, falsos = 0;
+        List<Double> latencias = new ArrayList<>();
+        for (int rate : new int[] {0, 2}) {
+            for (Object[] caso : casos) {
+                String frase = (String) caso[0];
+                VoiceCommand esperado = (VoiceCommand) caso[1];
+                short[] voice = new short[0];
+                if (!frase.isEmpty()) {
+                    Path wav = OUT.resolve("voz.wav");
+                    synth(frase, rate, wav);
+                    voice = readWav(wav);
+                }
+                List<String> ouvidos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                List<Double> tempos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                List<String> textos = new java.util.concurrent.CopyOnWriteArrayList<>();
+                VoiceCommandRecognizer medido = pcm -> {
+                    long t0 = System.nanoTime();
+                    String texto;
+                    try {
+                        texto = w.transcribeCommand(pcm); // o mesmo caminho do app
+                    } catch (RuntimeException e) {
+                        log("    exceção no Whisper: %s", e);
+                        throw e;
+                    }
+                    textos.add(texto);
+                    VoiceCommand c = VoiceCommand.match(texto);
+                    tempos.add((System.nanoTime() - t0) / 1e9);
+                    ouvidos.add(java.util.Optional.ofNullable(c).map(Enum::name).orElse("-"));
+                    return c;
+                };
+                java.util.function.Consumer<short[]>[] alvo = new java.util.function.Consumer[1];
+                DefaultDictationEngine.AudioSource fake = new DefaultDictationEngine.AudioSource() {
+                    public void start(java.util.function.Consumer<short[]> onChunk) { alvo[0] = onChunk; }
+                    public void stop() { alvo[0] = null; }
+                };
+                DictationEngine parado = new DictationEngine() { // só para o ouvinte ver o motor parado
+                    public void toggle() {}
+                    public void cancel() {}
+                    public DictationState state() { return DictationState.IDLE; }
+                    public void addListener(DictationListener l) {}
+                    public void removeListener(DictationListener l) {}
+                    public void close() {}
+                };
+                CommandListener ouvinte = new CommandListener(parado, fake, medido, () -> true);
+                ouvinte.sync();
+                short[] pcm = withNoise(voice, 1.0);
+                Vad diag = new Vad();
+                long primeiro = -1;
+                for (int i = 0; i + 512 <= pcm.length; i += 512) {
+                    diag.feed(Arrays.copyOfRange(pcm, i, i + 512));
+                    if (primeiro < 0 && diag.burstStart() >= 0) primeiro = diag.burstStart();
+                }
+                log("    vad: fala %.2f-%.2f s, último trecho em %.2f s, total %.2f s, limiar %.0f dBFS", diag.speechStart() / 16000.0,
+                        diag.speechEnd() / 16000.0, diag.burstStart() / 16000.0, pcm.length / 16000.0, diag.threshold());
+                for (int i = 0; i + 512 <= pcm.length && alvo[0] != null; i += 512) alvo[0].accept(Arrays.copyOfRange(pcm, i, i + 512));
+                Thread.sleep(100);
+                for (int i = 0; i < 200 && ouvinte.recognizing(); i++) Thread.sleep(50); // espera o Whisper (até 10 s)
+                ouvinte.close();
+                VoiceCommand ouvido = ouvidos.stream().filter(n -> !n.equals("-")).map(VoiceCommand::valueOf).findFirst().orElse(null);
+                boolean certo = ouvido == esperado;
+                total++;
+                if (certo) ok++;
+                if (esperado == null && ouvido != null) falsos++;
+                latencias.addAll(tempos);
+                log("  [%s] velocidade %d, \"%s\": esperado %s, ouvido %s, %d trecho(s) ao Whisper%s", certo ? "ok" : "ERRO", rate,
+                        frase.isEmpty() ? "(silêncio)" : frase, esperado, ouvido, tempos.size(),
+                        tempos.isEmpty() ? "" : String.format(" em %.2f s: %s", tempos.get(0), textos));
+            }
+        }
+        double media = latencias.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        double pior = latencias.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        String resumo = String.format("%d/%d certos, %d falso(s) positivo(s), Whisper %.2f s em média (pior %.2f s)",
+                ok, total, falsos, media, pior);
+        result("Comandos de voz", ok == total && falsos == 0,
+                "%s", resumo);
+        }
+        w.close();
+    }
+
+    /**
+     * Diagnóstico com a voz de verdade: o mesmo CommandListener e o mesmo transcribeCommand do app, no microfone real.
+     * Mostra cada trecho de fala (curto ou não), o que o Whisper escreveu e o comando reconhecido.
+     */
+    static void ouvir(int seconds, String mixer) throws Exception {
+        log("== Ouvir comandos (%d s, microfone: %s) ==", seconds, mixer == null ? "padrão" : mixer);
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        Path dir = OUT.resolve("comandos");
+        Files.createDirectories(dir);
+        int[] n = {0};
+        VoiceCommandRecognizer diag = pcm -> {
+            long t0 = System.nanoTime();
+            String texto = w.transcribeCommand(pcm);
+            VoiceCommand c = VoiceCommand.match(texto);
+            int i = ++n[0];
+            try {
+                writeWav(pcm, dir.resolve(String.format("%02d.wav", i)));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            log("  trecho %02d (%.2f s de áudio, Whisper %.2f s): \"%s\" -> %s", i, pcm.length / 16000.0,
+                    (System.nanoTime() - t0) / 1e9, texto, c);
+            return c;
+        };
+        Microphone real = new Microphone(() -> mixer);
+        Vad todos = new Vad(); // mostra também os trechos que o ouvinte descarta por tamanho
+        long[] fed = {0}, visto = {-1};
+        DefaultDictationEngine.AudioSource mic = new DefaultDictationEngine.AudioSource() {
+            public void start(java.util.function.Consumer<short[]> onChunk) throws Exception {
+                real.start(chunk -> {
+                    onChunk.accept(chunk);
+                    synchronized (todos) {
+                        fed[0] += chunk.length;
+                        todos.feed(chunk);
+                        long b = todos.burstStart(), e = todos.speechEnd();
+                        if (b >= 0 && b != visto[0] && fed[0] - e >= CommandListener.PAUSE) {
+                            visto[0] = b;
+                            double len = (e - b) / 16000.0;
+                            String nota = len * Vad.RATE < CommandListener.MIN ? "curto demais: descartado"
+                                    : len * Vad.RATE > CommandListener.MAX ? "longo demais: descartado" : "vai ao Whisper";
+                            log("  fala em %.1f s, %.2f s (%s), nível %.0f dBFS, limiar %.0f", b / 16000.0, len, nota,
+                                    Vad.dbfs(chunk), todos.threshold());
+                        }
+                    }
+                });
+            }
+
+            public void stop() {
+                real.stop();
+            }
+        };
+        DictationEngine esperando = new DictationEngine() { // finge a espera da aprovação: o ouvinte fica com o microfone
+            public void toggle() {}
+            public void cancel() {}
+            public DictationState state() { return DictationState.AWAITING_APPROVAL; }
+            public void addListener(DictationListener l) {}
+            public void removeListener(DictationListener l) {}
+            public void close() {}
+        };
+        CommandListener ouvinte = new CommandListener(esperando, mic, diag, () -> true);
+        bipe(880);
+        ouvinte.sync();
+        log("  ouvindo... fale agora");
+        Thread.sleep(seconds * 1000L);
+        ouvinte.close();
+        bipe(440);
+        w.close();
+        log("  %d trecho(s) foram ao Whisper; áudio em %s", n[0], dir.toAbsolutePath());
+    }
+
+    /**
+     * Fluxo de voz completo, sem microfone: o motor e o ouvinte de verdade ouvem o mesmo "ar" (uma linha do tempo tocada
+     * no ritmo real), com os trechos gravados pelo "ouvir": "Arara", uma frase, "Pronto" e "Aprovado".
+     */
+    static void fluxoVoz() throws Exception {
+        fluxoVoz(true);
+        fluxoVoz(false);
+    }
+
+    /** comPronto: "Pronto" e depois "Aprovado" na espera; sem: "Aprovado" direto no ditado, que cola sem esperar. */
+    static void fluxoVoz(boolean comPronto) throws Exception {
+        log(comPronto ? "== Fluxo de voz (Arara -> frase -> Pronto -> Aprovado), falando na hora certa =="
+                : "== Fluxo de voz (Arara -> frase -> Aprovado, sem Pronto) ==");
+        Path dir = OUT.resolve("comandos");
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        WhisperTranscriber leve = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE); // como a prévia do app
+        leve.prepare((done, total) -> {});
+        Path frase = OUT.resolve("frase.wav");
+        synth("Isto é um teste do ditado por voz.", 0, frase);
+        Ar ar = new Ar();
+        Path tmp = Files.createTempDirectory("arara-fluxo-voz");
+        SettingsStore settings = new JsonSettingsStore(tmp.resolve("config.json"));
+        settings.save(Settings.defaults().withVoiceWake(true).withVoiceApproval(true));
+        List<String> colados = new java.util.concurrent.CopyOnWriteArrayList<>();
+        DefaultDictationEngine engine = new DefaultDictationEngine(new JsonlHistoryStore(tmp.resolve("h.jsonl")),
+                new JsonDictionaryStore(tmp.resolve("d.json")), w, ar.source("motor"), colados::add);
+        VoiceCommandRecognizer rec = VoiceCommandRecognizer.whisper(() -> leve);
+        engine.setVoice(settings, rec);
+        CommandListener ouvinte = new CommandListener(engine, ar.source("ouvinte"), rec, () -> true);
+        engine.addListener(ouvinte);
+        long t0 = System.nanoTime();
+        BlockingQueue<DictationState> estados = new LinkedBlockingQueue<>();
+        engine.addListener(new DictationListener() {
+            public void onState(DictationState st) {
+                log("  %5.1f s  estado %s", (System.nanoTime() - t0) / 1e9, st);
+                estados.add(st);
+            }
+            public void onError(String m) { log("  %5.1f s  erro: %s", (System.nanoTime() - t0) / 1e9, m); }
+        });
+        ouvinte.sync();
+        Thread som = new Thread(() -> ar.play(t0), "ar");
+        som.setDaemon(true);
+        som.start();
+        Thread.sleep(1000);
+        ar.fala("Arara", readWav(dir.resolve("06.wav")), t0);
+        esperar(estados, DictationState.LISTENING, 10);
+        Thread.sleep(500);
+        ar.fala("frase", withNoise(readWav(frase), 0), t0);
+        Thread.sleep(1200);
+        ar.fala("pausa de 1 s", ruido(1.0), t0); // a fila toca em sequência: a pausa entra como ruído
+        boolean espera;
+        if (comPronto) {
+            ar.fala("Pronto", readWav(dir.resolve("08.wav")), t0);
+            espera = esperar(estados, DictationState.AWAITING_APPROVAL, 20);
+            Thread.sleep(800); // a pessoa lê o texto e responde
+            ar.fala("Aprovado", readWav(dir.resolve("01.wav")), t0);
+        } else {
+            ar.fala("Aprovado", readWav(dir.resolve("01.wav")), t0);
+            espera = true;
+        }
+        java.util.List<DictationState> vistos = new java.util.ArrayList<>();
+        boolean colou = false;
+        for (DictationState st; (st = estados.poll(20, TimeUnit.SECONDS)) != null; ) {
+            vistos.add(st);
+            if (st == DictationState.PASTED) {
+                colou = true;
+                break;
+            }
+        }
+        if (!comPronto) espera = !vistos.contains(DictationState.AWAITING_APPROVAL); // colou sem pedir de novo
+        ouvinte.close();
+        engine.close();
+        w.close();
+        leve.close();
+        boolean semComando = colados.size() == 1 && !colados.get(0).toLowerCase().matches(".*(pronto|aprovad).*");
+        result(comPronto ? "Fluxo de voz" : "Fluxo de voz sem Pronto", espera && colou && semComando, "colado: %s", colados);
+    }
+
+    /** Trechos gravados pelo "ouvir" contra ajustes do Whisper, cada um 6 vezes com o recorte deslocado. */
+    static void bancada() throws Exception {
+        Path dir = OUT.resolve("comandos");
+        WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
+        w.prepare((done, total) -> {});
+        java.util.Map<String, java.util.function.Consumer<io.github.givimad.whisperjni.WhisperFullParams>> v = new java.util.LinkedHashMap<>();
+        // Padrão (prompt ACPA + gramática de 4 palavras) contra sem gramática, e o prompt antigo que repetia (ARPA).
+        v.put("padrao", p -> {});
+        v.put("sem-gramatica", p -> p.grammar = null);
+        v.put("ARPA+gramatica", p -> p.initialPrompt = "Arara Pronto Aprovado Cancela");
+        v.put("ARPA-sem-gramatica", p -> { p.initialPrompt = "Arara Pronto Aprovado Cancela"; p.grammar = null; });
+        java.util.Random rnd = new java.util.Random(3);
+        File[] wavs = dir.toFile().listFiles((d, n) -> n.endsWith(".wav"));
+        Arrays.sort(wavs);
+        for (var e : v.entrySet()) {
+            int certos = 0, total = 0, lacos = 0, lentos = 0;
+            double soma = 0, pior = 0;
+            for (File f : wavs) {
+                short[] base = readWav(f.toPath());
+                for (int k = 0; k < 6; k++) {
+                    int desloca = rnd.nextInt(Vad.RATE / 10); // tira até 0,1 s do começo: muda o recorte
+                    short[] pcm = Arrays.copyOfRange(base, desloca, base.length);
+                    long t0 = System.nanoTime();
+                    String texto = w.transcribeCommand(pcm, e.getValue());
+                    double t = (System.nanoTime() - t0) / 1e9;
+                    soma += t;
+                    pior = Math.max(pior, t);
+                    total++;
+                    if (texto.length() > 30) lacos++;
+                    if (t > 1.5) lentos++; // laço que a gramática cortou ainda custa tempo
+                    if (VoiceCommand.match(texto) != null) certos++;
+                }
+            }
+            log("  %-20s %2d/%d reconhecidos, %d laço(s), %d acima de 1,5 s, %.2f s em média, pior %.2f s", e.getKey(), certos, total, lacos, lentos,
+                    soma / total, pior);
+        }
+        w.close();
+    }
+
+    static boolean esperar(BlockingQueue<DictationState> q, DictationState alvo, int segundos) throws InterruptedException {
+        long fim = System.nanoTime() + segundos * 1_000_000_000L;
+        for (DictationState st; (st = q.poll(Math.max(1, fim - System.nanoTime()), TimeUnit.NANOSECONDS)) != null; ) {
+            if (st == alvo) return true;
+        }
+        log("  (não chegou em %s em %d s)", alvo, segundos);
+        return false;
+    }
+
+    static short[] ruido(double seconds) {
+        java.util.Random rnd = new java.util.Random(7);
+        short[] out = new short[(int) (seconds * Vad.RATE)];
+        for (int i = 0; i < out.length; i++) out[i] = (short) (rnd.nextGaussian() * 60);
+        return out;
+    }
+
+    /** O "ar": ruído de fundo sem parar, tocado em tempo real para as fontes abertas (motor e ouvinte), mais as falas. */
+    static final class Ar {
+        final java.util.Map<String, java.util.function.Consumer<short[]>> abertas = new java.util.concurrent.ConcurrentHashMap<>();
+        final java.util.concurrent.ConcurrentLinkedQueue<Short> fila = new java.util.concurrent.ConcurrentLinkedQueue<>();
+        volatile boolean tocando = true;
+
+        DefaultDictationEngine.AudioSource source(String nome) {
+            return new DefaultDictationEngine.AudioSource() {
+                public void start(java.util.function.Consumer<short[]> onChunk) {
+                    abertas.put(nome, onChunk);
+                    log("           microfone do %s aberto", nome);
+                }
+
+                public void stop() {
+                    if (abertas.remove(nome) != null) log("           microfone do %s fechado", nome);
+                }
+            };
+        }
+
+        void fala(String oque, short[] pcm, long t0) {
+            log("  %5.1f s  (fala: %s)", (System.nanoTime() - t0) / 1e9, oque);
+            for (short v : pcm) fila.add(v);
+        }
+
+        void play(long t0) {
+            java.util.Random rnd = new java.util.Random(7);
+            long next = System.nanoTime();
+            while (tocando) {
+                next += 32_000_000;
+                long wait = next - System.nanoTime();
+                if (wait > 0) java.util.concurrent.locks.LockSupport.parkNanos(wait);
+                short[] chunk = new short[512];
+                for (int i = 0; i < chunk.length; i++) {
+                    Short v = fila.poll();
+                    chunk[i] = v != null ? v : (short) (rnd.nextGaussian() * 60);
+                }
+                for (var c : abertas.values()) c.accept(chunk);
+            }
+        }
+    }
+
+    /** Bipe de 0,3 s: marca o começo e o fim da escuta. */
+    static void bipe(int hz) throws Exception {
+        AudioFormat f = new AudioFormat(44100, 16, 1, true, false);
+        byte[] b = new byte[44100 * 3 / 10 * 2];
+        for (int i = 0; i < b.length / 2; i++) {
+            short v = (short) (Math.sin(2 * Math.PI * hz * i / 44100.0) * 9000);
+            b[2 * i] = (byte) v;
+            b[2 * i + 1] = (byte) (v >> 8);
+        }
+        try (javax.sound.sampled.SourceDataLine line = AudioSystem.getSourceDataLine(f)) {
+            line.open(f);
+            line.start();
+            line.write(b, 0, b.length);
+            line.drain();
         }
     }
 

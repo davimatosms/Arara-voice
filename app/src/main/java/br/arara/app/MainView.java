@@ -107,6 +107,15 @@ final class MainView extends JPanel implements DictationListener {
         modelInfo.setText((Ui.MAC ? (br.arara.core.AraraCore.gpuOn(s) ? "Metal" : "CPU") : s.accel() == Settings.Accel.VULKAN ? "Vulkan" : "CPU") + " · 100% local");
     }
 
+    HomePage homePage() {
+        return (HomePage) pages[0];
+    }
+
+    /** Texto do selo de estado no alto da janela. */
+    String statusText() {
+        return status.getText();
+    }
+
     SettingsPage settingsPage() {
         return (SettingsPage) pages[3];
     }
@@ -171,6 +180,7 @@ final class MainView extends JPanel implements DictationListener {
             case LISTENING -> status.set("Ouvindo", Theme.ACCENT, true);
             case SILENCE -> status.set("Silêncio", Theme.TEXT_SOFT, false);
             case TRANSCRIBING -> status.set("Transcrevendo", Theme.SUPPORT, false);
+            case AWAITING_APPROVAL -> status.set("Aguardando aprovação", Theme.ACCENT, false);
             case PASTED -> {
                 status.set("Colado", Theme.READY, false);
                 status.setIcon(Ui.icon("check", 12, Theme.READY));

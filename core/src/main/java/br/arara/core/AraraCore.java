@@ -153,6 +153,13 @@ public final class AraraCore implements AutoCloseable {
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
         engine.setSoundSettings(settings);
+        // Comandos de voz com o modelo leve: o da prévia, ou o principal quando o escolhido já é o Leve.
+        VoiceCommandRecognizer recognizer = VoiceCommandRecognizer.whisper(
+                () -> preview == null || settings.load().model() == Settings.Model.LEVE ? transcriber : preview);
+        engine.setVoice(settings, recognizer);
+        CommandListener commands = new CommandListener(engine, new Microphone(() -> settings.load().microphone()),
+                recognizer, () -> settings.load().voiceWake());
+        engine.addListener(commands);
         GlobalHotkey hotkey = null;
         try {
             hotkey = GlobalHotkey.register(engine, settings);
@@ -164,6 +171,8 @@ public final class AraraCore implements AutoCloseable {
         }
         AraraCore core = new AraraCore(history, dictionary, settings, transcriber, preview, engine, hotkey);
         core.notice = notice;
+        core.commands = commands;
+        commands.start();
         return core;
     }
 
@@ -173,6 +182,7 @@ public final class AraraCore implements AutoCloseable {
     }
 
     private String notice;
+    private CommandListener commands; // comandos de voz ("Arara", "Aprovado", "Cancela")
 
     /** Aviso da partida (a GPU travou e foi desligada), entregue uma vez; null se não há. */
     public synchronized String takeNotice() {
@@ -223,6 +233,7 @@ public final class AraraCore implements AutoCloseable {
     @Override
     public synchronized void close() {
         if (hotkey != null) hotkey.close();
+        if (commands != null) commands.close();
         engine.close();
         if (transcriber instanceof WhisperTranscriber w) w.close(); // espera a transcrição em andamento
         if (preview instanceof WhisperTranscriber.Preview p) p.close();

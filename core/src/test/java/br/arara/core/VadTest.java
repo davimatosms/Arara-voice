@@ -61,6 +61,22 @@ class VadTest {
     }
 
     @Test
+    void burstStartsAfterAPauseOfAtLeastFourTenths() {
+        Vad vad = new Vad();
+        assertEquals(-1, vad.burstStart());
+        feedSeconds(vad, QUIET, 1);    // 32 blocos
+        feedSeconds(vad, SPEECH, 0.5); // 16 blocos: trecho começa no bloco 32
+        assertEquals(32 * CHUNK, vad.burstStart());
+        feedSeconds(vad, QUIET, 0.2);  // 7 blocos: pausa curta, entre palavras
+        feedSeconds(vad, SPEECH, 0.3); // 10 blocos: continua o mesmo trecho
+        assertEquals(32 * CHUNK, vad.burstStart());
+        feedSeconds(vad, QUIET, 1);    // 32 blocos: pausa de verdade
+        feedSeconds(vad, SPEECH, 0.5); // trecho novo no bloco 32+16+7+10+32
+        assertEquals(97 * CHUNK, vad.burstStart());
+        assertEquals(32 * CHUNK, vad.speechStart(), "o começo da fala não muda");
+    }
+
+    @Test
     void digitalSilenceIsFinite() {
         assertEquals(-90, Vad.dbfs(new short[CHUNK]));
         short[] full = new short[CHUNK];
