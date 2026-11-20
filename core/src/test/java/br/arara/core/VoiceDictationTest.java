@@ -24,6 +24,9 @@ class VoiceDictationTest {
     final BlockingQueue<String> errors = new LinkedBlockingQueue<>();
     final List<String> pasted = new CopyOnWriteArrayList<>();
     final AtomicInteger checks = new AtomicInteger();
+    final List<DictationState> seen = new CopyOnWriteArrayList<>();
+    /** Segura o reconhecedor (simula o Whisper demorando); null: responde na hora. */
+    volatile java.util.concurrent.CountDownLatch gate;
     HistoryStore history;
     SettingsStore settings;
     /** O que o reconhecedor de comandos "ouve" em cada trecho curto. */
@@ -37,12 +40,21 @@ class VoiceDictationTest {
                 new DefaultDictationEngineTest.FakeTranscriber(transcribed), mic, pasted::add);
         e.setVoice(settings, pcm -> {
             checks.incrementAndGet();
+            java.util.concurrent.CountDownLatch g = gate;
+            if (g != null) {
+                try {
+                    g.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             return heard;
         });
         e.addListener(new DictationListener() {
             @Override
             public void onState(DictationState s) {
                 states.add(s);
+                seen.add(s);
             }
 
             @Override
@@ -212,6 +224,73 @@ class VoiceDictationTest {
         assertEquals(DictationState.LISTENING, next());
         e.startByVoice(); // já está ouvindo: ignora
         assertEquals(null, states.poll(200, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    void aprovadoNoDitadoEncerraEColaDireto() throws Exception {
+        // Dizer "Aprovado" sem o "Pronto" antes: encerra e cola na hora, sem a espera da aprovação.
+        DefaultDictationEngine e = engine("Oi, Davi. Aprovado.", true);
+        e.startByVoice();
+        push(VadTest.SPEECH, 2);
+        push(VadTest.QUIET, 0.8);
+        heard = VoiceCommand.APROVADO;
+        push(VadTest.SPEECH, 0.5);
+        push(VadTest.QUIET, 1.5);
+        waitFor(DictationState.PASTED);
+        assertEquals(List.of("Oi, Davi."), pasted);
+        assertEquals("Oi, Davi.", history.all().get(0).texto());
+        assertTrue(!seen.contains(DictationState.AWAITING_APPROVAL), "não pede de novo: " + seen);
+    }
+
+    @Test
+    void aprovadoAtrasadoNaEsperaColaSemPedirDeNovo() throws Exception {
+        // O Whisper demorou e os 4 s de silêncio encerraram antes: o "Aprovado" já dito ainda vale.
+        DefaultDictationEngine e = engine("Oi. Aprovado.", true);
+        gate = new java.util.concurrent.CountDownLatch(1);
+        heard = VoiceCommand.APROVADO;
+        e.startByVoice();
+        push(VadTest.SPEECH, 2);
+        push(VadTest.QUIET, 0.8);
+        push(VadTest.SPEECH, 0.5);
+        push(VadTest.QUIET, 4.5);
+        waitFor(DictationState.AWAITING_APPROVAL);
+        gate.countDown();
+        waitFor(DictationState.PASTED);
+        assertEquals(List.of("Oi."), pasted);
+    }
+
+    @Test
+    void cancelaNoDitadoDesiste() throws Exception {
+        DefaultDictationEngine e = engine("não quero", true);
+        e.startByVoice();
+        push(VadTest.SPEECH, 2);
+        push(VadTest.QUIET, 0.8);
+        heard = VoiceCommand.CANCELA;
+        push(VadTest.SPEECH, 0.5);
+        push(VadTest.QUIET, 1.5);
+        waitFor(DictationState.IDLE);
+        Thread.sleep(200);
+        assertTrue(pasted.isEmpty());
+        assertTrue(history.all().isEmpty());
+    }
+
+    @Test
+    void aprovadoDentroDaFraseFicaNoTexto() throws Exception {
+        // Sem o comando reconhecido, "aprovado" no fim é só uma palavra do ditado.
+        DefaultDictationEngine e = engine("O orçamento foi aprovado.", false);
+        e.startByVoice();
+        push(VadTest.SPEECH, 2);
+        push(VadTest.QUIET, 4.5);
+        waitFor(DictationState.PASTED);
+        assertEquals(List.of("O orçamento foi aprovado."), pasted);
+    }
+
+    @Test
+    void tiraOAprovadoDoFimDoTexto() {
+        assertEquals("Oi, Davi.", DefaultDictationEngine.stripApproval("Oi, Davi. Aprovado."));
+        assertEquals("Oi, Davi", DefaultDictationEngine.stripApproval("Oi, Davi, a provado"));
+        assertEquals("Oi. Pronto.", DefaultDictationEngine.stripApproval("Oi. Pronto. Aprovado!")); // o "Pronto" sai depois, no stripPronto
+        assertEquals("Aprovado o orçamento.", DefaultDictationEngine.stripApproval("Aprovado o orçamento."));
     }
 
     @Test

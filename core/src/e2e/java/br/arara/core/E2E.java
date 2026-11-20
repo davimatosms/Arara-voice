@@ -665,7 +665,14 @@ public final class E2E {
      * no ritmo real), com os trechos gravados pelo "ouvir": "Arara", uma frase, "Pronto" e "Aprovado".
      */
     static void fluxoVoz() throws Exception {
-        log("== Fluxo de voz (Arara -> frase -> Pronto -> Aprovado), falando na hora certa ==");
+        fluxoVoz(true);
+        fluxoVoz(false);
+    }
+
+    /** comPronto: "Pronto" e depois "Aprovado" na espera; sem: "Aprovado" direto no ditado, que cola sem esperar. */
+    static void fluxoVoz(boolean comPronto) throws Exception {
+        log(comPronto ? "== Fluxo de voz (Arara -> frase -> Pronto -> Aprovado), falando na hora certa =="
+                : "== Fluxo de voz (Arara -> frase -> Aprovado, sem Pronto) ==");
         Path dir = OUT.resolve("comandos");
         WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
         w.prepare((done, total) -> {});
@@ -704,17 +711,32 @@ public final class E2E {
         ar.fala("frase", withNoise(readWav(frase), 0), t0);
         Thread.sleep(1200);
         ar.fala("pausa de 1 s", ruido(1.0), t0); // a fila toca em sequência: a pausa entra como ruído
-        ar.fala("Pronto", readWav(dir.resolve("08.wav")), t0);
-        boolean espera = esperar(estados, DictationState.AWAITING_APPROVAL, 20);
-        Thread.sleep(800); // a pessoa lê o texto e responde
-        ar.fala("Aprovado", readWav(dir.resolve("01.wav")), t0);
-        boolean colou = esperar(estados, DictationState.PASTED, 10);
+        boolean espera;
+        if (comPronto) {
+            ar.fala("Pronto", readWav(dir.resolve("08.wav")), t0);
+            espera = esperar(estados, DictationState.AWAITING_APPROVAL, 20);
+            Thread.sleep(800); // a pessoa lê o texto e responde
+            ar.fala("Aprovado", readWav(dir.resolve("01.wav")), t0);
+        } else {
+            ar.fala("Aprovado", readWav(dir.resolve("01.wav")), t0);
+            espera = true;
+        }
+        java.util.List<DictationState> vistos = new java.util.ArrayList<>();
+        boolean colou = false;
+        for (DictationState st; (st = estados.poll(20, TimeUnit.SECONDS)) != null; ) {
+            vistos.add(st);
+            if (st == DictationState.PASTED) {
+                colou = true;
+                break;
+            }
+        }
+        if (!comPronto) espera = !vistos.contains(DictationState.AWAITING_APPROVAL); // colou sem pedir de novo
         ouvinte.close();
         engine.close();
         w.close();
         leve.close();
-        boolean semPronto = colados.size() == 1 && !colados.get(0).toLowerCase().contains("pronto");
-        result("Fluxo de voz", espera && colou && semPronto, "colado: %s", colados);
+        boolean semComando = colados.size() == 1 && !colados.get(0).toLowerCase().matches(".*(pronto|aprovad).*");
+        result(comPronto ? "Fluxo de voz" : "Fluxo de voz sem Pronto", espera && colou && semComando, "colado: %s", colados);
     }
 
     /** Trechos gravados pelo "ouvir" contra ajustes do Whisper, cada um 6 vezes com o recorte deslocado. */
@@ -723,18 +745,16 @@ public final class E2E {
         WhisperTranscriber w = new WhisperTranscriber(MODELS, () -> Settings.Model.LEVE);
         w.prepare((done, total) -> {});
         java.util.Map<String, java.util.function.Consumer<io.github.givimad.whisperjni.WhisperFullParams>> v = new java.util.LinkedHashMap<>();
-        v.put("ordem-ACPA", p -> p.initialPrompt = "Aprovado Cancela Pronto Arara");
-        v.put("ordem-ACPA+semts", p -> { p.initialPrompt = "Aprovado Cancela Pronto Arara"; p.noTimestamps = true; });
-        v.put("ordem-CAAP", p -> p.initialPrompt = "Cancela Aprovado Arara Pronto");
-        v.put("ordem-PACA", p -> p.initialPrompt = "Pronto Aprovado Cancela Arara");
-        v.put("ordem-ACPA.", p -> p.initialPrompt = "Aprovado Cancela Pronto Arara.");
-        v.put("frase-natural", p -> p.initialPrompt = "Comandos: Arara, Pronto, Aprovado e Cancela.");
-        v.put("frase-natural+semts", p -> { p.initialPrompt = "Comandos: Arara, Pronto, Aprovado e Cancela."; p.noTimestamps = true; });
+        // Padrão (prompt ACPA + gramática de 4 palavras) contra sem gramática, e o prompt antigo que repetia (ARPA).
+        v.put("padrao", p -> {});
+        v.put("sem-gramatica", p -> p.grammar = null);
+        v.put("ARPA+gramatica", p -> p.initialPrompt = "Arara Pronto Aprovado Cancela");
+        v.put("ARPA-sem-gramatica", p -> { p.initialPrompt = "Arara Pronto Aprovado Cancela"; p.grammar = null; });
         java.util.Random rnd = new java.util.Random(3);
         File[] wavs = dir.toFile().listFiles((d, n) -> n.endsWith(".wav"));
         Arrays.sort(wavs);
         for (var e : v.entrySet()) {
-            int certos = 0, total = 0, lacos = 0;
+            int certos = 0, total = 0, lacos = 0, lentos = 0;
             double soma = 0, pior = 0;
             for (File f : wavs) {
                 short[] base = readWav(f.toPath());
@@ -748,10 +768,11 @@ public final class E2E {
                     pior = Math.max(pior, t);
                     total++;
                     if (texto.length() > 30) lacos++;
+                    if (t > 1.5) lentos++; // laço que a gramática cortou ainda custa tempo
                     if (VoiceCommand.match(texto) != null) certos++;
                 }
             }
-            log("  %-20s %2d/%d reconhecidos, %d laço(s), %.2f s em média, pior %.2f s", e.getKey(), certos, total, lacos,
+            log("  %-20s %2d/%d reconhecidos, %d laço(s), %d acima de 1,5 s, %.2f s em média, pior %.2f s", e.getKey(), certos, total, lacos, lentos,
                     soma / total, pior);
         }
         w.close();

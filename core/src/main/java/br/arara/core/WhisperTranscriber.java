@@ -328,8 +328,51 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             p.singleSegment = true;
             p.noContext = true;
             p.temperatureInc = 0;
+            p.grammar = commandGrammar();
+            p.grammarPenalty = 100f;
             extra.accept(p);
         });
+    }
+
+    /** Palavras de um comando, no máximo: "e ai arara" tem 3; a 4ª é folga para o Whisper. */
+    static final int COMMAND_WORDS = 4;
+    /** Letras de uma palavra, no máximo ("cancelado" tem 9). */
+    static final int COMMAND_WORD_LETTERS = 13;
+
+    /**
+     * Gramática (GBNF do whisper.cpp) que limita a resposta a {@link #COMMAND_WORDS} palavras curtas. O whisper-jni 1.7.1
+     * não expõe o max_tokens; sem limite, o Whisper às vezes entrava em laço ("Forti um Forti um...") e gastava 5 a 6 s
+     * escrevendo até encher o contexto. Com a gramática, depois da última palavra permitida só sobra o fim do texto.
+     * Só corta tamanho: uma fala de mais de 4 palavras vira as 4 primeiras, que nunca são um comando sozinhas.
+     */
+    static String commandGrammarText() {
+        StringBuilder g = new StringBuilder("root ::= \" \"? word");
+        for (int i = 1; i < COMMAND_WORDS; i++) g.append(" (sep word)?");
+        g.append(" end?\n");
+        g.append("sep ::= [,.!?]? \" \"\n");
+        g.append("end ::= [.!?]\n");
+        // Palavra de 1 a N letras, encadeada (w1 ::= letra w2?) para não ter várias formas de casar o mesmo texto. A classe
+        // de letra vai escrita em cada regra: o validador do whisper-jni confunde uma regra "c" reaproveitada com ciclo.
+        String letter = "[^ ,.!?]";
+        g.append("word ::= ").append(letter).append(" w1?\n");
+        for (int i = 1; i < COMMAND_WORD_LETTERS - 1; i++)
+            g.append("w").append(i).append(" ::= ").append(letter).append(" w").append(i + 1).append("?\n");
+        g.append("w").append(COMMAND_WORD_LETTERS - 1).append(" ::= ").append(letter).append("\n");
+        return g.toString();
+    }
+
+    private io.github.givimad.whisperjni.WhisperGrammar commandGrammar; // criada uma vez, junto com o whisper-jni
+    private boolean grammarFailed; // a gramática é só um limite: se não carregar, segue sem ela
+
+    private io.github.givimad.whisperjni.WhisperGrammar commandGrammar() {
+        if (commandGrammar == null && !grammarFailed && whisper != null) {
+            try {
+                commandGrammar = whisper.parseGrammar(commandGrammarText());
+            } catch (IOException | RuntimeException e) {
+                grammarFailed = true;
+            }
+        }
+        return commandGrammar;
     }
 
     /** Completa até {@link #COMMAND_SAMPLES} repetindo o primeiro 0,1 s do trecho (a folga antes da fala: só fundo). */
@@ -378,6 +421,8 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
 
     @Override
     public synchronized void close() {
+        if (commandGrammar != null) commandGrammar.close(); // memória nativa: o GC do Java não libera
+        commandGrammar = null;
         if (context != null) context.close();
         context = null;
         loaded = null;

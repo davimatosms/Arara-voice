@@ -3,6 +3,7 @@ package br.arara.core;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
@@ -60,5 +61,18 @@ class CommandAudioTest {
         // Com pontos ("Arara. Pronto.") o Whisper leve continuava a lista e repetia a palavra por até 5 s.
         assertEquals(-1, WhisperTranscriber.COMMAND_PROMPT.indexOf('.'));
         assertEquals(-1, WhisperTranscriber.COMMAND_PROMPT.indexOf(','));
+    }
+
+    @Test
+    void gramaticaDosComandosLimitaPalavrasELetras() {
+        // A validade de verdade é do parser nativo do whisper.cpp (o e2e "bancada" usa a gramática nas gravações reais);
+        // o assertValidGrammar do whisper-jni tem regras próprias ("a raiz termina com ponto") que o whisper.cpp não exige.
+        String g = WhisperTranscriber.commandGrammarText();
+        assertTrue(g.startsWith("root ::= "));
+        // root: uma palavra + (COMMAND_WORDS - 1) opcionais
+        assertEquals(WhisperTranscriber.COMMAND_WORDS - 1, g.split("\\(sep word\\)\\?", -1).length - 1);
+        // a última letra permitida não encadeia outra: a palavra para ali
+        assertTrue(g.contains("w" + (WhisperTranscriber.COMMAND_WORD_LETTERS - 1) + " ::= [^ ,.!?]\n"));
+        assertEquals(false, g.contains("w" + WhisperTranscriber.COMMAND_WORD_LETTERS + " ::="));
     }
 }

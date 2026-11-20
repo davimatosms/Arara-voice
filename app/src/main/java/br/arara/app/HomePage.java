@@ -25,7 +25,7 @@ final class HomePage extends MainView.Page {
             Theme.regular(13), Theme.SUPPORT);
     private final JPanel grid = new JPanel(new GridLayout(2, 2, 16, 16));
     /** "Ou diga Arara": só com o chamado por voz ligado nas Configurações. */
-    final JLabel voiceHint = Ui.label("Ou diga “Arara” para ditar sem as mãos. Termine com “Pronto”.",
+    final JLabel voiceHint = Ui.label("Ou diga “Arara” para ditar sem as mãos. Termine com “Pronto” ou “Aprovado”.",
             Theme.regular(13), Theme.TEXT_SOFT);
 
     HomePage(DictationEngine engine, SettingsStore settings, Runnable openSettings, JLabel modelState) {

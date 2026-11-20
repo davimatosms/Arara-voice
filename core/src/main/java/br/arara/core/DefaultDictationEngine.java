@@ -150,6 +150,7 @@ final class DefaultDictationEngine implements DictationEngine {
         volatile boolean noPreview; // prévia lenta demais neste ditado
         int slowPreviews; // seguidas; só a thread da prévia mexe
         boolean byVoice; // começou com "Arara"; muda com o lock do engine
+        boolean approved; // "Aprovado" dito no próprio ditado: cola sem esperar; idem
     }
 
     DefaultDictationEngine(HistoryStore history, DictionaryStore dictionary, Transcriber transcriber,
@@ -355,7 +356,8 @@ final class DefaultDictationEngine implements DictationEngine {
 
     /**
      * Fim do ditado chamado por voz, com o lock: 6 s sem fala nenhuma desiste, 4 s de silêncio depois de fala encerra,
-     * e um trecho curto e isolado vai ao reconhecedor para ver se é o "Pronto". Devolve true se encerrou.
+     * e um trecho curto e isolado vai ao reconhecedor para ver se é "Pronto", "Aprovado" ou "Cancela". Devolve true se
+     * encerrou.
      */
     private boolean voiceEnd() {
         long end = vad.speechEnd();
@@ -380,6 +382,8 @@ final class DefaultDictationEngine implements DictationEngine {
                 VoiceCommand c = commands.recognize(pcm);
                 VOICE_LOG.fine(() -> "motor: trecho curto no ditado por voz -> " + c);
                 if (c == VoiceCommand.PRONTO) prontoHeard(t, end);
+                else if (c == VoiceCommand.APROVADO) approvedHeard(t, end);
+                else if (c == VoiceCommand.CANCELA) cancelHeard(t, end);
             } catch (RuntimeException e) { // o comando é opcional: o silêncio ainda encerra
             } finally {
                 checkBusy.set(false);
@@ -392,6 +396,33 @@ final class DefaultDictationEngine implements DictationEngine {
     private synchronized void prontoHeard(Take t, long end) {
         if (t != take || !recording() || vad.speechEnd() != end) return;
         finish();
+    }
+
+    /**
+     * "Aprovado" no meio do ditado por voz (sem o "Pronto" antes): encerra e cola direto. Se o Whisper demorou e o
+     * silêncio já encerrou, ainda vale: na transcrição marca a aprovação; na espera, aprova (o texto sai sem a palavra).
+     */
+    private synchronized void approvedHeard(Take t, long end) {
+        if (t != take) return;
+        if (recording()) {
+            if (vad.speechEnd() != end) return; // falou de novo depois: era ditado, não comando
+            t.approved = true;
+            finish();
+        } else if (state == DictationState.AWAITING_APPROVAL && awaitingTake == t && awaiting != null) {
+            awaiting = stripPronto(stripApproval(awaiting));
+            approve();
+        } else t.approved = true; // ainda transcrevendo (ou entre o deliver e a espera): cola sem esperar
+    }
+
+    /** "Cancela" sozinho no ditado por voz: desiste, como o Esc. */
+    private synchronized void cancelHeard(Take t, long end) {
+        if (t != take || !recording() || vad.speechEnd() != end) return;
+        cancel();
+    }
+
+    /** Tira o "Aprovado" (e a vírgula antes dele) do fim do texto; só quando ele foi reconhecido como comando. */
+    static String stripApproval(String text) {
+        return text.replaceAll("(?iu)[\\s,;:]*\\b(?:a\\s?provad[oa]|aprovo)[.!?…]*\\s*$", "").strip();
     }
 
     /** Tira o "Pronto" (e a vírgula antes dele) do fim do texto: é comando, não ditado. */
@@ -630,10 +661,15 @@ final class DefaultDictationEngine implements DictationEngine {
             t.delivering = true; // daqui em diante o cancel() não desfaz
         }
         String text;
+        boolean approved;
+        synchronized (this) {
+            approved = t.approved;
+        }
         try {
             if (t.failed) throw new IllegalStateException("trecho falhou");
             text = dictionary.apply(t.text.toString());
             // No ditado por voz, "Pronto" no fim é o comando, mesmo quando o silêncio encerrou antes do Whisper confirmar.
+            if (approved) text = stripApproval(text);
             if (t.byVoice) text = stripPronto(text);
         } catch (RuntimeException e) {
             fail("Falha ao transcrever o áudio.");
@@ -652,21 +688,23 @@ final class DefaultDictationEngine implements DictationEngine {
         } catch (RuntimeException e) {
             saved = false; // cola mesmo assim, senão o texto se perde
         }
-        if (t.byVoice && voiceSettings != null && voiceSettings.load().voiceApproval()) {
-            awaitApproval(t, text, saved);
-            return;
+        if (!approved && t.byVoice && voiceSettings != null && voiceSettings.load().voiceApproval()) {
+            if (awaitApproval(t, text, saved)) return;
+            text = stripPronto(stripApproval(text)); // o "Aprovado" chegou agora: a palavra ainda estava no texto
         }
         paste(t, text, saved);
     }
 
     /** Chamado por voz com aprovação ligada: segura o texto até "Aprovado", "Cancela", Esc, atalho ou o prazo. */
-    private synchronized void awaitApproval(Take t, String text, boolean saved) {
-        if (t.cancelled) return;
+    private synchronized boolean awaitApproval(Take t, String text, boolean saved) {
+        if (t.cancelled) return true;
+        if (t.approved) return false; // o "Aprovado" chegou durante a transcrição: cola direto (com a palavra tirada)
         awaiting = text;
         awaitingTake = t;
         awaitingSaved = saved;
         setState(DictationState.AWAITING_APPROVAL);
         approvalTimer = ticker.schedule(() -> expire(t), approvalTimeoutMs, TimeUnit.MILLISECONDS);
+        return true;
     }
 
     /** Prazo da aprovação acabou: não cola (o texto já está no histórico). */
