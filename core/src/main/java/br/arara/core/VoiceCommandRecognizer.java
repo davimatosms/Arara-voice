@@ -21,13 +21,18 @@ public interface VoiceCommandRecognizer {
             @Override
             public VoiceCommand recognize(short[] pcm) {
                 Transcriber t = light.get();
-                return t == null ? null : VoiceCommand.match(t.transcribeCommand(pcm));
+                if (t == null) return null;
+                long start = System.nanoTime();
+                String text = t.transcribeCommand(pcm);
+                java.util.logging.Logger.getLogger("br.arara.voz").fine(() -> String.format(
+                        "Whisper (%.2f s de áudio, %.2f s): \"%s\"", pcm.length / 16000.0, (System.nanoTime() - start) / 1e9, text));
+                return VoiceCommand.match(text);
             }
 
             @Override
             public void warmUp() {
                 Transcriber t = light.get();
-                if (t != null) t.transcribe(new short[Vad.RATE / 2]); // a prévia carrega (e baixa, se faltar) o modelo leve
+                if (t != null) t.load(); // só carrega: transcrever silêncio fazia o Whisper repetir por segundos
             }
         };
     }

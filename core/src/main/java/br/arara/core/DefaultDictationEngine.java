@@ -202,8 +202,11 @@ final class DefaultDictationEngine implements DictationEngine {
         if (recording()) take.byVoice = true; // antes de qualquer bloco: o onChunk espera este lock
     }
 
+    private static final java.util.logging.Logger VOICE_LOG = java.util.logging.Logger.getLogger("br.arara.voz");
+
     @Override
     public synchronized void approve() {
+        VOICE_LOG.fine(() -> "motor: aprovar com estado " + state + (awaiting == null ? ", nada esperando" : ""));
         if (state != DictationState.AWAITING_APPROVAL || awaiting == null) return;
         String text = awaiting;
         Take t = awaitingTake;
@@ -375,7 +378,9 @@ final class DefaultDictationEngine implements DictationEngine {
         Take t = take;
         checker.execute(() -> {
             try {
-                if (commands.recognize(pcm) == VoiceCommand.PRONTO) prontoHeard(t, end);
+                VoiceCommand c = commands.recognize(pcm);
+                VOICE_LOG.fine(() -> "motor: trecho curto no ditado por voz -> " + c);
+                if (c == VoiceCommand.PRONTO) prontoHeard(t, end);
             } catch (RuntimeException e) { // o comando é opcional: o silêncio ainda encerra
             } finally {
                 checkBusy.set(false);
@@ -668,6 +673,7 @@ final class DefaultDictationEngine implements DictationEngine {
     /** Prazo da aprovação acabou: não cola (o texto já está no histórico). */
     private synchronized void expire(Take t) {
         if (state != DictationState.AWAITING_APPROVAL || awaitingTake != t || awaiting == null) return;
+        VOICE_LOG.fine("motor: prazo da aprovação acabou");
         dropApproval();
         fail(NOT_PASTED);
     }

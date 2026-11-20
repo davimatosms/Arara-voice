@@ -118,6 +118,11 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             return light.transcribe(pcm16k, previous);
         }
 
+        @Override
+        public synchronized void load() {
+            ready();
+        }
+
         /** Comando de voz com o modelo leve; null quando o escolhido já é o Leve ou o modelo não carregou. */
         @Override
         public synchronized String transcribeCommand(short[] pcm16k) {
@@ -279,6 +284,15 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     @Override
     public String transcribe(short[] pcm16k) {
         return transcribe(pcm16k, "");
+    }
+
+    @Override
+    public void load() {
+        try {
+            prepare((done, total) -> {});
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

@@ -28,6 +28,27 @@ class CommandAudioTest {
     }
 
     @Test
+    void aquecerSoCarregaOModeloSemTranscrever() {
+        // Transcrever silêncio para "aquecer" fazia o Whisper repetir por ~5 s, e o primeiro "Arara" esperava na fila.
+        int[] loads = {0}, transcribes = {0};
+        Transcriber t = new Transcriber() {
+            @Override
+            public String transcribe(short[] pcm16k) {
+                transcribes[0]++;
+                return "";
+            }
+
+            @Override
+            public void load() {
+                loads[0]++;
+            }
+        };
+        VoiceCommandRecognizer.whisper(() -> t).warmUp();
+        assertEquals(1, loads[0]);
+        assertEquals(0, transcribes[0]);
+    }
+
+    @Test
     void promptSemPontuacao() {
         // Com pontos ("Arara. Pronto.") o Whisper leve continuava a lista e repetia a palavra por até 5 s.
         assertEquals(-1, WhisperTranscriber.COMMAND_PROMPT.indexOf('.'));

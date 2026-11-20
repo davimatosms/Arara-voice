@@ -14,6 +14,8 @@ import java.util.function.BooleanSupplier;
  * enquanto o motor grava (o ditado tem o dele) e o retoma quando o motor para.
  */
 final class CommandListener implements DictationListener, AutoCloseable {
+    /** Diagnóstico (nível FINE, desligado por padrão): abrir/fechar o microfone, trechos e o que o Whisper ouviu. */
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger("br.arara.voz");
     static final int MIN = Vad.RATE / 4, MAX = Vad.RATE * 2;
     /** Pausa que fecha um trecho (mais curta que a do ditado: comando é palavra solta). */
     static final int PAUSE = Vad.RATE / 2;
@@ -93,14 +95,17 @@ final class CommandListener implements DictationListener, AutoCloseable {
         }
         try {
             mic.start(this::onChunk);
+            LOG.fine("ouvinte: microfone aberto");
         } catch (Exception e) {
             listening = false; // microfone ocupado ou desligado: tenta de novo no próximo sync
+            LOG.log(java.util.logging.Level.INFO, "ouvinte: não abriu o microfone", e);
         }
     }
 
     private void closeMic() {
         listening = false;
         mic.stop();
+        LOG.fine("ouvinte: microfone fechado");
     }
 
     private synchronized void onChunk(short[] chunk) {
@@ -112,7 +117,10 @@ final class CommandListener implements DictationListener, AutoCloseable {
         handled = burst; // cada trecho uma vez só
         long from = Math.max(0, burst - MARGIN), to = Math.min(fed, end + MARGIN);
         if (end - burst < MIN || end - burst > MAX || fed - from > KEEP) return; // fala normal: nem vai ao Whisper
-        if (!busy.compareAndSet(false, true)) return;
+        if (!busy.compareAndSet(false, true)) {
+            LOG.fine(() -> String.format("ouvinte: trecho de %.2f s descartado (outro ainda no Whisper)", (end - burst) / 16000.0));
+            return;
+        }
         short[] pcm = new short[(int) (to - from)];
         for (int i = 0; i < pcm.length; i++) pcm[i] = ring[(int) ((from + i) % KEEP)];
         worker.execute(() -> {
@@ -127,8 +135,9 @@ final class CommandListener implements DictationListener, AutoCloseable {
 
     /** Leva o comando ao motor, se ele faz sentido no estado atual. */
     private void dispatch(VoiceCommand c) {
-        if (c == null) return;
         DictationState s = engine.state();
+        LOG.fine(() -> "ouvinte: comando " + c + " com o motor em " + s);
+        if (c == null) return;
         if (c == VoiceCommand.ARARA && idle(s)) {
             synchronized (this) {
                 closeMic(); // solta antes: o ditado abre o microfone dele
