@@ -35,4 +35,18 @@ class GpuTest {
         assertTrue(Gpu.isM1("", "Apple M1 Pro"));
         assertFalse(Gpu.isM1("Mac14,2", "Apple M2"));
     }
+
+    @Test
+    void audioCtxMultiploDe4SoNoMetal() {
+        for (int samples = 0; samples <= 40 * Vad.RATE; samples += 160) {
+            int cpu = Math.min(1500, samples / 320 + 64);
+            assertEquals(cpu, WhisperTranscriber.audioCtx(samples, false), "processador: o mesmo de antes");
+            int ctx = WhisperTranscriber.audioCtx(samples, true);
+            assertEquals(0, ctx % 4, "audio_ctx " + ctx + " para " + samples + " amostras");
+            assertTrue(ctx >= cpu && ctx - cpu <= 3, "a folga de 64 posições continua, com até 3 a mais");
+            if (cpu % 4 == 0) assertEquals(cpu, ctx, "múltiplo de 4 não muda");
+            assertTrue(ctx <= 1500);
+        }
+        assertEquals(1500, WhisperTranscriber.audioCtx(30 * Vad.RATE, true)); // 30 s ou mais: o encoder inteiro
+    }
 }

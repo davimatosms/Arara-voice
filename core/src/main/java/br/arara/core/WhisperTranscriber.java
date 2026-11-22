@@ -54,6 +54,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     private Supplier<Boolean> gpu = () -> false;
     private Path gpuMarker;
     private boolean gpuProved; // a primeira transcrição com GPU desta sessão deu certo
+    private boolean contextOnGpu; // o contexto carregado usa a GPU (vale até recarregar, mesmo se a configuração mudar)
 
     /** Liga a GPU, com o marcador de travamento em marker (ver {@link Gpu}). */
     WhisperTranscriber gpu(Supplier<Boolean> enabled, Path marker) {
@@ -224,6 +225,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
             }
             if (context != null) context.close();
             context = next;
+            contextOnGpu = cp.useGPU;
             loaded = m;
             loadedFile = file;
             if (m == Settings.Model.PRECISO) {
@@ -270,6 +272,19 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
         return transcribe(pcm16k, "");
     }
 
+    /**
+     * Encoder só do tamanho do áudio (1500 = 30 s; 1 posição = 320 amostras), com folga. Na GPU, arredondado para
+     * múltiplo de 4: o Metal do whisper.cpp 1.7.1 dá abort() ({@code GGML_ASSERT(nb01 % 8 == 0)} em
+     * ggml_metal_encode_node; 8 bytes = 4 posições em F16). Medido em M1, M4 e M5, nos três modelos: a partir de ~4,5 s
+     * (audio_ctx >= 290) todo audio_ctx fora de múltiplo de 4 abortava; arredondado, nenhum de 76 tamanhos entre 1,2 e
+     * 29 s. Só muda o que não é múltiplo de 4 (até +3 posições): poucas posições a mais já mudam o texto de um trecho,
+     * por isso o processador fica como antes.
+     */
+    static int audioCtx(int samples, boolean gpu) {
+        int ctx = Math.min(1500, samples / 320 + 64);
+        return gpu ? (ctx + 3) / 4 * 4 : ctx; // 1500 já é múltiplo de 4
+    }
+
     @Override
     public synchronized String transcribe(short[] pcm16k, String previous) {
         try {
@@ -283,10 +298,10 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
 
         WhisperFullParams params = new WhisperFullParams(WhisperSamplingStrategy.GREEDY);
         params.nThreads = threads;
-        // Encoder só do tamanho do áudio (1500 = 30 s; 1 posição = 320 amostras), com folga. Medido com 9,5 s de fala:
-        // turbo 16,5 s -> 5,0 s e base 1,0 s -> 0,35 s, mesmo texto.
+        // Encoder só do tamanho do áudio (ver audioCtx). Medido com 9,5 s de fala: turbo 16,5 s -> 5,0 s e
+        // base 1,0 s -> 0,35 s, mesmo texto.
         // shortcut: whisper.cpp avisa que pode perder precisão; voltar ao padrão (0) se aparecer erro em frase curta.
-        params.audioCtx = Math.min(1500, samples.length / 320 + 64);
+        params.audioCtx = audioCtx(samples.length, contextOnGpu);
         params.language = "pt";
         // O prompt do Whisper aceita ~224 tokens; o fim do texto anterior basta para a continuidade.
         String tail = previous.length() > 300 ? previous.substring(previous.length() - 300) : previous;
@@ -312,6 +327,7 @@ final class WhisperTranscriber implements Transcriber, AutoCloseable {
     public synchronized void close() {
         if (context != null) context.close();
         context = null;
+        contextOnGpu = false;
         loaded = null;
         loadedFile = null;
     }
