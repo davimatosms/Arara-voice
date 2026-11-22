@@ -88,7 +88,8 @@ class StoresTest {
         assertEquals(Settings.defaults(), new JsonSettingsStore(file).load());
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
-                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA);
+                false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA,
+                Settings.PopupStyle.ARARA);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -111,6 +112,22 @@ class StoresTest {
         assertEquals(Settings.Sound.ARARA, s.sound());
         assertEquals(50, s.soundVolume());
         assertEquals(Settings.SoundLength.NORMAL, s.soundLength());
+    }
+
+    @Test
+    void oldConfigWithoutPopupStyleKeepsFullPopup() throws Exception {
+        Path file = dir.resolve("config.json");
+        Files.writeString(file, "{\"hotkey\":\"Ctrl+Shift+Space\",\"showPopup\":true}");
+        assertEquals(Settings.PopupStyle.COMPLETO, new JsonSettingsStore(file).load().popupStyle(),
+                "config.json de antes do estilo: pop-up completo, como sempre");
+
+        Files.writeString(file, "{\"popupStyle\":\"PAPAGAIO\"}");
+        assertEquals(Settings.PopupStyle.COMPLETO, new JsonSettingsStore(file).load().popupStyle());
+
+        Settings onlyMacaw = Settings.defaults().withPopupStyle(Settings.PopupStyle.ARARA);
+        new JsonSettingsStore(file).save(onlyMacaw);
+        assertEquals(Settings.PopupStyle.ARARA, new JsonSettingsStore(file).load().popupStyle());
+        assertEquals(Settings.PopupStyle.ARARA, onlyMacaw.withHotkey("Mouse4").popupStyle(), "os outros with mantêm o estilo");
     }
 
     @Test

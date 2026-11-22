@@ -80,7 +80,10 @@ final class SettingsPage extends MainView.Page {
                 row(Ui.STARTUP, Ui.MAC ? "Fica na barra de menus, pronto para ouvir." : "Fica na bandeja do sistema, pronto para ouvir.",
                         Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> x.withStartWithWindows(on)))),
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
-                        Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> x.withShowPopup(on))))));
+                        Ui.toggle(s.showPopup(), "Mostrar a arara ao ditar", on -> update(x -> x.withShowPopup(on)))),
+                row("Estilo do pop-up", "Só a arara: sem fundo, no canto da tela, voando enquanto transcreve.",
+                        Ui.segmented(new String[] {"Completo", "Só a arara"}, s.popupStyle().ordinal(), "Estilo do pop-up",
+                                i -> update(x -> x.withPopupStyle(Settings.PopupStyle.values()[i]))))));
 
         search.addActionListener(e -> search());
         searchBack.setRepeats(false);

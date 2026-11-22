@@ -80,6 +80,33 @@ class ScreenshotTest {
         });
     }
 
+    /** Estilo "Só a arara": ouvindo, silêncio, voo da transcrição (3 quadros) e erro, com fundo transparente. */
+    @Test
+    void desenhaMascote() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless(), "precisa de ambiente gráfico (o CI no Windows tem)");
+        new File(DIR, "mascote").mkdirs();
+        SwingUtilities.invokeAndWait(() -> {
+            Theme.install();
+            Mascot m = new Mascot();
+            m.show(DictationState.LISTENING, null);
+            for (int t = 1; t <= 12; t++) m.animate(DictationState.LISTENING, 0.8f, t);
+            save(m, Mascot.WIDTH, Mascot.HEIGHT, "mascote/1-ouvindo");
+            m.show(DictationState.SILENCE, null);
+            m.animate(DictationState.SILENCE, 0, 1);
+            save(m, Mascot.WIDTH, Mascot.HEIGHT, "mascote/2-silencio");
+            m.show(DictationState.TRANSCRIBING, "Faltam ~4 s");
+            for (int t = 1; t <= Mascot.FLIGHT_TICKS; t++) {
+                m.animate(DictationState.TRANSCRIBING, 0, t);
+                if (t % (Mascot.FLIGHT_TICKS / 4) == 0) {
+                    save(m, Mascot.WIDTH, Mascot.HEIGHT, "mascote/3-transcrevendo-" + t / (Mascot.FLIGHT_TICKS / 4));
+                }
+            }
+            m.show(DictationState.ERROR, "Não detectei fala.");
+            m.animate(DictationState.ERROR, 0, 1);
+            save(m, Mascot.WIDTH, Mascot.HEIGHT, "mascote/4-erro");
+        });
+    }
+
     private static final String FRASE = "Oi, pessoal! Só passando para avisar que a reunião de amanhã mudou para as dez "
             + "horas, na sala grande do segundo andar.";
 
