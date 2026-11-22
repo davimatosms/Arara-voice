@@ -55,8 +55,10 @@ final class HomePage extends MainView.Page {
         hero.add(text);
 
         grid.setOpaque(false);
-        add(Ui.column(hero, Ui.gap(32), Ui.label("Configuração", Theme.bold(20), Theme.TEXT), Ui.gap(16), grid),
-                BorderLayout.NORTH);
+        // Com rolagem, como em Configurações: em janela baixa (notebook com escala de 150%) os cartões de baixo
+        // ficavam cortados, sem barra para chegar a eles.
+        add(Ui.scroll(Ui.column(hero, Ui.gap(32), Ui.label("Configuração", Theme.bold(20), Theme.TEXT), Ui.gap(16),
+                grid)));
     }
 
     @Override
