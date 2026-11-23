@@ -56,6 +56,8 @@ final class RecordingPopup implements DictationListener {
     /** Relógio das animações em ms; o teste troca para desenhar quadros exatos. */
     LongSupplier clock = () -> System.nanoTime() / 1_000_000;
     private JWindow window;
+    private JWindow cardWindow;
+    private JWindow mascotWindow;
     private DictationState state = DictationState.IDLE;
     private double pending; // segundos estimados que faltam na transcrição; 0: sem número
     private float level;
@@ -240,31 +242,48 @@ final class RecordingPopup implements DictationListener {
 
     private void showWindow() {
         if (GraphicsEnvironment.isHeadless()) return;
-        if (window == null) {
-            window = new JWindow();
-            window.setType(Window.Type.POPUP);
-            window.setFocusableWindowState(false);
-            window.setAutoRequestFocus(false);
-            window.setAlwaysOnTop(true);
-            GraphicsDevice screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-            if (screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
-                window.setBackground(new Color(0, 0, 0, 0));
-            }
-            window.getRootPane().setOpaque(false);
-        }
-        // O estilo pode mudar entre um ditado e outro: troca o conteúdo, o tamanho e o canto da tela.
+        // O estilo pode mudar entre um ditado e outro: troca a janela, o conteúdo, o tamanho e o canto da tela.
         JComponent c = content();
         boolean macaw = c == mascot;
         int w = macaw ? Mascot.WIDTH : WIDTH, h = macaw ? Mascot.HEIGHT : HEIGHT;
-        if (window.getContentPane() != c) {
-            window.setContentPane(c);
-            window.setSize(w, h);
+        JWindow win = window(macaw, w, h);
+        if (window != null && window != win) window.setVisible(false);
+        window = win;
+        if (win.getContentPane() != c) {
+            win.setContentPane(c);
+            win.setSize(w, h);
         }
         Rectangle area = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        if (macaw) window.setLocation(area.x + area.width - w - 24, area.y + area.height - h - 16);
-        else window.setLocation(area.x + (area.width - w) / 2, area.y + area.height - h - 40);
-        if (!window.isVisible()) window.setVisible(true);
+        if (macaw) win.setLocation(area.x + area.width - w - 24, area.y + area.height - h - 16);
+        else win.setLocation(area.x + (area.width - w) / 2, area.y + area.height - h - 40);
+        if (!win.isVisible()) win.setVisible(true);
         anim.start();
+    }
+
+    /**
+     * A janela do estilo, criada na primeira vez. O cartão é opaco com cantos arredondados via setShape: janela
+     * translúcida pisca no macOS e no X11 (o conteúdo some por um frame e a janela de trás aparece, issue #99).
+     * O mascote continua translúcido: o contorno irregular do sprite não cabe num setShape.
+     */
+    private JWindow window(boolean macaw, int w, int h) {
+        JWindow win = macaw ? mascotWindow : cardWindow;
+        if (win != null) return win;
+        win = new JWindow();
+        win.setType(Window.Type.POPUP);
+        win.setFocusableWindowState(false);
+        win.setAutoRequestFocus(false);
+        win.setAlwaysOnTop(true);
+        GraphicsDevice screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        if (!macaw && screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSPARENT)) {
+            win.setShape(new java.awt.geom.RoundRectangle2D.Double(0, 0, w, h, 32, 32));
+            win.setBackground(Theme.SURFACE); // o cartão desenha w-1 x h-1; a faixa de 1 px restante fica da cor dele
+        } else if (screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+            win.setBackground(new Color(0, 0, 0, 0));
+        }
+        win.getRootPane().setOpaque(false);
+        if (macaw) mascotWindow = win;
+        else cardWindow = win;
+        return win;
     }
 
     private void hideNow() {
