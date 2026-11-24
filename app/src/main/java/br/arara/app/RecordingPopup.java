@@ -274,7 +274,9 @@ final class RecordingPopup implements DictationListener {
         win.setAutoRequestFocus(false);
         win.setAlwaysOnTop(true);
         GraphicsDevice screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-        if (!macaw && screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSPARENT)) {
+        // No Windows o setShape deixa os cantos serrilhados (sem antialiasing) e a janela translúcida não pisca lá.
+        boolean windows = System.getProperty("os.name", "").startsWith("Windows");
+        if (!macaw && !windows && screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSPARENT)) {
             win.setShape(new java.awt.geom.RoundRectangle2D.Double(0, 0, w, h, 32, 32));
             win.setBackground(Theme.SURFACE); // o cartão desenha w-1 x h-1; a faixa de 1 px restante fica da cor dele
         } else if (screen.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
