@@ -40,22 +40,31 @@ final class LinuxPaste {
 
     /** Aperta Ctrl+V e devolve o nome da estratégia que funcionou, ou null. */
     static String press(Env env) {
-        if (env.has("wtype") && env.run(3000, null, "wtype", "-M", "ctrl", "v", "-m", "ctrl").exit() == 0) return "wtype";
-        if (env.has("ydotool") && env.ydotoolSocket()
-                && env.run(3000, null, "ydotool", "key", "29:1", "47:1", "47:0", "29:0").exit() == 0) return "ydotool";
-        if (env.has("python3") && portal(env)) return "portal";
+        return press(env, false);
+    }
+
+    /** @param shift Ctrl+Shift+V (terminais) em vez de Ctrl+V */
+    static String press(Env env, boolean shift) {
+        String[] wtype = shift ? new String[] {"wtype", "-M", "ctrl", "-M", "shift", "v", "-m", "shift", "-m", "ctrl"}
+                : new String[] {"wtype", "-M", "ctrl", "v", "-m", "ctrl"};
+        // códigos do evdev: 29 Ctrl, 42 Shift, 47 V
+        String[] ydotool = shift ? new String[] {"ydotool", "key", "29:1", "42:1", "47:1", "47:0", "42:0", "29:0"}
+                : new String[] {"ydotool", "key", "29:1", "47:1", "47:0", "29:0"};
+        if (env.has("wtype") && env.run(3000, null, wtype).exit() == 0) return "wtype";
+        if (env.has("ydotool") && env.ydotoolSocket() && env.run(3000, null, ydotool).exit() == 0) return "ydotool";
+        if (env.has("python3") && portal(env, shift)) return "portal";
         return null;
     }
 
     /** Só pede a permissão do portal (onboarding); o Ctrl+V que vem junto é inofensivo. */
     static boolean grant(Env env) {
-        return env.has("python3") && portal(env);
+        return env.has("python3") && portal(env, false);
     }
 
-    private static boolean portal(Env env) {
+    private static boolean portal(Env env, boolean shift) {
         String token = env.token();
         for (int tries = 0; tries < 2; tries++) {
-            Out r = env.run(70_000, null, "python3", "-c", PORTAL_SCRIPT, token);
+            Out r = env.run(70_000, null, "python3", "-c", PORTAL_SCRIPT, token, shift ? "shift" : "");
             if (r.exit() == 0) {
                 for (String line : r.out().split("\\R")) {
                     if (line.startsWith("TOKEN=") && !line.substring(6).equals(token)) env.saveToken(line.substring(6));
@@ -74,7 +83,8 @@ final class LinuxPaste {
         if (env.has("wl-copy")) env.run(2000, text, "wl-copy");
     }
 
-    // Fluxo do portal: CreateSession, SelectDevices(teclado, persist 2, restore_token), Start, teclas 29 (Ctrl) e 47 (V).
+    // Fluxo do portal: CreateSession, SelectDevices(teclado, persist 2, restore_token), Start, teclas 29 (Ctrl), 47 (V)
+    // e, com o segundo argumento "shift", 42 (Shift).
     // Sai com 0 e imprime TOKEN=...; 2 se o usuário negou, 3 se não respondeu a tempo, 4 sem GDBus.
     private static final String PORTAL_SCRIPT = """
             import sys, time
@@ -118,7 +128,9 @@ final class LinuxPaste {
             def key(code, st):
                 bus.call_sync(B, P, RD, 'NotifyKeyboardKeycode', V('(oa{sv}iu)', (sess, {}, code, st)), None, 0, -1, None)
                 time.sleep(0.02)
-            key(29, 1); key(47, 1); key(47, 0); key(29, 0)
+            keys = [29, 42, 47] if sys.argv[2:] == ['shift'] else [29, 47]
+            for k in keys: key(k, 1)
+            for k in reversed(keys): key(k, 0)
             bus.call_sync(B, sess, 'org.freedesktop.portal.Session', 'Close', None, None, 0, -1, None)
             if res.get('restore_token'): print('TOKEN=' + res['restore_token'])
             """;

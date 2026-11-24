@@ -50,7 +50,8 @@ final class JsonSettingsStore implements SettingsStore {
                 enumOr(Settings.Sound.class, m.get("sound"), d.sound()),
                 m.get("soundVolume") instanceof Number n ? Math.max(0, Math.min(100, n.intValue())) : d.soundVolume(),
                 enumOr(Settings.SoundLength.class, m.get("soundLength"), d.soundLength()),
-                enumOr(Settings.PopupStyle.class, m.get("popupStyle"), d.popupStyle())); // ausente = completo
+                enumOr(Settings.PopupStyle.class, m.get("popupStyle"), d.popupStyle()), // ausente = completo
+                enumOr(Settings.PasteKeys.class, m.get("pasteKeys"), d.pasteKeys())); // ausente = Ctrl+Shift+V no Linux
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -81,7 +82,8 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"sound\": " + Json.quote(s.sound().name()) + ",\n"
                 + "  \"soundVolume\": " + s.soundVolume() + ",\n"
                 + "  \"soundLength\": " + Json.quote(s.soundLength().name()) + ",\n"
-                + "  \"popupStyle\": " + Json.quote(s.popupStyle().name()) + "\n"
+                + "  \"popupStyle\": " + Json.quote(s.popupStyle().name()) + ",\n"
+                + "  \"pasteKeys\": " + Json.quote(s.pasteKeys().name()) + "\n"
                 + "}\n");
         cached = s;
     }

@@ -127,7 +127,13 @@ final class SettingsPage extends MainView.Page {
 
         content.add(soundSection(s));
 
-        if (AraraCore.LINUX) content.add(linuxCard(Onboarding.Linux.detect()));
+        if (AraraCore.LINUX) {
+            Settings.PasteKeys[] pasteKeys = Settings.PasteKeys.values();
+            content.add(linuxCard(Onboarding.Linux.detect(),
+                    row("Colar com", "Terminais só colam com Ctrl+Shift+V. Se algum app estranhar, volte para Ctrl+V.",
+                            Ui.segmented(new String[] {"Ctrl+V", "Ctrl+Shift+V"}, s.pasteKeys().ordinal(), "Colar com",
+                                    i -> update(x -> x.withPasteKeys(pasteKeys[i]))))));
+        }
 
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
@@ -164,7 +170,7 @@ final class SettingsPage extends MainView.Page {
     }
 
     /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
-    static JPanel linuxCard(Onboarding.Linux l) {
+    static JPanel linuxCard(Onboarding.Linux l, JComponent... extra) {
         boolean wayland = l.wayland();
         String cmd = Onboarding.Linux.command();
         String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
@@ -182,8 +188,10 @@ final class SettingsPage extends MainView.Page {
         JComponent colagem = row("Colagem", !wayland ? "Ctrl+V simulado"
                 : l.gnome() ? "Cola automática: portal do GNOME" : "wtype ou ydotool; sem eles, cole com Ctrl+V",
                 wayland && l.gnome() ? redo : none);
+        java.util.List<JComponent> rows = new java.util.ArrayList<>(java.util.List.of(row("Sessão", session, none), atalho, colagem));
+        rows.addAll(java.util.List.of(extra));
         return section("Linux", wayland ? "Wayland: o sistema cuida do atalho e da permissão de colar." : "X11: atalho e colagem funcionam direto.",
-                row("Sessão", session, none), atalho, colagem);
+                rows.toArray(JComponent[]::new));
     }
 
     /** Aparência: as 5 araras e o modo; embaixo, a chave do ícone (desligada por padrão). Tudo aplica na hora. */

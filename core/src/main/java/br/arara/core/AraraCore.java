@@ -48,7 +48,9 @@ public final class AraraCore implements AutoCloseable {
         for (String t : new String[] {"wtype", "ydotool", "wl-copy", "python3"}) log.accept(t + ": " + (env.has(t) ? "sim" : "nao"));
         log.accept("socket do ydotoold: " + env.ydotoolSocket());
         log.accept("token do portal salvo: " + !env.token().isEmpty());
-        ClipboardPaster paster = new ClipboardPaster();
+        Settings.PasteKeys keys = readSettings(defaultDataDir()).pasteKeys();
+        log.accept("colar com: " + keys);
+        ClipboardPaster paster = new ClipboardPaster(() -> keys == Settings.PasteKeys.CTRL_SHIFT_V);
         log.accept("Foque um editor de texto: colando em 5 s...");
         Thread.sleep(5000);
         try {
@@ -155,7 +157,8 @@ public final class AraraCore implements AutoCloseable {
         Transcriber transcriber = makeTranscriber.apply(settings);
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
-                new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
+                new Microphone(() -> settings.load().microphone()),
+                new ClipboardPaster(() -> settings.load().pasteKeys() == Settings.PasteKeys.CTRL_SHIFT_V), preview);
         engine.setSoundSettings(settings);
         if (shortcut != null) engine.addListener(shortcut.listener(settings));
         GlobalHotkey hotkey = null;

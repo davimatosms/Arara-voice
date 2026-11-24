@@ -41,6 +41,12 @@ O Arara tenta, na ordem: `wtype` (KDE e wlroots), `ydotool` (com o `ydotoold` ro
 de entrada remota (GNOME; precisa de `python3-gi` e de uma permissão aceita na primeira vez).
 Se nenhum funcionar, o texto fica no clipboard e o pop-up avisa: "Texto copiado: cole com Ctrl+V".
 
+### Ctrl+V ou Ctrl+Shift+V
+
+Terminais só colam com Ctrl+Shift+V, então esse é o padrão no Linux (X11 e Wayland). Na maioria dos apps ele cola
+igual (em alguns, como texto sem formatação). Se algum app estranhar (o LibreOffice abre o "Colar especial"), troque
+em Configurações > Linux > "Colar com".
+
 ## Diagnóstico do colar
 
 Deixe um editor de texto focado e rode:
