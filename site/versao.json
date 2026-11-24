@@ -1,19 +1,19 @@
 {
-  "versao": "0.4.6",
-  "data": "2026-11-19",
-  "notas": "Preciso mais preciso (modelo q8) e correção no Windows com whisper.cpp no PATH.",
+  "versao": "0.4.7",
+  "data": "2026-11-23",
+  "notas": "Mac sem travar na GPU, colar certo em apps Electron, pop-up sem piscar e estilo Só a arara.",
   "arquivos": {
     "windows": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-Setup-0.4.6.exe",
-      "sha256": "cc3e0a00e1cdf24cf205241f6b70a9ffd3891c801c3af8e7d6b37a4c460e3262"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.7/Arara-Setup-0.4.7.exe",
+      "sha256": "3c3db24f72744ee59e3ecdeb47475492a55f5ccde12c3e483251f9554d659cc9"
     },
     "mac-arm64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-0.4.6-Mac-AppleSilicon.dmg",
-      "sha256": "0a4101999eeca2efd9f8c835ebfd45ca4f448737ffca42a566090046ca3a4d80"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.7/Arara-0.4.7-Mac-AppleSilicon.dmg",
+      "sha256": "630fd436855afa653125bd03d170eb6bafa3391e0194127d84b69cec2d30db2c"
     },
     "mac-x64": {
-      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.6/Arara-0.4.6-Mac-Intel.dmg",
-      "sha256": "07e2cd7dcba1a4bb8b22a2e128a64cddec4bb90f358e2d373f0bf86a39a15d8d"
+      "url": "https://github.com/davimatosms/Arara-voice/releases/download/v0.4.7/Arara-0.4.7-Mac-Intel.dmg",
+      "sha256": "43313fd5b7a91ebaaeddc92bf3f0080a2a346a9ee0cc1078ced4228cea1172ee"
     }
   }
 }
