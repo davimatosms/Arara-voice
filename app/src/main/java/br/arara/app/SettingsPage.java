@@ -100,7 +100,9 @@ final class SettingsPage extends MainView.Page {
                         ? "Teclas ou um botão do mouse. Evite Option sem Cmd ou Ctrl (digita símbolos)."
                         : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
-                row("Modo do atalho", "Segurar não funciona no Wayland.",
+                row("Modo do atalho", !AraraCore.LINUX ? "Segurar não funciona no Wayland."
+                        : AraraCore.holdToTalkAvailable() ? "Segurar: ouve enquanto o atalho está apertado e cola ao soltar."
+                        : "No Wayland, segurar precisa de acesso ao teclado: veja o card Linux, abaixo.",
                         Ui.segmented(new String[] {"Apertar para ligar e desligar", "Segurar para falar"},
                                 s.holdToTalk() ? 1 : 0, "Modo do atalho", i -> update(x -> x.withHoldToTalk(i == 1)))),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
@@ -169,7 +171,7 @@ final class SettingsPage extends MainView.Page {
         return copy;
     }
 
-    /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
+    /** Card só do Linux: sessão, atalho, colagem e teclado, com os atalhos para refazer a configuração. */
     static JPanel linuxCard(Onboarding.Linux l, JComponent... extra) {
         boolean wayland = l.wayland();
         String cmd = Onboarding.Linux.command();
@@ -190,6 +192,11 @@ final class SettingsPage extends MainView.Page {
                 wayland && l.gnome() ? redo : none);
         java.util.List<JComponent> rows = new java.util.ArrayList<>(java.util.List.of(row("Sessão", session, none), atalho, colagem));
         rows.addAll(java.util.List.of(extra));
+        // Sem ler o teclado o Arara só sabe do aperto (atalho do sistema), nunca do soltar.
+        if (wayland) rows.add(AraraCore.holdToTalkAvailable()
+                ? row("Teclado", "Lido direto do sistema: segurar para falar e Ctrl sozinho funcionam", none)
+                : row("Segurar para falar", "Precisa ler o teclado: rode o comando num terminal e reabra o Arara",
+                        copyButton(AraraCore.KEYBOARD_ACCESS_COMMAND)));
         return section("Linux", wayland ? "Wayland: o sistema cuida do atalho e da permissão de colar." : "X11: atalho e colagem funcionam direto.",
                 rows.toArray(JComponent[]::new));
     }

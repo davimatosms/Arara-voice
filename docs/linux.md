@@ -35,6 +35,24 @@ Atalhos que o GNOME não registra (botão do mouse, Ctrl ou Alt sozinho) continu
 2. Comando: `/caminho/Arara-x86_64.AppImage --alternar`.
 3. Aba Gatilhos: defina o atalho.
 
+### Segurar para falar no Wayland
+
+O atalho do sistema avisa o aperto, mas nunca o soltar. Para o "Segurar para falar" (e para usar Ctrl sozinho
+como atalho), o Arara precisa ler o teclado direto do kernel. Rode uma vez num terminal e reabra o Arara:
+
+```
+echo 'KERNEL=="event*", SUBSYSTEM=="input", ENV{ID_INPUT_KEYBOARD}=="1", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-arara-teclado.rules >/dev/null && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=input
+```
+
+O mesmo comando está em Configurações > Linux > "Copiar comando". Estar no grupo `input` também serve.
+
+Saiba o que isso libera: qualquer programa da sua sessão passa a poder ler as teclas, como já acontece no X11. O Arara
+só lê (não prende o teclado) e só olha o atalho e o Esc. Para desfazer, apague o arquivo
+`/etc/udev/rules.d/70-arara-teclado.rules` e reinicie a sessão.
+
+Botão do mouse como atalho continua sem funcionar no Wayland. Funciona em qualquer desktop Wayland (GNOME, KDE, wlroots). No GNOME o atalho do sistema continua registrado, só para
+a tecla não chegar também ao app em foco.
+
 ### Colar automático no Wayland
 
 O Arara tenta, na ordem: `wtype` (KDE e wlroots), `ydotool` (com o `ydotoold` rodando) e o portal

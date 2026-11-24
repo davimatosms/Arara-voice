@@ -59,6 +59,14 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
         this.scheduler = scheduler;
     }
 
+    /** true: registrado no JNativeHook; false: outra fonte (o evdev no Wayland) chama os métodos native*. */
+    private boolean hooked;
+
+    /** Sem JNativeHook: quem lê o teclado ({@link LinuxEvdev}) entrega os eventos direto. */
+    static GlobalHotkey unhooked(DictationEngine engine, SettingsStore settings) {
+        return new GlobalHotkey(engine, settings);
+    }
+
     static GlobalHotkey register(DictationEngine engine, SettingsStore settings) throws NativeHookException {
         // O padrão extrai a lib nativa ao lado do jar: no macOS fica dentro do Arara.app (somente leitura no .dmg e
         // quebraria a assinatura); no Linux, dentro do AppImage montado (squashfs somente leitura, UnsatisfiedLinkError).
@@ -74,6 +82,7 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
         GlobalScreen.registerNativeHook();
         GlobalScreen.addNativeKeyListener(h);
         GlobalScreen.addNativeMouseListener(h);
+        h.hooked = true;
         return h;
     }
 
@@ -89,6 +98,7 @@ final class GlobalHotkey implements NativeKeyListener, NativeMouseListener {
     }
 
     void close() {
+        if (!hooked) return;
         GlobalScreen.removeNativeKeyListener(this);
         GlobalScreen.removeNativeMouseListener(this);
         try {
