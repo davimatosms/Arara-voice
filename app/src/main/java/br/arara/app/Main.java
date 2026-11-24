@@ -28,6 +28,8 @@ import java.awt.SystemTray;
 import java.awt.Taskbar;
 import java.awt.TrayIcon;
 import java.awt.desktop.AppReopenedListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -204,6 +206,13 @@ public final class Main {
                     checker != null ? () -> System.exit(0) : () -> {});
             view.settingsPage().updates(updates);
             SettingsStore store = settings;
+            // macOS: com a janela fechada o app vive só na barra de menus, sem ícone no Dock (a opção está em Configurações).
+            // Minimizar não esconde a janela (ela vai para o Dock), então não passa por aqui.
+            if (AraraCore.MAC) frame.addComponentListener(new ComponentAdapter() {
+                @Override public void componentHidden(ComponentEvent e) {
+                    if (MacDock.shouldHide(true, store.load().hideDock(), tray != null)) MacDock.hide();
+                }
+            });
             onIcon[0] = () -> icons(frame, updates, store.load());
             if (look.macawIcon()) onIcon[0].run();
             engine.addListener(Ui.onEdt(updates));
@@ -256,6 +265,7 @@ public final class Main {
 
     /** Mostra a janela principal (bandeja, Dock, ou outra cópia que tentou abrir). */
     private static void show(JFrame frame) {
+        if (AraraCore.MAC) MacDock.show(); // antes da janela: se estava escondido, o Dock volta e o app vem para a frente
         frame.setVisible(true);
         frame.setExtendedState(JFrame.NORMAL);
         frame.toFront();

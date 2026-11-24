@@ -11,6 +11,7 @@ O Arara é distribuído sob a licença MIT (veja [LICENSE](LICENSE)). Ele usa os
 | FlatLaf | 3.8 | Apache-2.0 | https://github.com/JFormDesigner/FlatLaf |
 | FlatLaf Extras | 3.8 | Apache-2.0 | https://github.com/JFormDesigner/FlatLaf |
 | JSVG (transitiva do FlatLaf Extras) | 2.2.0 | MIT | https://github.com/weisj/jsvg |
+| JNA (só no macOS: tirar o app do Dock com a janela fechada) | 5.17.0 | Apache-2.0 **ou** LGPL-2.1+, à escolha. O Arara usa sob a **Apache-2.0** | https://github.com/java-native-access/jna |
 
 Só para testes, fora do app distribuído: JUnit 5 (BOM 5.11.4), EPL-2.0, https://junit.org/junit5/.
 

@@ -74,6 +74,15 @@ Se o Arara estiver numa pasta sem permissão de escrita (ex.: `/Applications` nu
 não tenta: avisa e pede para baixar a versão nova no site. Depois da troca, pode ser preciso ligar de novo o Arara
 em Acessibilidade (a assinatura ad-hoc muda a cada versão).
 
+## Só na barra de menus (sem Dock)
+
+Ao fechar a janela, o Arara sai do Dock e do Cmd+Tab e continua rodando só com o ícone da barra de menus, ouvindo o
+atalho. Para abrir a janela de novo, clique no ícone da barra de menus › **Abrir**; o Dock volta enquanto ela
+estiver aberta. Para sair de vez: ícone da barra de menus › **Sair**.
+
+Quem prefere o Dock sempre visível desliga **Configurações › Geral › Esconder do Dock ao fechar a janela**.
+Minimizar a janela não esconde o app do Dock (ela vai para lá, como em qualquer app).
+
 ## Onde ficam os dados
 
 `~/Library/Application Support/Arara/` (histórico, dicionário, configurações e modelos de voz).
