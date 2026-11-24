@@ -71,18 +71,28 @@ tasks.register('macAppImage', Exec) {
 
 tasks.register('macApp', Exec) {
     group = 'distribution'
-    description = 'Gera app/build/jpackage-mac/Arara.app: versão e pedido do microfone no Info.plist, assinatura ad-hoc.'
+    description = 'Gera app/build/jpackage-mac/Arara.app: versão e pedido do microfone no Info.plist, assinatura.'
     dependsOn 'macAppImage'
     def app = macDir.get().file('Arara.app').asFile
+    // Identidade estável para desenvolvimento local (instalador/macos/criar_cert_local.sh, ver docs/macos.md).
+    // Com ela a permissão de Acessibilidade sobrevive a rebuilds; sem ela, cai no ad-hoc de sempre.
+    def identidade = findProperty('assinaturaMac') ?: 'Arara Dev Local'
     commandLine 'sh', '-eu', '-c', '''
         p="$1/Contents/Info.plist"
         plutil -replace CFBundleShortVersionString -string "$2" "$p"
         plutil -replace CFBundleVersion -string "$2" "$p"
         plutil -replace NSMicrophoneUsageDescription -string "$3" "$p"
-        codesign --force --deep --sign - "$1"
+        if codesign --force --deep --timestamp=none --sign "$4" "$1" 2>/dev/null; then
+            echo "Assinado com a identidade local: $4"
+        else
+            echo "Identidade '$4' ausente no chaveiro; assinando ad-hoc (permissões quebram a cada build)"
+            echo "Para a permissão de Acessibilidade sobreviver a rebuilds: instalador/macos/criar_cert_local.sh"
+            codesign --force --deep --sign - "$1"
+        fi
         codesign --verify --deep --strict "$1"
     ''', 'sh', app, versao,
-            'O Arara ouve o microfone só enquanto você dita, para transcrever no seu Mac. Nada sai do computador.'
+            'O Arara ouve o microfone só enquanto você dita, para transcrever no seu Mac. Nada sai do computador.',
+            identidade
 }
 
 tasks.register('dmg', Exec) {

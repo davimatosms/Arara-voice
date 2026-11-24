@@ -86,6 +86,29 @@ em Acessibilidade (a assinatura ad-hoc muda a cada versão).
 ./gradlew :core:smoke --args="build/smoke"   # fumaça: Whisper com o modelo leve e o JNativeHook
 ```
 
+Se você rebuilda e reinstala com frequência, a permissão de Acessibilidade quebra a cada build (a assinatura
+ad-hoc muda). A seção seguinte resolve.
+
+## Assinatura estável em desenvolvimento (certificado local)
+
+O macOS amarra as permissões (Acessibilidade, Microfone) à assinatura do app, e a assinatura ad-hoc muda a
+cada build — por isso todo rebuild quebra o atalho até o Arara ser ligado de novo nos Ajustes. Para
+desenvolver sem isso, crie uma vez um certificado local de assinatura:
+
+```sh
+instalador/macos/criar_cert_local.sh
+```
+
+Ele gera um certificado autoassinado "Arara Dev Local" (válido por 10 anos) no chaveiro de login. A partir
+daí a tarefa `macApp` assina com ele sozinha — confira com `codesign -dv app/build/jpackage-mac/Arara.app`,
+que mostra `Authority=Arara Dev Local`. Como a assinatura não muda mais, a Acessibilidade concedida uma vez
+sobrevive a rebuilds e reinstalações. Para outro nome de identidade: `./gradlew :app:dmg
+-PassinaturaMac="Meu Cert"`.
+
+O certificado é só seu e só vale na sua máquina: para qualquer outra pessoa o Gatekeeper continua bloqueando
+o app (o fluxo de "Abrir Mesmo Assim" do instalador não muda). Ele não substitui o Developer ID da seção
+seguinte — é só para desenvolvimento.
+
 ## Quando houver Developer ID
 
 Crie os secrets `APPLE_CERTIFICATE_P12` (o .p12 em base64), `APPLE_CERTIFICATE_PASSWORD`,
