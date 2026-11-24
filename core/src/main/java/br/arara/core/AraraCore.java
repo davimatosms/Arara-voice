@@ -146,13 +146,18 @@ public final class AraraCore implements AutoCloseable {
         }
         HistoryStore history = new JsonlHistoryStore(dataDir.resolve("historico.jsonl"));
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
-        SettingsStore settings = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        SettingsStore stored = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        // GNOME/Wayland: o atalho das configurações vira atalho do sistema (o JNativeHook não ouve teclas lá).
+        // Só na pasta de dados de verdade: um teste numa pasta temporária não mexe nos atalhos do sistema.
+        LinuxShortcut shortcut = dataDir.equals(defaultDataDir()) ? LinuxShortcut.system(dataDir, false) : null;
+        SettingsStore settings = shortcut == null ? stored : shortcut.wrap(stored);
         String notice = Gpu.recover(dataDir, settings);
         Transcriber transcriber = makeTranscriber.apply(settings);
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
                 new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
         engine.setSoundSettings(settings);
+        if (shortcut != null) engine.addListener(shortcut.listener(settings));
         GlobalHotkey hotkey = null;
         try {
             hotkey = GlobalHotkey.register(engine, settings);
@@ -164,6 +169,7 @@ public final class AraraCore implements AutoCloseable {
         }
         AraraCore core = new AraraCore(history, dictionary, settings, transcriber, preview, engine, hotkey);
         core.notice = notice;
+        core.shortcut = shortcut;
         return core;
     }
 
@@ -173,6 +179,11 @@ public final class AraraCore implements AutoCloseable {
     }
 
     private String notice;
+    private LinuxShortcut shortcut; // null fora do GNOME/Wayland
+    /** O Arara criou o atalho do sistema no GNOME/Wayland e ele está valendo (false onde não se aplica). */
+    public static boolean systemShortcut() {
+        return LinuxShortcut.active;
+    }
 
     /** Aviso da partida (a GPU travou e foi desligada), entregue uma vez; null se não há. */
     public synchronized String takeNotice() {
@@ -224,6 +235,7 @@ public final class AraraCore implements AutoCloseable {
     public synchronized void close() {
         if (hotkey != null) hotkey.close();
         engine.close();
+        if (shortcut != null) shortcut.close(); // solta o Esc
         if (transcriber instanceof WhisperTranscriber w) w.close(); // espera a transcrição em andamento
         if (preview instanceof WhisperTranscriber.Preview p) p.close();
     }

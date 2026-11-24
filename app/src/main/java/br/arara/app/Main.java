@@ -180,6 +180,7 @@ public final class Main {
                 Onboarding o = onb[0];
                 if (o == null || !o.toggleProbe()) engine.toggle(); // o teste do passo do atalho no Linux não grava
             };
+            if (instance != null) instance.onCancel = engine::cancel; // Esc do sistema (GNOME/Wayland)
             if (instance != null) instance.onShow = () -> SwingUtilities.invokeLater(() -> show(frame));
             TrayIcon tray = tray(frame, Arara.trayIcon(look.macaw(), look.macawIcon()));
             frame.setDefaultCloseOperation(tray != null ? WindowConstants.HIDE_ON_CLOSE : WindowConstants.EXIT_ON_CLOSE);

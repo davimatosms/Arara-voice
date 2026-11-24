@@ -20,6 +20,12 @@ O Wayland não deixa apps comuns capturar atalhos globais. Crie um atalho do sis
 `<caminho do AppImage> --alternar` (ele só avisa o Arara aberto para iniciar/parar o ditado). O modo "Segurar para falar" não funciona no Wayland: o atalho do sistema não envia o evento de soltar, então `--alternar` sempre liga e desliga.
 
 **GNOME**
+
+Não precisa fazer nada: ao abrir, o Arara cria sozinho o atalho do sistema (aparece em Configurações > Teclado >
+Atalhos personalizados como "Arara: ditar") e o mantém igual ao atalho escolhido em Configurações do Arara. O Esc
+também funciona em qualquer janela: ele só fica reservado ao Arara enquanto há um ditado em andamento.
+
+Atalhos que o GNOME não registra (botão do mouse, Ctrl ou Alt sozinho) continuam precisando do passo manual:
 1. Configurações > Teclado > Atalhos personalizados > "+".
 2. Nome: Arara. Comando: `/caminho/Arara-x86_64.AppImage --alternar`.
 3. Defina o atalho (por exemplo Ctrl+Shift+Espaço).

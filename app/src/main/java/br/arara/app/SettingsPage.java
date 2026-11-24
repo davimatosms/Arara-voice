@@ -150,19 +150,25 @@ final class SettingsPage extends MainView.Page {
         content.add(section("Desinstalar", "Remove o Arara deste computador. Seus ditados só saem se você pedir.", ask));
     }
 
+    /** Botão "Copiar comando", que vira "Copiado" por 2 s. */
+    private static JButton copyButton(String command) {
+        JButton copy = Ui.button("Copiar comando", null, Ui.Kind.OUTLINE);
+        Timer back = new Timer(2000, e -> copy.setText("Copiar comando"));
+        back.setRepeats(false);
+        copy.addActionListener(e -> {
+            Onboarding.copy(command);
+            copy.setText("Copiado");
+            back.restart();
+        });
+        return copy;
+    }
+
     /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
     static JPanel linuxCard(Onboarding.Linux l) {
         boolean wayland = l.wayland();
         String cmd = Onboarding.Linux.command();
         String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
-        JButton copy = Ui.button("Copiar comando", null, Ui.Kind.OUTLINE);
-        Timer back = new Timer(2000, e -> copy.setText("Copiar comando"));
-        back.setRepeats(false);
-        copy.addActionListener(e -> {
-            Onboarding.copy(cmd);
-            copy.setText("Copiado");
-            back.restart();
-        });
+        JButton copy = copyButton(cmd);
         JButton redo = Ui.button("Refazer permissão", null, Ui.Kind.OUTLINE);
         redo.addActionListener(e -> {
             AraraCore.resetPastePermission();
@@ -170,7 +176,9 @@ final class SettingsPage extends MainView.Page {
             redo.setEnabled(false);
         });
         JLabel none = Ui.label("", Theme.regular(12), Theme.TEXT_SOFT);
-        JComponent atalho = row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
+        // GNOME: o Arara cria e mantém o atalho do sistema sozinho; nos outros, a pessoa cria com o comando.
+        JComponent atalho = AraraCore.systemShortcut() ? row("Atalho", "Do sistema, criado pelo Arara: segue o atalho escolhido acima", none)
+                : row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
         JComponent colagem = row("Colagem", !wayland ? "Ctrl+V simulado"
                 : l.gnome() ? "Cola automática: portal do GNOME" : "wtype ou ydotool; sem eles, cole com Ctrl+V",
                 wayland && l.gnome() ? redo : none);
