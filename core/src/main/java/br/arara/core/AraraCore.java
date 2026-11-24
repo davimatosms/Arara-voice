@@ -15,6 +15,8 @@ public final class AraraCore implements AutoCloseable {
     /** Rodando no macOS (o resto do código assume Windows). */
     public static final boolean MAC = System.getProperty("os.name", "").startsWith("Mac");
     /** Rodando no Linux. */
+    /** Argumento do LaunchAgent do macOS: ao iniciar a sessão o app abre só na barra de menus, sem a janela. */
+    public static final String HIDDEN_ARG = "--oculto";
     public static final boolean LINUX = System.getProperty("os.name", "").startsWith("Linux");
 
     /** Sessão Wayland (o atalho global e o colar por teclas não funcionam lá); o ambiente vem por parâmetro para testar. */

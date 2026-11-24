@@ -141,7 +141,11 @@ final class Startup {
         }
     }
 
-    /** Um &lt;name&gt;.plist por app; o launchd o lê no próximo início de sessão (RunAtLoad). */
+    /**
+     * Um &lt;name&gt;.plist por app; o launchd o lê no próximo início de sessão (RunAtLoad). O app abre com
+     * {@link AraraCore#HIDDEN_ARG}: sem janela, só a barra de menus. O Arara regrava este arquivo a cada início,
+     * então quem já tinha o LaunchAgent antigo ganha o argumento na próxima abertura.
+     */
     static final class LaunchAgents implements Registry {
         static final String LABEL = "br.arara.Arara";
         private final Path dir;
@@ -162,12 +166,12 @@ final class Startup {
                     <plist version="1.0">
                     <dict>
                       <key>Label</key><string>%s</string>
-                      <key>ProgramArguments</key><array><string>%s</string></array>
+                      <key>ProgramArguments</key><array><string>%s</string><string>%s</string></array>
                       <key>RunAtLoad</key><true/>
                       <key>ProcessType</key><string>Interactive</string>
                     </dict>
                     </plist>
-                    """.formatted(xml(name), xml(exe)), StandardCharsets.UTF_8);
+                    """.formatted(xml(name), xml(exe), AraraCore.HIDDEN_ARG), StandardCharsets.UTF_8);
         }
 
         public void delete(String name) throws IOException {

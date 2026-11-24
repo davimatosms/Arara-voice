@@ -59,6 +59,14 @@ final class MacDock {
         return mac && hideDock && hasTray;
     }
 
+    /**
+     * Abrir ao iniciar sessão: começa sem janela, só na barra de menus. Não vale na primeira execução (a pessoa precisa
+     * ver as boas-vindas), sem a permissão de Acessibilidade (o aviso é uma janela) nem sem ícone na barra.
+     */
+    static boolean startsHidden(boolean launchedHidden, boolean mac, boolean hasTray, boolean firstRun, boolean hotkeyOk) {
+        return launchedHidden && mac && hasTray && !firstRun && hotkeyOk;
+    }
+
     /** Aparece no Dock e vem para a frente (a janela vai abrir). */
     static void show() {
         apply(true);

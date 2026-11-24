@@ -80,6 +80,10 @@ Ao fechar a janela, o Arara sai do Dock e do Cmd+Tab e continua rodando só com 
 atalho. Para abrir a janela de novo, clique no ícone da barra de menus › **Abrir**; o Dock volta enquanto ela
 estiver aberta. Para sair de vez: ícone da barra de menus › **Sair**.
 
+Com **Abrir ao iniciar sessão** ligado, o Arara já começa assim: sem janela, só na barra de menus. Ele só mostra a
+janela no login na primeira execução e quando falta a permissão de Acessibilidade (o aviso precisa dela). Abrir o
+app pelos Aplicativos continua mostrando a janela.
+
 Quem prefere o Dock sempre visível desliga **Configurações › Geral › Esconder do Dock ao fechar a janela**.
 Minimizar a janela não esconde o app do Dock (ela vai para lá, como em qualquer app).
 

@@ -79,6 +79,7 @@ public final class Main {
                     if (List.of(args).contains("--alternar")) { // atalho do sistema (Wayland): só avisa e sai
                         System.exit(SingleInstance.notifyFirst(dir, SingleInstance.TOGGLE) ? 0 : 1);
                     }
+                    if (List.of(args).contains(AraraCore.HIDDEN_ARG)) System.exit(0); // login com o app já aberto: nada a avisar
                     alreadyOpen(SingleInstance.notifyFirst(dir));
                     return;
                 }
@@ -219,7 +220,13 @@ public final class Main {
             if (tray != null) tray.addActionListener(e -> SwingUtilities.invokeLater(() -> {
                 if (!updates.notificationClicked()) show(frame); // duplo clique
             }));
-            frame.setVisible(true);
+            // Abrir ao iniciar sessão no Mac: só a barra de menus. Qualquer outro caso mostra a janela.
+            if (MacDock.startsHidden(List.of(args).contains(AraraCore.HIDDEN_ARG), AraraCore.MAC, tray != null, firstRun,
+                    core == null || core.hotkeyActive())) {
+                if (MacDock.shouldHide(true, store.load().hideDock(), true)) MacDock.hide();
+            } else {
+                frame.setVisible(true);
+            }
             if (checker != null) {
                 Runtime.getRuntime().addShutdownHook(new Thread(checker::close));
                 checker.start(u -> SwingUtilities.invokeLater(() -> updates.offer(u)));
