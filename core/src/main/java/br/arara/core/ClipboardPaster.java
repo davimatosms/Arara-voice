@@ -3,17 +3,28 @@ package br.arara.core;
 import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.KeyEvent;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Cola pelo clipboard + Ctrl+V (Cmd+V no macOS) e depois devolve o que o usuário tinha copiado.
  * No macOS, o Robot só consegue apertar teclas com o Arara liberado em Acessibilidade.
  */
 final class ClipboardPaster implements DefaultDictationEngine.Paster {
-    // shortcut: espera fixa para o app ler o clipboard antes de restaurar; aumentar se algum app colar o texto antigo.
+    // Windows lê o clipboard na hora do Ctrl+V; 300 ms bastam. macOS (apps Electron leem a tecla e só depois pedem o
+    // pasteboard: restaurar cedo cola o texto antigo) e X11 (a seleção é servida pelo dono) esperam mais.
     private static final int RESTORE_DELAY_MS = 300;
+    private static final int SLOW_RESTORE_DELAY_MS = 1000;
+    // A espera roda fora da thread de transcrição: sem ela, um ditado começado logo depois do colar atrasava.
+    private final ExecutorService restorer = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "arara-clipboard");
+        t.setDaemon(true);
+        return t;
+    });
 
     /** Modificador do colar: Cmd no macOS, Ctrl no resto. */
     static int pasteModifier(boolean mac) {
@@ -31,28 +42,30 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
             LinuxPaste.wlCopy(env, text);
             lastStrategy = LinuxPaste.press(env);
             if (lastStrategy == null) throw new LinuxPaste.CopiedOnly(); // fica no clipboard, sem restaurar
-            restore(clipboard, previous);
+            restore(clipboard, previous, text, SLOW_RESTORE_DELAY_MS);
             return;
         }
         lastStrategy = "robot";
-        if (!AraraCore.MAC && !System.getProperty("os.name", "").startsWith("Windows")) waitOwnership(clipboard, text);
+        boolean mac = AraraCore.MAC;
+        // Windows entrega o clipboard na hora; macOS e X11 conferem se o texto novo já vale antes do atalho.
+        if (!System.getProperty("os.name", "").startsWith("Windows")) waitOwnership(clipboard, text);
         Robot robot = new Robot();
         // shortcut: 10 ms entre eventos no macOS, que às vezes perde teclas seguidas; medir num Mac de verdade.
-        if (AraraCore.MAC) robot.setAutoDelay(10);
-        int modifier = pasteModifier(AraraCore.MAC);
+        if (mac) robot.setAutoDelay(10);
+        int modifier = pasteModifier(mac);
         robot.keyPress(modifier);
         robot.keyPress(KeyEvent.VK_V);
         robot.keyRelease(KeyEvent.VK_V);
         robot.keyRelease(modifier);
 
-        restore(clipboard, previous);
+        restore(clipboard, previous, text, mac || AraraCore.LINUX ? SLOW_RESTORE_DELAY_MS : RESTORE_DELAY_MS);
     }
 
-    /** X11: o destino pede a seleção ao dono; espera o clipboard devolver o texto antes do Ctrl+V. */
+    /** X11 e macOS: espera o clipboard devolver o texto novo antes de mandar o atalho de colar. */
     private static void waitOwnership(Clipboard clipboard, String text) throws InterruptedException {
         for (int i = 0; i < 15; i++) {
             try {
-                if (text.equals(clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor))) break;
+                if (text.equals(clipboard.getData(DataFlavor.stringFlavor))) break;
             } catch (Exception ignored) { // ainda sem dono: tenta de novo
             }
             Thread.sleep(20);
@@ -63,10 +76,19 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
     /** Estratégia usada na última colagem (diagnóstico). */
     volatile String lastStrategy;
 
-    private static void restore(Clipboard clipboard, Transferable previous) throws InterruptedException {
-        if (previous != null) {
-            Thread.sleep(System.getProperty("os.name", "").startsWith("Linux") ? 1000 : RESTORE_DELAY_MS); // X11 lê a seleção devagar
-            clipboard.setContents(previous, null);
-        }
+    /**
+     * Devolve o que o usuário tinha copiado, depois da espera para o app de destino ler o texto colado. Só restaura
+     * se o clipboard ainda tiver esse texto: se a pessoa já copiou outra coisa, não sobrescreve.
+     */
+    private void restore(Clipboard clipboard, Transferable previous, String text, int delayMs) {
+        if (previous == null) return;
+        restorer.execute(() -> {
+            try {
+                Thread.sleep(delayMs);
+                if (!text.equals(clipboard.getData(DataFlavor.stringFlavor))) return;
+                clipboard.setContents(previous, null);
+            } catch (Exception ignored) { // a restauração é cortesia: o texto colado não depende dela
+            }
+        });
     }
 }

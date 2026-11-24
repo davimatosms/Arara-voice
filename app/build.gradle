@@ -92,6 +92,8 @@ tasks.register('dmg', Exec) {
     def arq = System.getProperty('os.arch') == 'aarch64' ? 'arm64' : 'x64'
     def saida = rootProject.layout.buildDirectory.file("macos/Arara-$versao-macos-${arq}.dmg").get().asFile
     def pasta = layout.buildDirectory.dir('dmg').get().asFile
+    // Sem inputs o Gradle marcava UP-TO-DATE e o dmg ficava com o código antigo.
+    inputs.dir(macDir)
     outputs.file(saida)
     commandLine 'sh', '-eu', '-c', '''
         rm -rf "$2" "$3"; mkdir -p "$2" "$(dirname "$3")"
