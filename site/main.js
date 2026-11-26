@@ -42,7 +42,7 @@
   // iPad no Safari se diz "Macintosh": o toque separa ele de um Mac de verdade
   const so = /Windows/.test(ua) ? "win" : /Macintosh/.test(ua) && navigator.maxTouchPoints < 2 ? "mac" : /Linux/.test(ua) && !/Android/.test(ua) ? "linux" : "outro";
   // beta é pré-release: /releases/latest/ a ignora, então a URL fixa da tag fica só aqui (trocar na release estável)
-  const LINUX_URL = "https://github.com/davimatosms/Arara-voice/releases/download/v0.5.0-beta.2/Arara-x86_64.AppImage";
+  const LINUX_URL = "https://github.com/davimatosms/Arara-voice/releases/download/v0.5.0-beta.3/Arara-x86_64.AppImage";
   for (const el of $$("[data-linux]")) el.href = LINUX_URL;
   for (const el of $$(`[data-so="${so === "outro" ? "win" : so}"]`)) el.classList.add("destaque");
   const topo = $("[data-baixar]");
