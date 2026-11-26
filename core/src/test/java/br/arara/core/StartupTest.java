@@ -92,6 +92,7 @@ class StartupTest {
         String xml = Files.readString(plist);
         assertTrue(xml.contains("<string>br.arara.Arara</string>"), xml);
         assertTrue(xml.contains("<string>/Applications/Arara &amp; Cia.app/Contents/MacOS/Arara</string>"), xml);
+        assertTrue(xml.contains("<string>--oculto</string>"), xml); // no login abre só na barra de menus
         assertTrue(xml.contains("<key>RunAtLoad</key><true/>"), xml);
 
         store.save(withStart(store.load(), false));

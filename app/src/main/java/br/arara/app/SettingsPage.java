@@ -76,7 +76,7 @@ final class SettingsPage extends MainView.Page {
 
         content.add(appearance(s));
 
-        content.add(section("Geral", "Como o Arara se comporta no dia a dia.",
+        List<JComponent> general = new ArrayList<>(List.of(
                 row(Ui.STARTUP, Ui.MAC ? "Fica na barra de menus, pronto para ouvir." : "Fica na bandeja do sistema, pronto para ouvir.",
                         Ui.toggle(s.startWithWindows(), Ui.STARTUP, on -> update(x -> x.withStartWithWindows(on)))),
                 row("Mostrar a arara ao ditar", "Pop-up pequeno que não rouba o foco da janela.",
@@ -84,6 +84,10 @@ final class SettingsPage extends MainView.Page {
                 row("Estilo do pop-up", "Só a arara: sem fundo, no canto da tela, voando enquanto transcreve.",
                         Ui.segmented(new String[] {"Completo", "Só a arara"}, s.popupStyle().ordinal(), "Estilo do pop-up",
                                 i -> update(x -> x.withPopupStyle(Settings.PopupStyle.values()[i]))))));
+        if (Ui.MAC) general.add(1, row("Esconder do Dock ao fechar a janela",
+                "O Arara segue ouvindo o atalho, só na barra de menus. Para abrir a janela, clique no ícone da barra.",
+                Ui.toggle(s.hideDock(), "Esconder do Dock ao fechar a janela", on -> update(x -> x.withHideDock(on)))));
+        content.add(section("Geral", "Como o Arara se comporta no dia a dia.", general.toArray(new JComponent[0])));
 
         search.addActionListener(e -> search());
         searchBack.setRepeats(false);

@@ -89,7 +89,7 @@ class StoresTest {
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
                 false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA,
-                Settings.PopupStyle.ARARA);
+                Settings.PopupStyle.ARARA, false);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
@@ -112,6 +112,16 @@ class StoresTest {
         assertEquals(Settings.Sound.ARARA, s.sound());
         assertEquals(50, s.soundVolume());
         assertEquals(Settings.SoundLength.NORMAL, s.soundLength());
+    }
+
+    @Test
+    void oldConfigWithoutHideDockHidesTheDock() throws Exception {
+        Path file = dir.resolve("config.json");
+        Files.writeString(file, "{\"hotkey\":\"Ctrl+Shift+Space\"}");
+        assertTrue(new JsonSettingsStore(file).load().hideDock(), "config.json de antes da opção: esconde do Dock ao fechar");
+
+        Files.writeString(file, "{\"hideDock\":false}");
+        assertFalse(new JsonSettingsStore(file).load().hideDock());
     }
 
     @Test
