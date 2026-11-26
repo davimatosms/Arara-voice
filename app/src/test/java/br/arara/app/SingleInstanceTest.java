@@ -49,6 +49,19 @@ class SingleInstanceTest {
     }
 
     @Test
+    void cancelarChegaNaPrimeira(@TempDir Path dir) throws Exception {
+        try (SingleInstance first = SingleInstance.acquire(dir)) {
+            CountDownLatch cancelled = new CountDownLatch(1);
+            CountDownLatch toggled = new CountDownLatch(1);
+            first.onCancel = cancelled::countDown;
+            first.onToggle = toggled::countDown;
+            assertTrue(SingleInstance.notifyFirst(dir, SingleInstance.CANCEL));
+            assertTrue(cancelled.await(5, TimeUnit.SECONDS));
+            assertEquals(1, toggled.getCount()); // cancelar não alterna
+        }
+    }
+
+    @Test
     void avisoSemNinguemOuvindoFalha(@TempDir Path dir) {
         assertFalse(SingleInstance.notifyFirst(dir));
     }

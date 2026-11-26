@@ -26,6 +26,17 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         return t;
     });
 
+    /** Linux: colar com Ctrl+Shift+V (Configurações › "Colar com"). Fora do Linux é ignorado. */
+    private final java.util.function.BooleanSupplier shift;
+
+    ClipboardPaster() {
+        this(() -> false);
+    }
+
+    ClipboardPaster(java.util.function.BooleanSupplier shift) {
+        this.shift = shift;
+    }
+
     /** Modificador do colar: Cmd no macOS, Ctrl no resto. */
     static int pasteModifier(boolean mac) {
         return mac ? KeyEvent.VK_META : KeyEvent.VK_CONTROL;
@@ -40,7 +51,7 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         if (AraraCore.wayland()) { // X11 e o resto seguem o Robot abaixo, sem mudança
             LinuxPaste.Env env = new LinuxPaste.SystemEnv();
             LinuxPaste.wlCopy(env, text);
-            lastStrategy = LinuxPaste.press(env);
+            lastStrategy = LinuxPaste.press(env, shift.getAsBoolean());
             if (lastStrategy == null) throw new LinuxPaste.CopiedOnly(); // fica no clipboard, sem restaurar
             restore(clipboard, previous, text, SLOW_RESTORE_DELAY_MS);
             return;
@@ -53,9 +64,12 @@ final class ClipboardPaster implements DefaultDictationEngine.Paster {
         // shortcut: 10 ms entre eventos no macOS, que às vezes perde teclas seguidas; medir num Mac de verdade.
         if (mac) robot.setAutoDelay(10);
         int modifier = pasteModifier(mac);
+        boolean withShift = AraraCore.LINUX && shift.getAsBoolean(); // X11: terminais colam com Ctrl+Shift+V
         robot.keyPress(modifier);
+        if (withShift) robot.keyPress(KeyEvent.VK_SHIFT);
         robot.keyPress(KeyEvent.VK_V);
         robot.keyRelease(KeyEvent.VK_V);
+        if (withShift) robot.keyRelease(KeyEvent.VK_SHIFT);
         robot.keyRelease(modifier);
 
         restore(clipboard, previous, text, mac || AraraCore.LINUX ? SLOW_RESTORE_DELAY_MS : RESTORE_DELAY_MS);

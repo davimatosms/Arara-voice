@@ -1,5 +1,6 @@
 package br.arara.app;
 
+import br.arara.core.AraraCore;
 import br.arara.core.DictationListener;
 import br.arara.core.DictationState;
 import br.arara.core.HistoryEntry;
@@ -10,17 +11,22 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JRootPane;
 import javax.swing.JWindow;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
+import java.awt.AlphaComposite;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Window;
+import java.awt.image.BufferedImage;
 import java.util.function.LongSupplier;
 
 /**
@@ -263,12 +269,13 @@ final class RecordingPopup implements DictationListener {
     /**
      * A janela do estilo, criada na primeira vez. O cartão é opaco com cantos arredondados via setShape: janela
      * translúcida pisca no macOS e no X11 (o conteúdo some por um frame e a janela de trás aparece, issue #99).
-     * O mascote continua translúcido: o contorno irregular do sprite não cabe num setShape.
+     * O mascote continua translúcido: o contorno irregular do sprite não cabe num setShape. No Linux ele usa a
+     * {@link AtomicWindow}, que não pisca.
      */
     private JWindow window(boolean macaw, int w, int h) {
         JWindow win = macaw ? mascotWindow : cardWindow;
         if (win != null) return win;
-        win = new JWindow();
+        win = macaw && AraraCore.LINUX ? new AtomicWindow() : new JWindow();
         win.setType(Window.Type.POPUP);
         win.setFocusableWindowState(false);
         win.setAutoRequestFocus(false);
@@ -286,6 +293,61 @@ final class RecordingPopup implements DictationListener {
         if (macaw) mascotWindow = win;
         else cardWindow = win;
         return win;
+    }
+
+    /**
+     * Janela translúcida para o X11 (e o XWayland). Lá o Swing pinta a janela translúcida em dois passos direto na
+     * tela (limpa tudo, depois desenha) e o compositor pega o quadro do meio: a arara some por um frame a cada troca
+     * de estado. Além disso o buffer do Swing no X11 é opaco, e o "sem fundo" saía com fundo. Aqui o quadro inteiro
+     * é montado numa imagem com alfa e vai para a tela numa operação só.
+     */
+    static final class AtomicWindow extends JWindow {
+        @Override
+        protected JRootPane createRootPane() {
+            JRootPane root = new JRootPane() {
+                private BufferedImage frame;
+                private boolean composing;
+
+                @Override
+                public void paint(Graphics g) {
+                    if (composing) { // chamada de dentro do print() abaixo: pintura normal, na imagem
+                        super.paint(g);
+                        return;
+                    }
+                    int w = getWidth(), h = getHeight();
+                    if (w <= 0 || h <= 0) return;
+                    Graphics2D out = (Graphics2D) g.create();
+                    double sx = out.getTransform().getScaleX(), sy = out.getTransform().getScaleY();
+                    int pw = (int) Math.ceil(w * sx), ph = (int) Math.ceil(h * sy);
+                    if (frame == null || frame.getWidth() != pw || frame.getHeight() != ph) {
+                        frame = new BufferedImage(pw, ph, BufferedImage.TYPE_INT_ARGB_PRE);
+                    }
+                    Graphics2D f = frame.createGraphics();
+                    composing = true;
+                    try {
+                        f.setComposite(AlphaComposite.Clear);
+                        f.fillRect(0, 0, pw, ph);
+                        f.setComposite(AlphaComposite.SrcOver);
+                        f.scale(sx, sy);
+                        print(f); // print() não passa pelo buffer opaco do RepaintManager
+                        out.setComposite(AlphaComposite.Src);
+                        out.drawImage(frame, 0, 0, w, h, null);
+                    } finally {
+                        composing = false;
+                        f.dispose();
+                        out.dispose();
+                    }
+                }
+            };
+            root.setDoubleBuffered(false); // senão o repaint dos filhos volta a passar pelo buffer opaco
+            return root;
+        }
+
+        /** Sem o "limpa a janela" do Window.paint: o quadro novo já substitui todos os pixels. */
+        @Override
+        public void paint(Graphics g) {
+            getRootPane().paint(g);
+        }
     }
 
     private void hideNow() {

@@ -201,7 +201,9 @@ final class Onboarding extends JPanel implements DictationListener {
         super(null);
         this.linux = linux;
         boolean extra = linux != null && linux.wayland(), paste = extra && linux.gnome();
-        order = paste ? new int[] {WELCOME, MODEL, MIC, HOTKEY, LINUXKEY, PASTE, DICTATION, READY}
+        // GNOME: o Arara já criou o atalho do sistema, então o passo de criar à mão sai.
+        order = paste && AraraCore.systemShortcut() ? new int[] {WELCOME, MODEL, MIC, HOTKEY, PASTE, DICTATION, READY}
+                : paste ? new int[] {WELCOME, MODEL, MIC, HOTKEY, LINUXKEY, PASTE, DICTATION, READY}
                 : extra ? new int[] {WELCOME, MODEL, MIC, HOTKEY, LINUXKEY, DICTATION, READY} : new int[] {0, 1, 2, 3, 4, 5};
         names = new String[order.length];
         for (int i = 0; i < order.length; i++) {

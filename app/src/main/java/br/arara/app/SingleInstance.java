@@ -25,6 +25,8 @@ final class SingleInstance implements AutoCloseable {
     static final String SHOW = "MOSTRAR\n";
     /** Pedido do atalho do sistema (arara --alternar): mesmo efeito do atalho global. */
     static final String TOGGLE = "ALTERNAR\n";
+    /** Pedido do Esc do sistema (GNOME/Wayland): cancela o ditado. Mesmo tamanho de {@link #TOGGLE}. */
+    static final String CANCEL = "CANCELAR\n";
 
     private final FileLock lock;
     private final ServerSocket server;
@@ -32,6 +34,8 @@ final class SingleInstance implements AutoCloseable {
     volatile Runnable onShow = () -> {};
     /** O que fazer quando outra cópia pede para alternar o ditado (arara --alternar). */
     volatile Runnable onToggle = () -> {};
+    /** O que fazer quando pedem para cancelar o ditado (Esc do sistema). */
+    volatile Runnable onCancel = () -> {};
 
     private SingleInstance(FileLock lock, ServerSocket server) {
         this.lock = lock;
@@ -70,10 +74,11 @@ final class SingleInstance implements AutoCloseable {
                 if (!s.getInetAddress().isLoopbackAddress()) continue;
                 s.setSoTimeout(2000);
                 s.getOutputStream().write(HELLO.getBytes(StandardCharsets.US_ASCII));
-                // só duas mensagens fixas; ALTERNAR é mais longa, então lê pelo tamanho dela e confere o começo
+                // só mensagens fixas; ALTERNAR e CANCELAR são as mais longas, então lê pelo tamanho delas
                 String msg = new String(s.getInputStream().readNBytes(TOGGLE.length()), StandardCharsets.US_ASCII);
                 if (msg.equals(SHOW)) onShow.run();
                 else if (msg.equals(TOGGLE)) onToggle.run();
+                else if (msg.equals(CANCEL)) onCancel.run();
             } catch (IOException ignored) {
                 // conexão ruim ou servidor fechado: segue (o while confere)
             }
