@@ -35,6 +35,24 @@ class LinuxPasteTest {
         assertEquals("portal", LinuxPaste.press(new Fake(Set.of("ydotool", "python3"), false, Set.of())));
     }
 
+    /** Terminais: o Shift entra em todas as estratégias. */
+    @Test
+    void ctrlShiftVMandaOShift() {
+        java.util.List<String> seen = new java.util.ArrayList<>();
+        for (String tool : new String[] {"wtype", "ydotool", "python3"}) {
+            Fake f = new Fake(Set.of(tool), true, Set.of()) {
+                @Override public LinuxPaste.Out run(int ms, String stdin, String... cmd) {
+                    seen.add(String.join(" ", cmd).replaceAll("(?s)import sys.*?(?= shift$|$)", "<script>"));
+                    return super.run(ms, stdin, cmd);
+                }
+            };
+            assertNotNull(LinuxPaste.press(f, true));
+        }
+        assertEquals("wtype -M ctrl -M shift v -m shift -m ctrl", seen.get(0));
+        assertEquals("ydotool key 29:1 42:1 47:1 47:0 42:0 29:0", seen.get(1));
+        assertTrue(seen.get(2).endsWith(" shift"), seen.get(2));
+    }
+
     @Test
     void portalGuardaToken() {
         Fake f = new Fake(Set.of("python3"), false, Set.of());

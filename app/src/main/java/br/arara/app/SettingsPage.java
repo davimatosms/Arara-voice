@@ -104,7 +104,9 @@ final class SettingsPage extends MainView.Page {
                         ? "Teclas ou um botão do mouse. Evite Option sem Cmd ou Ctrl (digita símbolos)."
                         : "Teclas ou um botão do mouse. Evite só Ctrl+Alt (vira AltGr no ABNT2).",
                         Ui.row(8, keys, record)),
-                row("Modo do atalho", "Segurar não funciona no Wayland.",
+                row("Modo do atalho", !AraraCore.LINUX ? "Segurar não funciona no Wayland."
+                        : AraraCore.holdToTalkAvailable() ? "Segurar: ouve enquanto o atalho está apertado e cola ao soltar."
+                        : "No Wayland, segurar precisa de acesso ao teclado: veja o card Linux, abaixo.",
                         Ui.segmented(new String[] {"Apertar para ligar e desligar", "Segurar para falar"},
                                 s.holdToTalk() ? 1 : 0, "Modo do atalho", i -> update(x -> x.withHoldToTalk(i == 1)))),
                 row("Esc cancela", "Para de ouvir e não cola nada.",
@@ -131,7 +133,13 @@ final class SettingsPage extends MainView.Page {
 
         content.add(soundSection(s));
 
-        if (AraraCore.LINUX) content.add(linuxCard(Onboarding.Linux.detect()));
+        if (AraraCore.LINUX) {
+            Settings.PasteKeys[] pasteKeys = Settings.PasteKeys.values();
+            content.add(linuxCard(Onboarding.Linux.detect(),
+                    row("Colar com", "Terminais só colam com Ctrl+Shift+V. Se algum app estranhar, volte para Ctrl+V.",
+                            Ui.segmented(new String[] {"Ctrl+V", "Ctrl+Shift+V"}, s.pasteKeys().ordinal(), "Colar com",
+                                    i -> update(x -> x.withPasteKeys(pasteKeys[i]))))));
+        }
 
         JButton open = Ui.button("Abrir pasta", "folder", Ui.Kind.OUTLINE);
         open.addActionListener(e -> openDataDir());
@@ -154,19 +162,25 @@ final class SettingsPage extends MainView.Page {
         content.add(section("Desinstalar", "Remove o Arara deste computador. Seus ditados só saem se você pedir.", ask));
     }
 
-    /** Card só do Linux: sessão, atalho e colagem, com os atalhos para refazer a configuração. */
-    static JPanel linuxCard(Onboarding.Linux l) {
-        boolean wayland = l.wayland();
-        String cmd = Onboarding.Linux.command();
-        String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
+    /** Botão "Copiar comando", que vira "Copiado" por 2 s. */
+    private static JButton copyButton(String command) {
         JButton copy = Ui.button("Copiar comando", null, Ui.Kind.OUTLINE);
         Timer back = new Timer(2000, e -> copy.setText("Copiar comando"));
         back.setRepeats(false);
         copy.addActionListener(e -> {
-            Onboarding.copy(cmd);
+            Onboarding.copy(command);
             copy.setText("Copiado");
             back.restart();
         });
+        return copy;
+    }
+
+    /** Card só do Linux: sessão, atalho, colagem e teclado, com os atalhos para refazer a configuração. */
+    static JPanel linuxCard(Onboarding.Linux l, JComponent... extra) {
+        boolean wayland = l.wayland();
+        String cmd = Onboarding.Linux.command();
+        String session = !wayland ? "X11" : l.gnome() ? "Wayland (GNOME)" : l.kde() ? "Wayland (KDE Plasma)" : "Wayland";
+        JButton copy = copyButton(cmd);
         JButton redo = Ui.button("Refazer permissão", null, Ui.Kind.OUTLINE);
         redo.addActionListener(e -> {
             AraraCore.resetPastePermission();
@@ -174,12 +188,21 @@ final class SettingsPage extends MainView.Page {
             redo.setEnabled(false);
         });
         JLabel none = Ui.label("", Theme.regular(12), Theme.TEXT_SOFT);
-        JComponent atalho = row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
+        // GNOME: o Arara cria e mantém o atalho do sistema sozinho; nos outros, a pessoa cria com o comando.
+        JComponent atalho = AraraCore.systemShortcut() ? row("Atalho", "Do sistema, criado pelo Arara: segue o atalho escolhido acima", none)
+                : row("Atalho", wayland ? "Do sistema: " + cmd : "Global do Arara (X11)", wayland ? copy : none);
         JComponent colagem = row("Colagem", !wayland ? "Ctrl+V simulado"
                 : l.gnome() ? "Cola automática: portal do GNOME" : "wtype ou ydotool; sem eles, cole com Ctrl+V",
                 wayland && l.gnome() ? redo : none);
+        java.util.List<JComponent> rows = new java.util.ArrayList<>(java.util.List.of(row("Sessão", session, none), atalho, colagem));
+        rows.addAll(java.util.List.of(extra));
+        // Sem ler o teclado o Arara só sabe do aperto (atalho do sistema), nunca do soltar.
+        if (wayland) rows.add(AraraCore.holdToTalkAvailable()
+                ? row("Teclado", "Lido direto do sistema: segurar para falar e Ctrl sozinho funcionam", none)
+                : row("Segurar para falar", "Precisa ler o teclado: rode o comando num terminal e reabra o Arara",
+                        copyButton(AraraCore.KEYBOARD_ACCESS_COMMAND)));
         return section("Linux", wayland ? "Wayland: o sistema cuida do atalho e da permissão de colar." : "X11: atalho e colagem funcionam direto.",
-                row("Sessão", session, none), atalho, colagem);
+                rows.toArray(JComponent[]::new));
     }
 
     /** Aparência: as 5 araras e o modo; embaixo, a chave do ícone (desligada por padrão). Tudo aplica na hora. */

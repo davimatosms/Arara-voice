@@ -72,7 +72,12 @@ public final class Uninstaller {
             if (v != null && !v.isBlank()) roots.add(Path.of(v));
         Path exe = ProcessHandle.current().info().command().map(Path::of).orElse(null);
         String ai = System.getenv("APPIMAGE");
-        return new Uninstaller(os, AraraCore.defaultDataDir(), roots, Startup.system()::disable,
+        Runnable disable = () -> {
+            Startup.system().disable();
+            LinuxShortcut shortcut = LinuxShortcut.system(AraraCore.defaultDataDir(), false); // GNOME/Wayland: tira o atalho do sistema
+            if (shortcut != null) shortcut.remove();
+        };
+        return new Uninstaller(os, AraraCore.defaultDataDir(), roots, disable,
                 c -> new ProcessBuilder(c).start(), Uninstaller::systemTrash, release,
                 exe, ai == null || ai.isBlank() ? null : Path.of(ai));
     }

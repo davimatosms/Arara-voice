@@ -50,7 +50,9 @@ public final class AraraCore implements AutoCloseable {
         for (String t : new String[] {"wtype", "ydotool", "wl-copy", "python3"}) log.accept(t + ": " + (env.has(t) ? "sim" : "nao"));
         log.accept("socket do ydotoold: " + env.ydotoolSocket());
         log.accept("token do portal salvo: " + !env.token().isEmpty());
-        ClipboardPaster paster = new ClipboardPaster();
+        Settings.PasteKeys keys = readSettings(defaultDataDir()).pasteKeys();
+        log.accept("colar com: " + keys);
+        ClipboardPaster paster = new ClipboardPaster(() -> keys == Settings.PasteKeys.CTRL_SHIFT_V);
         log.accept("Foque um editor de texto: colando em 5 s...");
         Thread.sleep(5000);
         try {
@@ -148,16 +150,30 @@ public final class AraraCore implements AutoCloseable {
         }
         HistoryStore history = new JsonlHistoryStore(dataDir.resolve("historico.jsonl"));
         DictionaryStore dictionary = new JsonDictionaryStore(dataDir.resolve("dicionario.json"));
-        SettingsStore settings = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        SettingsStore stored = Startup.system().wrap(new JsonSettingsStore(dataDir.resolve("config.json")));
+        // No Wayland o JNativeHook não ouve teclas fora das janelas do Arara. Com permissão de ler o teclado, o
+        // Arara ouve direto do kernel (evdev); no GNOME, o atalho das configurações vira também atalho do sistema.
+        // Só na pasta de dados de verdade: um teste numa pasta temporária não mexe nos atalhos do sistema.
+        boolean evdev = wayland() && LinuxEvdev.available();
+        LinuxShortcut shortcut = dataDir.equals(defaultDataDir()) ? LinuxShortcut.system(dataDir, evdev) : null;
+        SettingsStore settings = shortcut == null ? stored : shortcut.wrap(stored);
         String notice = Gpu.recover(dataDir, settings);
         Transcriber transcriber = makeTranscriber.apply(settings);
         Transcriber preview = makePreview.apply(settings);
         DefaultDictationEngine engine = new DefaultDictationEngine(history, dictionary, transcriber,
-                new Microphone(() -> settings.load().microphone()), new ClipboardPaster(), preview);
+                new Microphone(() -> settings.load().microphone()),
+                new ClipboardPaster(() -> settings.load().pasteKeys() == Settings.PasteKeys.CTRL_SHIFT_V), preview);
         engine.setSoundSettings(settings);
+        if (shortcut != null) engine.addListener(shortcut.listener(settings));
         GlobalHotkey hotkey = null;
+        LinuxEvdev keyboard = null;
         try {
-            hotkey = GlobalHotkey.register(engine, settings);
+            if (evdev) { // sem JNativeHook: com os dois, o atalho contaria em dobro nas janelas XWayland
+                hotkey = GlobalHotkey.unhooked(engine, settings);
+                keyboard = LinuxEvdev.start(hotkey);
+            } else {
+                hotkey = GlobalHotkey.register(engine, settings);
+            }
         } catch (NativeHookException e) {
             if (!MAC) { // no Mac falta Acessibilidade: segue sem atalho
                 engine.close();
@@ -166,6 +182,9 @@ public final class AraraCore implements AutoCloseable {
         }
         AraraCore core = new AraraCore(history, dictionary, settings, transcriber, preview, engine, hotkey);
         core.notice = notice;
+        core.shortcut = shortcut;
+        core.keyboard = keyboard;
+        keyboardAccess = keyboard != null;
         return core;
     }
 
@@ -175,6 +194,31 @@ public final class AraraCore implements AutoCloseable {
     }
 
     private String notice;
+    private LinuxShortcut shortcut; // null fora do GNOME/Wayland
+    private LinuxEvdev keyboard; // null sem Wayland ou sem permissão de ler o teclado
+    private static volatile boolean keyboardAccess;
+
+    /**
+     * O "Segurar para falar" (e o atalho de modificador sozinho) funciona nesta sessão? Fora do
+     * Wayland, sempre. No Wayland, só se o Arara puder ler o teclado direto do kernel: veja {@link #KEYBOARD_ACCESS_COMMAND}.
+     */
+    public static boolean holdToTalkAvailable() {
+        return !wayland() || keyboardAccess;
+    }
+
+    /**
+     * Libera a leitura do teclado para o usuário logado (regra do udev com uaccess; vale na hora, sem reiniciar a
+     * sessão). O usuário roda no terminal e reabre o Arara.
+     */
+    public static final String KEYBOARD_ACCESS_COMMAND = "echo "
+            + "'KERNEL==\"event*\", SUBSYSTEM==\"input\", ENV{ID_INPUT_KEYBOARD}==\"1\", TAG+=\"uaccess\"' "
+            + "| sudo tee /etc/udev/rules.d/70-arara-teclado.rules >/dev/null "
+            + "&& sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=input";
+
+    /** O Arara criou o atalho do sistema no GNOME/Wayland e ele está valendo (false onde não se aplica). */
+    public static boolean systemShortcut() {
+        return LinuxShortcut.active;
+    }
 
     /** Aviso da partida (a GPU travou e foi desligada), entregue uma vez; null se não há. */
     public synchronized String takeNotice() {
@@ -226,6 +270,8 @@ public final class AraraCore implements AutoCloseable {
     public synchronized void close() {
         if (hotkey != null) hotkey.close();
         engine.close();
+        if (shortcut != null) shortcut.close(); // solta o Esc
+        if (keyboard != null) keyboard.close();
         if (transcriber instanceof WhisperTranscriber w) w.close(); // espera a transcrição em andamento
         if (preview instanceof WhisperTranscriber.Preview p) p.close();
     }

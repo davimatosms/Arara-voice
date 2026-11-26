@@ -51,7 +51,8 @@ final class JsonSettingsStore implements SettingsStore {
                 m.get("soundVolume") instanceof Number n ? Math.max(0, Math.min(100, n.intValue())) : d.soundVolume(),
                 enumOr(Settings.SoundLength.class, m.get("soundLength"), d.soundLength()),
                 enumOr(Settings.PopupStyle.class, m.get("popupStyle"), d.popupStyle()), // ausente = completo
-                m.get("hideDock") instanceof Boolean b ? b : d.hideDock()); // ausente = esconde do Dock ao fechar
+                m.get("hideDock") instanceof Boolean b ? b : d.hideDock(), // ausente = esconde do Dock ao fechar
+                enumOr(Settings.PasteKeys.class, m.get("pasteKeys"), d.pasteKeys())); // ausente = Ctrl+Shift+V no Linux
     }
 
     private static <E extends Enum<E>> E enumOr(Class<E> type, Object value, E fallback) {
@@ -83,7 +84,8 @@ final class JsonSettingsStore implements SettingsStore {
                 + "  \"soundVolume\": " + s.soundVolume() + ",\n"
                 + "  \"soundLength\": " + Json.quote(s.soundLength().name()) + ",\n"
                 + "  \"popupStyle\": " + Json.quote(s.popupStyle().name()) + ",\n"
-                + "  \"hideDock\": " + s.hideDock() + "\n"
+                + "  \"hideDock\": " + s.hideDock() + ",\n"
+                + "  \"pasteKeys\": " + Json.quote(s.pasteKeys().name()) + "\n"
                 + "}\n");
         cached = s;
     }

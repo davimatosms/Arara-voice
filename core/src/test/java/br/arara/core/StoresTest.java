@@ -89,7 +89,7 @@ class StoresTest {
 
         Settings s = new Settings("Mouse4", Settings.Model.LEVE, Settings.Accel.VULKAN, "Microfone \"USB\"",
                 false, true, false, false, "0.3.0", Settings.Macaw.LEAR, true, true, true, false, Settings.Sound.PIXEL, 80, Settings.SoundLength.LONGA,
-                Settings.PopupStyle.ARARA, false);
+                Settings.PopupStyle.ARARA, false, Settings.PasteKeys.CTRL_V);
         new JsonSettingsStore(file).save(s);
         assertEquals(s, new JsonSettingsStore(file).load());
 
