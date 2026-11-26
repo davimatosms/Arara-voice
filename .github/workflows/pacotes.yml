@@ -17,6 +17,8 @@ permissions:
 
 jobs:
   winget:
+    # Beta e pré-release (ex.: v0.5.0-beta.3, só Linux) não vão para o winget.
+    if: ${{ !github.event.release.prerelease && !contains(inputs.tag || github.event.release.tag_name, '-') }}
     runs-on: windows-latest
     env:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
