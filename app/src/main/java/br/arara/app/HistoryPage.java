@@ -1,7 +1,9 @@
 package br.arara.app;
 
+import br.arara.core.DictionaryStore;
 import br.arara.core.HistoryEntry;
 import br.arara.core.HistoryStore;
+import br.arara.core.NewTerms;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import javax.swing.DefaultListModel;
@@ -28,8 +30,11 @@ import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /** Histórico: busca, lista à esquerda e detalhes do ditado à direita. */
 final class HistoryPage extends MainView.Page {
@@ -38,8 +43,14 @@ final class HistoryPage extends MainView.Page {
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy, HH:mm");
 
+    /** Termos por ditado na faixa "Fora do dicionário"; mais que isto só polui. */
+    static final int MAX_NEW_TERMS = 8;
     private final HistoryStore history;
+    private final DictionaryStore dictionary;
     private final Runnable onChange;
+    /** Termos do ditado aberto que ainda não estão no dicionário; o clique leva ao Dicionário já preenchido. */
+    final TermChips newTerms;
+    private final JPanel newTermsBox;
     private final JTextField search = Ui.field("Buscar nos ditados...");
     private final DefaultListModel<HistoryEntry> model = new DefaultListModel<>();
     private final JList<HistoryEntry> list = new JList<>(model);
@@ -49,9 +60,12 @@ final class HistoryPage extends MainView.Page {
     private final JButton copy = Ui.button("Copiar", "copy", Ui.Kind.PRIMARY);
     private List<HistoryEntry> all = List.of();
 
-    HistoryPage(HistoryStore history, Runnable onChange) {
+    HistoryPage(HistoryStore history, DictionaryStore dictionary, Runnable onChange, Consumer<String> onNewTerm) {
         this.history = history;
+        this.dictionary = dictionary;
         this.onChange = onChange;
+        newTerms = new TermChips(onNewTerm);
+        newTermsBox = Ui.column(Ui.caption("FORA DO DICIONÁRIO"), Ui.gap(2), newTerms, Ui.gap(10));
 
         search.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON, Ui.icon("search", 20, Theme.TEXT_SOFT));
         search.setPreferredSize(new Dimension(340, 42));
@@ -118,7 +132,7 @@ final class HistoryPage extends MainView.Page {
         Ui.Round detail = Ui.card(new BorderLayout(0, 12));
         detail.add(north, BorderLayout.NORTH);
         detail.add(textScroll);
-        detail.add(note, BorderLayout.SOUTH);
+        detail.add(Ui.column(newTermsBox, note), BorderLayout.SOUTH);
 
         JPanel columns = new JPanel(new BorderLayout(16, 0));
         columns.setOpaque(false);
@@ -156,6 +170,12 @@ final class HistoryPage extends MainView.Page {
 
     private void showDetail(HistoryEntry e) {
         copy.setEnabled(e != null && !e.texto().isBlank());
+        Map<String, String> terms = new LinkedHashMap<>();
+        if (e != null) {
+            for (String t : NewTerms.in(e.texto(), dictionary.all())) if (terms.size() < MAX_NEW_TERMS) terms.put(t, t);
+        }
+        newTerms.set(terms);
+        newTermsBox.setVisible(!terms.isEmpty());
         if (e == null) {
             date.setText(" ");
             heading.setText(all.isEmpty() ? "Nenhum ditado ainda" : "Nada encontrado");
